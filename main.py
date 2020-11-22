@@ -4,7 +4,7 @@ import files
 
 files.checkDataDir(datadir="")  # TODO
 
-# TODO - Input parameters, speficy data & checkpoint locations, etc
+# TODO - Input parameters, specify data & checkpoint locations, etc
 # TODO - should these be params or runtime selections?
 
 # TODO - Specify what to do (train, eval, etc)
