@@ -1,0 +1,13 @@
+Instructions for use:
+
+Run main.py with the following options to perform the specified operations:
+TODO - implement these
+--train : trains on the dataset
+--dataset {value} : sets the dataset, default train_AIDA, options are given in datasets.py
+--bundle {id} : sets all the hyperparameters to predefined defaults, default '0' (ment-norm optimum bundle)
+
+To use the model in evaluation mode on a dataset you will want to:
+- Run "main.py --train"
+- Run "main.py --dataset {evalsetname}"
+
+TODO - implement generate mode too
