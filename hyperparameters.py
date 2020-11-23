@@ -6,7 +6,7 @@
 class Hyperparameters:  # TODO - create hyper-parameter settings object
     dataDir = "../data/"
     dataDir_csv = "../data/generated/test_train_data/"
-
+    training: bool = True
 
 SETTINGS = Hyperparameters()
 
