@@ -1,6 +1,8 @@
 # all code for working with file I/O
 import os
 
+from hyperparameters import SETTINGS
+
 """
 Checks if the datadir is a valid data directory.
 Does not check for exact files - only checks for approximate structure.
@@ -9,7 +11,8 @@ If folder does not conform to expected structure, will attempt to download.
 """
 
 
-def checkDataDir(datadir):
+def checkDataDir():
+    datadir = SETTINGS.dataDir
     if not os.path.isdir(datadir):
         raise NotADirectoryError("Datadir did not point to an existing directory. Please create it before continuing.")
     else:

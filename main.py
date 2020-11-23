@@ -1,8 +1,11 @@
 # Main pipeline to run the paper
 
+import datasets
 import files
+from utils import *
 
-files.checkDataDir(datadir="")  # TODO
+reportedRun("Checking Datadir", lambda: files.checkDataDir())  # TODO - fill in dir
+reportedRun("Loading Datasets", lambda: datasets.loadDatasets())
 
 # TODO - Input parameters, specify data & checkpoint locations, etc
 # TODO - should these be params or runtime selections?
