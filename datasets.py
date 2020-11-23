@@ -68,8 +68,10 @@ def loadDataset(csvPath: str) -> Dataset:
             if parts[5] != "CANDIDATES":
                 # As I understand it this is always equal, raise error if this invariant is broken
                 raise NotImplementedError(f"Col5 not CANDIDATES on {doc_id1}")
-            candidates = [cand.split(",") for cand in parts[6:-2]]
-            [print(cand) for cand in candidates]
+            candidates = [cand for cand in parts[6:-2]]
+            if len(candidates) == 1 and candidates[0] == "EMPTYCAND":
+                candidates = []
+            candidates = [cand.split(",") for cand in candidates]
             candidates = [(cand[0], cand[1], cand[2:]) for cand in candidates]  # ERRORS
             candidates = [Candidate(id, prob, ",".join(nameparts)) for (id, prob, nameparts) in candidates]
             mention.candidates = candidates
