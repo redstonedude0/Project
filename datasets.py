@@ -20,7 +20,6 @@
 from enum import Enum, auto
 
 from datastructures import Dataset, Mention, Candidate, Document
-from hyperparameters import SETTINGS
 
 
 class DatasetType(Enum):
@@ -29,19 +28,19 @@ class DatasetType(Enum):
     DEV = auto()  # evaluation
 
 
-train_AIDA: Dataset = None
-dev_AIDA: Dataset = None
-test_AIDA: Dataset = None
-test_MSNBC: Dataset = None
-test_AQUAINT: Dataset = None
-test_ACE2004: Dataset = None
-test_CWEB: Dataset = None
-test_WIKI: Dataset = None
+train_AIDA: Dataset = Dataset()
+dev_AIDA: Dataset = Dataset()
+test_AIDA: Dataset = Dataset()
+test_MSNBC: Dataset = Dataset()
+test_AQUAINT: Dataset = Dataset()
+test_ACE2004: Dataset = Dataset()
+test_CWEB: Dataset = Dataset()
+test_WIKI: Dataset = Dataset()
+from hyperparameters import SETTINGS
 
 
-def loadDataset(csvPath: str) -> Dataset:
+def loadDataset(dataset: Dataset, csvPath: str):
     csvPath = SETTINGS.dataDir_csv + csvPath
-    dataset = Dataset()
     dataset.documents = []
     with open(csvPath, "r") as f:
         # Iterate over CSV structure - each line is a mention, when the ID changes the doc changes
@@ -87,11 +86,19 @@ def loadDataset(csvPath: str) -> Dataset:
 
 
 def loadDatasets():
-    train_AIDA = loadDataset("aida_train.csv")  # TODO
-    dev_AIDA = loadDataset("aida_testA.csv")  # TODO
-    test_AIDA = loadDataset("aida_testB.csv")  # TODO
-    test_MSNBC = loadDataset("wned-msnbc.csv")  # TODO
-    test_AQUAINT = loadDataset("wned-aquaint.csv")  # TODO
-    test_ACE2004 = loadDataset("wned-ace2004.csv")  # TODO
-    test_CWEB = loadDataset("wned-clueweb.csv")  # TODO
-    test_WIKI = loadDataset("wned-wikipedia.csv")  # TODO
+    global train_AIDA
+    global dev_AIDA
+    global test_AIDA
+    global test_MSNBC
+    global test_AQUAINT
+    global test_ACE2004
+    global test_CWEB
+    global test_WIKI
+    loadDataset(train_AIDA, "aida_train.csv")  # TODO?
+    loadDataset(dev_AIDA, "aida_testA.csv")  # TODO?
+    loadDataset(test_AIDA, "aida_testB.csv")  # TODO?
+    loadDataset(test_MSNBC, "wned-msnbc.csv")  # TODO?
+    loadDataset(test_AQUAINT, "wned-aquaint.csv")  # TODO?
+    loadDataset(test_ACE2004, "wned-ace2004.csv")  # TODO?
+    loadDataset(test_CWEB, "wned-clueweb.csv")  # TODO?
+    loadDataset(test_WIKI, "wned-wikipedia.csv")  # TODO?

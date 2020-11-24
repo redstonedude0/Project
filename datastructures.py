@@ -8,6 +8,7 @@ from typing import List
 class Candidate:
     id: str = None  # Unique ID
     text: str = None  # Textual label for this candidate
+    # TODO - I understand initial_prob to be p_e_m scores
     initial_prob: float = None  # Initial probability for this candidate
 
     def __init__(self, id, initial_prob, text):
@@ -41,3 +42,19 @@ Represents a dataset from the generated data
 class Dataset:
     # We can determine the structure by looking at the data files and how the original implementation uses them
     documents: List[Document] = None
+
+
+"""Represents a model (nn parameters, etc)"""
+
+
+class Model:
+    pass
+
+
+"""Represents the evaluation of a model on a dataset (F1, etc)"""
+
+
+class EvaluationMetrics:
+    precision: float = 0
+    recall: float = 0
+    f1: float = 0

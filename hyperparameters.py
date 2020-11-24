@@ -11,6 +11,7 @@ class NormalisationMethod(Enum):
     RelNorm = auto()
     MentNorm = auto()
 
+
 class Hyperparameters:  # TODO - create hyper-parameter settings object
     dataDir = "../data/"
     dataDir_csv = "../data/generated/test_train_data/"
@@ -29,6 +30,7 @@ class Hyperparameters:  # TODO - create hyper-parameter settings object
     learning_rate_final: float = 10E-5
     learning_stop_threshold_epochs: int = 20
 
+
 SETTINGS = Hyperparameters()
 BUNDLE_relNorm = Hyperparameters()
 BUNDLE_mentNorm = Hyperparameters()
@@ -42,6 +44,6 @@ BUNDLE_relNorm.learning_reduction_threshold_f1 = 0.91
 
 BUNDLE_mentNormK1.k = 1
 
-#TODO mentNormNoPad needs some parameters set
+# TODO mentNormNoPad needs some parameters set
 
 # TODO - specify useful hyper-parameter bundles
