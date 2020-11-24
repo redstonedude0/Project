@@ -45,7 +45,6 @@ def loadDataset(dataset: Dataset, csvPath: str):
     with open(csvPath, "r") as f:
         # Iterate over CSV structure - each line is a mention, when the ID changes the doc changes
         doc = Document()
-        doc.mentions = []
         for line in f:
             mention = Mention()
             parts = line.split("\t")
@@ -56,7 +55,8 @@ def loadDataset(dataset: Dataset, csvPath: str):
                 raise NotImplementedError(f"Document ids not equal {doc_id1} {doc_id2}")
             if doc_id1 != doc.id:
                 # New doc
-                dataset.documents.append(doc)
+                if doc.id != None:  # None if initial line
+                    dataset.documents.append(doc)
                 doc = Document()
                 doc.mentions = []
             doc.id = doc_id1  # make sure always set
