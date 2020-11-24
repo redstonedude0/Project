@@ -7,8 +7,8 @@ import processeddata
 from hyperparameters import SETTINGS
 from utils import *
 
-reportedRun("Checking Datadir", lambda: files.checkDataDir())
-reportedRun("Loading embeddings", lambda: processeddata.loadEmbeddings())
+reportedRun("Checking Datadir", files.checkDataDir)
+reportedRun("Loading embeddings", processeddata.loadEmbeddings)
 
 # TODO - Input parameters, specify data & checkpoint locations, etc
 # TODO - should these be params or runtime selections?

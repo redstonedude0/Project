@@ -30,6 +30,11 @@ class Mention:
     candidates: List[Candidate] = None  # Candidates for the mention
     gold_id: str = None  # Gold truth - actual candidate (id) for this mention
 
+    def goldCand(self):
+        for cand in self.candidates:
+            if cand.id == self.gold_id:
+                return cand
+        return None
 
 class Document:
     id: str = None  # Document ID
