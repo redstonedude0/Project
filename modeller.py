@@ -13,7 +13,6 @@ def trainToCompletion():  # TODO - add params
     # TODO - select top 30 candidates per mention
     # TODO - keep top 4 p_e_m and top 3 et
     for doc in SETTINGS.dataset:
-        # TODO - we're going to modify the dataset, we need a way to make sure it's fresh
         pass
 
 

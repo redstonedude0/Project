@@ -7,7 +7,6 @@ from hyperparameters import SETTINGS
 from utils import *
 
 reportedRun("Checking Datadir", lambda: files.checkDataDir())  # TODO - fill in dir
-reportedRun("Loading Datasets", lambda: datasets.loadDatasets())
 
 # TODO - Input parameters, specify data & checkpoint locations, etc
 # TODO - should these be params or runtime selections?
@@ -16,9 +15,7 @@ reportedRun("Loading Datasets", lambda: datasets.loadDatasets())
 # TODO - perform action (obtain dataset, use/make neural network as required, save results as specified)
 
 if SETTINGS.training:
-    print(SETTINGS.dataDir)
-    print(SETTINGS.dataset)
-
+    SETTINGS.dataset = datasets.loadDataset("aida_train.csv")
     model, results = modeller.trainToCompletion()
 else:
     pass  # TODO - eval
