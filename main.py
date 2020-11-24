@@ -3,10 +3,12 @@
 import datasets
 import files
 import modeller
+import processeddata
 from hyperparameters import SETTINGS
 from utils import *
 
-reportedRun("Checking Datadir", lambda: files.checkDataDir())  # TODO - fill in dir
+reportedRun("Checking Datadir", lambda: files.checkDataDir())
+reportedRun("Loading embeddings", lambda: processeddata.loadEmbeddings())
 
 # TODO - Input parameters, specify data & checkpoint locations, etc
 # TODO - should these be params or runtime selections?

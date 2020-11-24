@@ -14,6 +14,7 @@ class NormalisationMethod(Enum):
 class Hyperparameters:  # TODO - create hyper-parameter settings object
     dataDir = "../data/"
     dataDir_csv = "../data/generated/test_train_data/"
+    dataDir_embeddings = "../data/generated/embeddings/word_ent_embs/"
     training: bool = True
     dataset: Dataset = None
     normalisation = NormalisationMethod.MentNorm

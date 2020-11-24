@@ -15,11 +15,16 @@ def trainToCompletion():  # TODO - add params
     for doc in SETTINGS.dataset.documents:
         for mention in doc.mentions:
             cands = mention.candidates
+            # Sort p_e_m high to low
+            cands.sort(key=lambda cand: -cand.initial_prob)
             if len(cands) > 30:
                 # Need to trim to top 30 p_e_m
-                # Sort p_e_m high to low
-                cands.sort(key=lambda cand: -cand.initial_prob)
-                cands = cands[0:30]
+                cands = cands[0:30]  # Select top 30
+            keptCands = cands[0:4]  # Keep top 4 always
+            # TODO - assuming no duplicates appear, but duplicates take top 3 spots
+            # Keep top 3 eT(Sigw)
+            # TODO move some of this to GPU??
+
 
 
 
