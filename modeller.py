@@ -12,8 +12,17 @@ def trainToCompletion():  # TODO - add params
     model = Model()
     # TODO - select top 30 candidates per mention
     # TODO - keep top 4 p_e_m and top 3 et
-    for doc in SETTINGS.dataset:
-        pass
+    for doc in SETTINGS.dataset.documents:
+        for mention in doc.mentions:
+            cands = mention.candidates
+            if len(cands) > 30:
+                # Need to trim to top 30 p_e_m
+                # Sort p_e_m high to low
+                cands.sort(key=lambda cand: -cand.initial_prob)
+                cands = cands[0:29]
+                print(len(cands))
+                print(cands)
+
 
 
 

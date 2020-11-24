@@ -42,7 +42,6 @@ Represents a dataset from the generated data
 class Dataset:
     # We can determine the structure by looking at the data files and how the original implementation uses them
     documents: List[Document] = None
-    datasetName: str = None
 
 
 """Represents a model (nn parameters, etc)"""
