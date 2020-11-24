@@ -3,12 +3,21 @@
 """Do all the training on a specific dataset and neural model"""
 import neural
 from datastructures import Model
+from hyperparameters import SETTINGS
 
 
 def trainToCompletion():  # TODO - add params
-    # TODO - fill in
     # TODO - checkpoint along the way
-    # TODO - return EvaluationMetric object as well as final model?
+
     model = Model()
+    # TODO - select top 30 candidates per mention
+    # TODO - keep top 4 p_e_m and top 3 et
+    for doc in SETTINGS.dataset:
+        # TODO - we're going to modify the dataset, we need a way to make sure it's fresh
+        pass
+
+
+
     neural.train(model)
+    # TODO - return EvaluationMetric object as well as final model?
     return model, None

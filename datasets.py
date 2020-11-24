@@ -27,20 +27,12 @@ class DatasetType(Enum):
     TEST = auto()  # evaluation
     DEV = auto()  # evaluation
 
-
-train_AIDA: Dataset = Dataset()
-dev_AIDA: Dataset = Dataset()
-test_AIDA: Dataset = Dataset()
-test_MSNBC: Dataset = Dataset()
-test_AQUAINT: Dataset = Dataset()
-test_ACE2004: Dataset = Dataset()
-test_CWEB: Dataset = Dataset()
-test_WIKI: Dataset = Dataset()
 from hyperparameters import SETTINGS
 
 
-def loadDataset(dataset: Dataset, csvPath: str):
+def loadDataset(csvPath: str):
     csvPath = SETTINGS.dataDir_csv + csvPath
+    dataset = Dataset()
     dataset.documents = []
     with open(csvPath, "r") as f:
         # Iterate over CSV structure - each line is a mention, when the ID changes the doc changes
@@ -84,21 +76,12 @@ def loadDataset(dataset: Dataset, csvPath: str):
             doc.mentions.append(mention)
     pass  # TODO
 
-
-def loadDatasets():
-    global train_AIDA
-    global dev_AIDA
-    global test_AIDA
-    global test_MSNBC
-    global test_AQUAINT
-    global test_ACE2004
-    global test_CWEB
-    global test_WIKI
-    loadDataset(train_AIDA, "aida_train.csv")  # TODO?
-    loadDataset(dev_AIDA, "aida_testA.csv")  # TODO?
-    loadDataset(test_AIDA, "aida_testB.csv")  # TODO?
-    loadDataset(test_MSNBC, "wned-msnbc.csv")  # TODO?
-    loadDataset(test_AQUAINT, "wned-aquaint.csv")  # TODO?
-    loadDataset(test_ACE2004, "wned-ace2004.csv")  # TODO?
-    loadDataset(test_CWEB, "wned-clueweb.csv")  # TODO?
-    loadDataset(test_WIKI, "wned-wikipedia.csv")  # TODO?
+# Removed - datasets can be loaded as necessary
+#    loadDataset(train_AIDA, "aida_train.csv")
+#    loadDataset(dev_AIDA, "aida_testA.csv")
+#    loadDataset(test_AIDA, "aida_testB.csv")
+#    loadDataset(test_MSNBC, "wned-msnbc.csv")
+#    loadDataset(test_AQUAINT, "wned-aquaint.csv")
+#    loadDataset(test_ACE2004, "wned-ace2004.csv")
+#    loadDataset(test_CWEB, "wned-clueweb.csv")
+#    loadDataset(test_WIKI, "wned-wikipedia.csv")

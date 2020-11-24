@@ -3,7 +3,6 @@
 """Used to store hyperparameters/settings"""
 from enum import Enum, auto
 
-import datasets
 from datastructures import Dataset
 
 
@@ -16,7 +15,7 @@ class Hyperparameters:  # TODO - create hyper-parameter settings object
     dataDir = "../data/"
     dataDir_csv = "../data/generated/test_train_data/"
     training: bool = True
-    dataset: Dataset = datasets.train_AIDA
+    dataset: Dataset = None
     normalisation = NormalisationMethod.MentNorm
     d: int = 300
     gamma: float = 0.01
