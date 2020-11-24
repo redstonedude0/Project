@@ -19,9 +19,7 @@ def trainToCompletion():  # TODO - add params
                 # Need to trim to top 30 p_e_m
                 # Sort p_e_m high to low
                 cands.sort(key=lambda cand: -cand.initial_prob)
-                cands = cands[0:29]
-                print(len(cands))
-                print(cands)
+                cands = cands[0:30]
 
 
 

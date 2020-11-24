@@ -16,6 +16,8 @@ class Candidate:
         self.initial_prob = initial_prob
         self.text = text
 
+    def __repr__(self):
+        return f"Candidate({self.id},{self.initial_prob},{self.text})"
 
 """Represents a mention in a document"""
 

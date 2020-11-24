@@ -64,7 +64,7 @@ def loadDataset(csvPath: str):
                 candidates = []
             candidates = [cand.split(",") for cand in candidates]
             candidates = [(cand[0], cand[1], cand[2:]) for cand in candidates]  # ERRORS
-            candidates = [Candidate(id, prob, ",".join(nameparts)) for (id, prob, nameparts) in candidates]
+            candidates = [Candidate(id, float(prob), ",".join(nameparts)) for (id, prob, nameparts) in candidates]
             mention.candidates = candidates
             mention.gold_id = -1  # no id by default
             if parts[-2] != "GT:":
