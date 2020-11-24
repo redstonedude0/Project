@@ -44,6 +44,7 @@ def candidateSelection():
             # TODO - assuming no duplicates appear, but duplicates take top 3 spots
             # Keep top 3 eT(Sigw)
             # TODO move some of this to GPU??
+            # TODO can't work out how paper does this - they appear to take the top 7 based on embedding context and ignore p_e_m???
             cands.sort(key=lambda cand: _embeddingScore(mention, cand), reverse=True)
             keptEmbeddingCands = cands[0:3]
             for keptEmbeddingCand in keptEmbeddingCands:
