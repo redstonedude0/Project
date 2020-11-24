@@ -11,3 +11,15 @@ To use the model in evaluation mode on a dataset you will want to:
 - Run "main.py --dataset {evalsetname}"
 
 TODO - implement generate mode too
+
+
+
+
+TODO - model structure, proposed structure:
+data/models/<modelname>/:
+    checkpoints/
+        <n>/ (highest n only usually - delete lower ns periodically)
+            MODEL FILES
+    SETTINGS #TODO (python object dumped somehow)
+
+

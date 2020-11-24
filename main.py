@@ -14,6 +14,7 @@ reportedRun("Loading Datasets", lambda: datasets.loadDatasets())
 
 # TODO - Specify what to do (train, eval, etc)
 # TODO - perform action (obtain dataset, use/make neural network as required, save results as specified)
+
 if SETTINGS.training:
     model, results = modeller.trainToCompletion()
 else:
