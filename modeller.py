@@ -31,6 +31,7 @@ def _embeddingScore(mention: Mention, candidate: Candidate):
 def candidateSelection():
     # TODO - select top 30 candidates per mention
     # TODO - keep top 4 p_e_m and top 3 et
+    maxlen = 0
     for doc in tqdm(SETTINGS.dataset.documents, unit="documents", file=sys.stdout):
         for mention in doc.mentions:
             cands = mention.candidates
@@ -45,7 +46,12 @@ def candidateSelection():
             # TODO move some of this to GPU??
             cands.sort(key=lambda cand: _embeddingScore(mention, cand), reverse=True)
             keptEmbeddingCands = cands[0:3]
-
+            for keptEmbeddingCand in keptEmbeddingCands:
+                if keptEmbeddingCand not in keptCands:
+                    keptCands.append(keptEmbeddingCand)
+            mention.candidates = keptCands
+            maxlen = max(maxlen, len(mention.candidates))
+    print(maxlen)
 
 def trainToCompletion():  # TODO - add params
     # TODO - checkpoint along the way
