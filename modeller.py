@@ -29,9 +29,7 @@ def _embeddingScore(mention: Mention, candidate: Candidate):
 
 
 def candidateSelection():
-    # TODO - select top 30 candidates per mention
-    # TODO - keep top 4 p_e_m and top 3 et
-    maxlen = 0
+    # keep top 4 using p_e_m and top 3 using entity embeddings w/ context
     for doc in tqdm(SETTINGS.dataset.documents, unit="documents", file=sys.stdout):
         for mention in doc.mentions:
             cands = mention.candidates
@@ -44,21 +42,21 @@ def candidateSelection():
             # TODO - assuming no duplicates appear, but duplicates take top 3 spots
             # Keep top 3 eT(Sigw)
             # TODO move some of this to GPU??
-            # TODO can't work out how paper does this - they appear to take the top 7 based on embedding context and ignore p_e_m???
+            # TODO can't work out how paper does this - they appear to take the top 7 based on embedding context and ignore p_e_m??? INVESTIGATE
             cands.sort(key=lambda cand: _embeddingScore(mention, cand), reverse=True)
             keptEmbeddingCands = cands[0:3]
             for keptEmbeddingCand in keptEmbeddingCands:
                 if keptEmbeddingCand not in keptCands:
                     keptCands.append(keptEmbeddingCand)
             mention.candidates = keptCands
-            maxlen = max(maxlen, len(mention.candidates))
-    print(maxlen)
 
 def trainToCompletion():  # TODO - add params
     # TODO - checkpoint along the way
     utils.reportedRun("Candidate Selection", candidateSelection)
-
     model = Model()
+    # Make the NN
+    model_nn = neural.NeuralNet()
+
     neural.train(model)
     # TODO - return EvaluationMetric object as well as final model?
     return model, None
