@@ -4,7 +4,6 @@
 from typing import List
 
 import numpy as np
-import tensorflow as tf
 import torch
 from torch import nn
 
@@ -102,17 +101,16 @@ class NeuralNet(nn.Module):
         rightWords = m_i.right_context.split(" ")
         wordEmbedding = lambda word: processeddata.wordid2embedding[
             processeddata.word2wordid.get(word,
-                                          processeddata.unkwordid)].tolist()  # convert np array to list so tf can convert to tensor
+                                          processeddata.unkwordid)]
         leftEmbeddings = list(map(wordEmbedding, leftWords))
         midEmbeddings = list(map(wordEmbedding, midWords))
         rightEmbeddings = list(map(wordEmbedding, rightWords))
-        print("EMBEDDINGS ARE", leftEmbeddings)
-        leftTensors = tf.convert_to_tensor(leftEmbeddings)
-        midTensors = tf.convert_to_tensor(midEmbeddings)
-        rightTensors = tf.convert_to_tensor(rightEmbeddings)
-        leftTensor = torch.sum(leftTensors)
-        midTensor = torch.sum(midTensors)
-        rightTensor = torch.sum(rightTensors)
+        leftTensors = torch.from_numpy(np.array(leftEmbeddings))
+        midTensors = torch.from_numpy(np.array(midEmbeddings))
+        rightTensors = torch.from_numpy(np.array(rightEmbeddings))
+        leftTensor = torch.sum(leftTensors, dim=0)
+        midTensor = torch.sum(midTensors, dim=0)
+        rightTensor = torch.sum(rightTensors, dim=0)
         tensors = [leftTensor, midTensor, rightTensor]
         input_ = torch.cat(tensors)
         f = self.f_m_c(input_)
