@@ -101,10 +101,12 @@ class NeuralNet(nn.Module):
         midWords = m_i.text.split(" ")
         rightWords = m_i.right_context.split(" ")
         wordEmbedding = lambda word: processeddata.wordid2embedding[
-            processeddata.word2wordid.get(word, processeddata.unkwordid)]
+            processeddata.word2wordid.get(word,
+                                          processeddata.unkwordid)].tolist()  # convert np array to list so tf can convert to tensor
         leftEmbeddings = list(map(wordEmbedding, leftWords))
         midEmbeddings = list(map(wordEmbedding, midWords))
         rightEmbeddings = list(map(wordEmbedding, rightWords))
+        print("EMBEDDINGS ARE", leftEmbeddings)
         leftTensors = tf.convert_to_tensor(leftEmbeddings)
         midTensors = tf.convert_to_tensor(midEmbeddings)
         rightTensors = tf.convert_to_tensor(rightEmbeddings)
