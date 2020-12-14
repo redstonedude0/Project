@@ -6,7 +6,6 @@
 import numpy as np
 from tqdm import tqdm
 
-from hyperparameters import SETTINGS
 
 word2wordid = {}
 unkwordid = 0
@@ -18,6 +17,7 @@ entid2embedding = []
 
 
 def loadEmbeddings():
+    from hyperparameters import SETTINGS
     global word2wordid
     global unkwordid
     global ent2entid

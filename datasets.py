@@ -37,8 +37,11 @@ def loadDataset(csvPath: str):
     with open(csvPath, "r") as f:
         # Iterate over CSV structure - each line is a mention, when the ID changes the doc changes
         doc = Document()
+        mentionid = 0
         for line in f:
             mention = Mention()
+            mention.id = mentionid
+            mentionid += 1
             parts = line.split("\t")
             doc_id1 = parts[0]
             doc_id2 = parts[1]

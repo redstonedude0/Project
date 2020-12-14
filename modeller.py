@@ -55,8 +55,12 @@ def trainToCompletion():  # TODO - add params
     utils.reportedRun("Candidate Selection", candidateSelection)
     model = Model()
     # Make the NN
+    model_nn: neural.NeuralNet
     model_nn = neural.NeuralNet()
-
+    print("Neural net made")
+    print("Params")
+    print(model_nn)
+    model.neuralNet = model_nn
     neural.train(model)
     # TODO - return EvaluationMetric object as well as final model?
     return model, None

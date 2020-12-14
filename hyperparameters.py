@@ -11,7 +11,7 @@ class NormalisationMethod(Enum):
     MentNorm = auto()
 
 
-class Hyperparameters:  # TODO - create hyper-parameter settings object
+class Hyperparameters:
     dataDir = "../data/"
     dataDir_csv = "../data/generated/test_train_data/"
     dataDir_embeddings = "../data/generated/embeddings/word_ent_embs/"
@@ -20,7 +20,7 @@ class Hyperparameters:  # TODO - create hyper-parameter settings object
     normalisation = NormalisationMethod.MentNorm
     d: int = 300
     gamma: float = 0.01
-    LBP_loops: int = 10  # TODO is this needed?
+    LBP_loops: int = 10
     dropout_rate: float = 0.3
     window_size: int = 6
     k: int = 3

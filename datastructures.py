@@ -2,14 +2,19 @@
 
 from typing import List
 
+import numpy as np
+
+import processeddata
+
 """Represents a candidate for a mention"""
 
 
 class Candidate:
-    id: str = None  # Unique ID
+    id: int = None  # Unique ID
     text: str = None  # Textual label for this candidate
     # TODO - I understand initial_prob to be p_e_m scores
     initial_prob: float = None  # Initial probability for this candidate
+    MAXID = 0
 
     def __init__(self, id, initial_prob, text):
         self.id = id
@@ -19,11 +24,16 @@ class Candidate:
     def __repr__(self):
         return f"Candidate({self.id},{self.initial_prob},{self.text})"
 
+    def entEmbedding(self) -> np.ndarray:
+        # TODO what happens if an ent isn't seen before?
+        return processeddata.entid2embedding[processeddata.ent2entid.get(self.text)]
+
 """Represents a mention in a document"""
 
 
 class Mention:
     # Represents a mention in a document
+    id: int = None  #Document-Unique identifier
     text: str = None  # The text of the mention
     left_context: str = None  # Context to the left of the mention
     right_context: str = None  # Context to the right of the mention
@@ -35,6 +45,10 @@ class Mention:
             if cand.id == self.gold_id:
                 return cand
         return None
+
+    def wordEmbedding(self):
+        return processeddata.wordid2embedding[processeddata.word2wordid.get(self.text, processeddata.unkwordid)]
+
 
 class Document:
     id: str = None  # Document ID
@@ -55,6 +69,7 @@ class Dataset:
 
 
 class Model:
+    neuralNet = None
     pass
 
 
