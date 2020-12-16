@@ -17,7 +17,7 @@ class Hyperparameters:
     dataDir_embeddings = "../data/generated/embeddings/word_ent_embs/"
     training: bool = True
     dataset: Dataset = None
-    normalisation = NormalisationMethod.MentNorm
+    normalisation = NormalisationMethod.RelNorm  # TODO change back to mentnorm once it's implemented
     d: int = 300
     gamma: float = 0.01
     LBP_loops: int = 10
@@ -29,6 +29,7 @@ class Hyperparameters:
     learning_rate_initial: float = 10E-4
     learning_rate_final: float = 10E-5
     learning_stop_threshold_epochs: int = 20
+    DEBUG: bool = True
 
 
 SETTINGS = Hyperparameters()

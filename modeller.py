@@ -52,6 +52,8 @@ def candidateSelection():
 
 def trainToCompletion():  # TODO - add params
     # TODO - checkpoint along the way
+    # DEBUG - select only 1 document to train on
+    SETTINGS.dataset.documents = [SETTINGS.dataset.documents[0]]
     utils.reportedRun("Candidate Selection", candidateSelection)
     model = Model()
     # Make the NN
