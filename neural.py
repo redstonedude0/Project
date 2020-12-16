@@ -88,7 +88,6 @@ class NeuralNet(nn.Module):
         sum = 0
         values = self.phi_ks(e_i, e_j, R, SETTINGS.k)
         values *= self.a(D, SETTINGS.k, m_i, m_j)
-        print("values", values)
         return values.sum()
 
     def a(self, D, ks, m_i, m_j):
@@ -130,7 +129,6 @@ class NeuralNet(nn.Module):
         return f
 
     def exp_brackets(self, D, k, m_i: Mention, m_j: Mention):
-        print("exp", m_i.text, ":", m_j.text)
         f_i = self.perform_fmc(m_i)
         f_j = self.perform_fmc(m_j)
         y = f_i.T
@@ -140,7 +138,6 @@ class NeuralNet(nn.Module):
         return np.math.exp(x)
 
     def exp_bracketss(self, D, ks, m_i: Mention, m_j: Mention):
-        print("exps", m_i.text, ":", m_j.text)
         f_i = self.perform_fmc(m_i)
         f_j = self.perform_fmc(m_j)
         y = f_i.T
@@ -154,7 +151,6 @@ class NeuralNet(nn.Module):
     m & mbar: [i][j][arg]'''
     # LBP FROM https://arxiv.org/pdf/1704.04920.pdf
     def lbp_iteration_individual(self, mbar, mentions, i, j, arg, B, R, D):
-        print("iter")
         # TODO ensure candidates is Gamma(i) - Gamma is the set of candidates for a mention?
         maxValue = 0
         max = 0  #Random number to prevent errors, TODO - what do here?
@@ -178,19 +174,18 @@ class NeuralNet(nn.Module):
                 mvalues = {}
                 for arg in j.candidates:
                     newmval = self.lbp_iteration_individual(mbar, mentions, i, j, arg, B, R, D)
-                    mvalues[arg.id] = newmval.detach()
+                    mvalues[arg.id] = newmval
                 mvalsum = 0  # Eq 13 denominator from LBP paper
                 for value in mvalues.values():
-                    print("exping ", value)
                     mvalsum += value.exp()
                 for arg in j.candidates:
                     # Bar (needs softmax)
                     dampingFactor = 0.5  # delta in the paper
                     mval = mvalues[arg.id]
-                    print("arg", arg)
-                    bar = np.log(
-                        dampingFactor * (np.exp(mval) / mvalsum) + (1 - dampingFactor) * np.exp(
-                            mbar[i.id][j.id][arg.id]))
+                    bar = mbar[i.id][j.id][arg.id].exp()
+                    bar *= (1 - dampingFactor)
+                    bar += dampingFactor * (mval.exp() / mvalsum)
+                    bar = bar.log()
                     newmbar[i.id][j.id][arg.id] = bar
         return newmbar
 
@@ -202,7 +197,7 @@ class NeuralNet(nn.Module):
             for j in mentions:
                 mbar[i.id][j.id] = {}
                 for arg in j.candidates:
-                    mbar[i.id][j.id][arg.id] = 0
+                    mbar[i.id][j.id][arg.id] = torch.Tensor([0]).reshape([])  # just a scalar
         for loopno in range(0, SETTINGS.LBP_loops):
             newmbar = self.lbp_iteration_complete(mbar, mentions, B, R, D)
             mbar = newmbar
