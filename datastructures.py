@@ -3,6 +3,7 @@
 from typing import List
 
 import numpy as np
+import torch
 
 import processeddata
 
@@ -27,6 +28,11 @@ class Candidate:
     def entEmbedding(self) -> np.ndarray:
         # TODO what happens if an ent isn't seen before?
         return processeddata.entid2embedding[processeddata.ent2entid.get(self.text)]
+
+    def entEmbeddingTorch(self) -> np.ndarray:
+        # TODO what happens if an ent isn't seen before?
+        return torch.from_numpy(processeddata.entid2embedding[processeddata.ent2entid.get(self.text)]).type(
+            torch.Tensor)
 
 """Represents a mention in a document"""
 

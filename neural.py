@@ -77,23 +77,23 @@ class NeuralNet(nn.Module):
     R: k diagonal matrices
     D: diagonal matrix'''
 
-    def phi_k(self, e_i, e_j, R, k):
-        val = e_i.entEmbedding().T
-        val = val.dot(R.detach()[k])
-        val = val.dot(e_j.entEmbedding())
-        return val
+    def phi_ks(self, e_i, e_j, R, ks):
+        vals = e_i.entEmbeddingTorch().T
+        size = len(vals)
+        vals = vals.matmul(R).reshape(ks, size)
+        vals = vals.matmul(e_j.entEmbeddingTorch())
+        return vals
 
     def phi(self, e_i, e_j, m_i, m_j, R, D):
         sum = 0
-        for k in range(0, SETTINGS.k):
-            value = self.phi_k(e_i, e_j, R, k)
-            value *= self.a(D, k, m_i, m_j)
-            sum += value
-        return sum
+        values = self.phi_ks(e_i, e_j, R, SETTINGS.k)
+        values *= self.a(D, SETTINGS.k, m_i, m_j)
+        print("values", values)
+        return values.sum()
 
-    def a(self, D, k, m_i, m_j):
+    def a(self, D, ks, m_i, m_j):
         z_ijk = self.Z(D, m_i, m_j)
-        x = self.exp_brackets(D, k, m_i, m_j)
+        x = self.exp_bracketss(D, ks, m_i, m_j)
         return x / z_ijk
 
     '''D: diagonal matri'''
@@ -139,6 +139,16 @@ class NeuralNet(nn.Module):
         x = y / np.math.sqrt(SETTINGS.d)
         return np.math.exp(x)
 
+    def exp_bracketss(self, D, ks, m_i: Mention, m_j: Mention):
+        print("exps", m_i.text, ":", m_j.text)
+        f_i = self.perform_fmc(m_i)
+        f_j = self.perform_fmc(m_j)
+        y = f_i.T
+        y = torch.matmul(y, D).reshape(ks, 300)  # mulmul not dot for non-1D dotting
+        y = torch.matmul(y, f_j)
+        x = y / np.math.sqrt(SETTINGS.d)
+        return torch.exp(x)
+
     '''
     m and mbar from t-1
     m & mbar: [i][j][arg]'''
@@ -168,15 +178,16 @@ class NeuralNet(nn.Module):
                 mvalues = {}
                 for arg in j.candidates:
                     newmval = self.lbp_iteration_individual(mbar, mentions, i, j, arg, B, R, D)
-                    mvalues[arg.id] = newmval
+                    mvalues[arg.id] = newmval.detach()
                 mvalsum = 0  # Eq 13 denominator from LBP paper
                 for value in mvalues.values():
                     print("exping ", value)
-                    mvalsum += np.exp(value)
+                    mvalsum += value.exp()
                 for arg in j.candidates:
                     # Bar (needs softmax)
                     dampingFactor = 0.5  # delta in the paper
                     mval = mvalues[arg.id]
+                    print("arg", arg)
                     bar = np.log(
                         dampingFactor * (np.exp(mval) / mvalsum) + (1 - dampingFactor) * np.exp(
                             mbar[i.id][j.id][arg.id]))
