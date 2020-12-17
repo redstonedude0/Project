@@ -197,7 +197,7 @@ class NeuralNet(nn.Module):
         phivalues = self.phis(arg, i.candidates, i, j)  # TODO - check, shouldn't arg be for i, not j?
         for idx, e_prime in enumerate(i.candidates):
             value = psis_i[idx]
-            value += self.phi(arg, e_prime, i, j)
+            value += phivalues[idx]
             for k in mentions:
                 if k != j:
                     value += mbar[k.id][i.id][e_prime.id]
