@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 import hyperparameters
 import processeddata
-from datastructures import Model, Mention, Candidate, Document
+from datastructures import Model, Mention, Document
 from hyperparameters import SETTINGS
 from utils import debug, map_2D, map_1D
 
@@ -58,50 +58,28 @@ class NeuralNet(nn.Module):
             torch.stack([torch.diag(torch.ones(300)), torch.diag(torch.ones(300)), torch.diag(torch.ones(300))])))
 
     # local and pairwise score functions (equation 3+section 3.1)
-    '''e_i:entity
-    B: diagonal matrix
-    c_i: context'''
-
-    def psi(self, e: Candidate, m: Mention):
-        c_i = m.left_context + m.right_context  # TODO - use context in f properly
-        # I think f(c_i) is just the word embeddings in the 3 parts of context? needs to be a dim*1 vector?
-        # f_c = self.f(c_i)#TODO - define f properly (Attention mechanism)
-        f_c = self.perform_fmc(m)  # TODO - is f_m_c equal to f_c???
-        embedding = e.entEmbeddingTorch()
-        embedding = embedding.T
-        val = embedding.matmul(self.B)
-        val = val.matmul(f_c)
-        return val
-
     '''
-    Compute PSI for candidates for a mention
+    Compute PSI for all candidates for a mention
     INPUT:
-    candidates: 1D (arb) python list of candidate(entities) to consider
-    m: the mention 
+    m: the mention (provides candidates)
     f_m_c: 1D tensor (d) f_m_c score for the mention
     RETURN:
     1D tensor (arb) psi values per candidate for this mention
     '''
 
-    def psis(self, candidates: List[Candidate], m: Mention, f_m_c):
+    def psis(self, m: Mention, f_m_c):
         c_i = m.left_context + m.right_context  # TODO - use context in f properly
         # I think f(c_i) is just the word embeddings in the 3 parts of context? needs to be a dim*1 vector?
         # f_c = self.f(c_i)#TODO - define f properly (Attention mechanism)
         f_c = f_m_c  # TODO - is f_m_c equal to f_c???
-        embeddings = [e.entEmbeddingTorch() for e in candidates]
+        embeddings = [e.entEmbeddingTorch() for e in m.candidates]
         embeddings = torch.stack(embeddings)
         vals = embeddings.matmul(self.B)
         vals = vals.matmul(f_c)
-        print("f1", f_m_c, "f2", self.perform_fmc(m))
-        print("vals", vals)
-        print("vals2")
-        for c in candidates:
-            print(self.psi(c, m))
         return vals
 
     '''e_i,e_j:entities (embedding can be obtained)
     Returns: 1D Tensor of phi_k values foreach k'''
-
     def phi_ks(self, e_i, e_j):
         vals = e_i.entEmbeddingTorch().T
         vals = vals.matmul(self.R).reshape(SETTINGS.k, SETTINGS.d)
@@ -112,6 +90,34 @@ class NeuralNet(nn.Module):
         values = self.phi_ks(e_i, e_j)
         values *= self.a(m_i, m_j)
         return values.sum()
+
+    '''
+    e_i:entity to calculate phi_k values for
+    candidates:1D (arb) python list of entities to compute phi_k with
+    Returns: 2D (arb,k) Tensor of phi_k values foreach k foreach candidate'''
+
+    def phi_kss(self, e_i, candidates):
+        vals = e_i.entEmbeddingTorch().T
+        vals = vals.matmul(self.R).reshape(SETTINGS.k, SETTINGS.d)
+        embeddings = torch.stack([e_i.entEmbeddingTorch() for e_j in candidates])
+        vals = embeddings.matmul(vals.T)  # see image 1
+        return vals
+
+    '''
+    Calculates Phi for every e_j in a list
+    e_i: specific entity to calculate it for
+    candidates: 1D python list of candidates to compute phi value with
+    m_i: mention for i
+    m_j: mention for j
+    RETURN: 1D () Tensor of phi values foreach candidate j
+    '''
+
+    def phis(self, e_i, candidates, m_i, m_j):
+        values = self.phi_kss(e_i, candidates)
+        print("phi valus", values)
+        values *= self.a(m_i, m_j)
+        print("phi valus", values, "sum", values.sum(dim=0))
+        return values.sum(dim=0)
 
     def a(self, m_i, m_j):
         x = self.exp_bracketss(m_i, m_j)
@@ -140,7 +146,6 @@ class NeuralNet(nn.Module):
         rightTensor = torch.sum(rightTensors, dim=0)
         tensors = [leftTensor, midTensor, rightTensor]
         input_ = torch.cat(tensors).type(torch.Tensor)  #make default tensor type for network
-        torch.manual_seed(0)
         f = self.f_m_c(input_)
         return f
 
@@ -171,7 +176,6 @@ class NeuralNet(nn.Module):
         #
         tensors = [leftTensor, midTensor, rightTensor]
         input_ = torch.cat(tensors, dim=1).type(torch.Tensor)  # make default tensor type for network
-        torch.manual_seed(0)
         f = self.f_m_c(input_)
         print("OUTPUT:", f)
         return f
@@ -189,11 +193,12 @@ class NeuralNet(nn.Module):
     m and mbar from t-1
     m & mbar: [i][j][arg]'''
     # LBP FROM https://arxiv.org/pdf/1704.04920.pdf
-    def lbp_iteration_individual(self, mbar, mentions, i, j, arg):
+    def lbp_iteration_individual(self, mbar, mentions, i, psis_i, j, arg):
         # TODO ensure candidates is Gamma(i) - Gamma is the set of candidates for a mention?
         maxValue = torch.Tensor([0]).reshape([])  # Default 0 to prevent errors, TODO - what do here?
-        for e_prime in i.candidates:
-            value = self.psi(e_prime, i)
+        phivalues = self.phis(arg, i.candidates, i, j)  # TODO - check, shouldn't arg be for i, not j?
+        for idx, e_prime in enumerate(i.candidates):
+            value = psis_i[idx]
             value += self.phi(arg, e_prime, i, j)
             for k in mentions:
                 if k != j:
@@ -203,15 +208,21 @@ class NeuralNet(nn.Module):
                 maxValue = value
         return maxValue
 
-    def lbp_iteration_complete(self, mbar, mentions):
+    '''
+    INPUT:
+    psis: python array of 1D tensors (i,arb) of psi values
+    '''
+
+    def lbp_iteration_complete(self, mbar, mentions, psis):
         newmbar = {}
-        for i in tqdm(mentions):
+        for idx, i in tqdm(enumerate(mentions)):
+            psis_i = psis[idx]
             newmbar[i.id] = {}
             for j in mentions:
                 newmbar[i.id][j.id] = {}
                 mvalues = {}
                 for arg in j.candidates:
-                    newmval = self.lbp_iteration_individual(mbar, mentions, i, j, arg)
+                    newmval = self.lbp_iteration_individual(mbar, mentions, i, psis_i, j, arg)
                     mvalues[arg.id] = newmval
                 mvalsum = 0  # Eq 13 denominator from LBP paper
                 for value in mvalues.values():
@@ -229,30 +240,32 @@ class NeuralNet(nn.Module):
 
     def lbp_total(self, mentions: List[Mention], f_m_cs):
         mbar = {}
-        debug("mbar")
-        for (i, f_m_c) in tqdm(zip(mentions, f_m_cs)):
-            us = self.psis(i.candidates, i, f_m_c)
+        psis = []
+        for (i, f_m_c) in zip(mentions, f_m_cs):
+            psis_i = self.psis(i, f_m_c)
+            psis.append(psis_i)
+        debug("Computing initial mbar for LBP")
         for i in tqdm(mentions):
             mbar[i.id] = {}
             for j in mentions:
                 mbar[i.id][j.id] = {}
                 for arg in j.candidates:
                     mbar[i.id][j.id][arg.id] = torch.Tensor([0]).reshape([])  # just a scalar
+        debug("Now doing LBP Loops")
         for loopno in range(0, SETTINGS.LBP_loops):
-            newmbar = self.lbp_iteration_complete(mbar, mentions)
+            newmbar = self.lbp_iteration_complete(mbar, mentions, psis)
             mbar = newmbar
         # Now compute ubar
         ubar = {}
-        debug("ubar")
-        for (i, f_m_c) in tqdm(zip(mentions, f_m_cs)):
+        debug("Computing final ubar out the back of LBP")
+        for (i_idx, (i, f_m_c)) in tqdm(enumerate(zip(mentions, f_m_cs))):
             ubar[i.id] = {}
-            us = self.psis(i.candidates, i, f_m_c)
-            for arg in i.candidates:
+            for arg_idx, arg in enumerate(i.candidates):
                 sum = 0
                 for k in mentions:
                     if k != i:
                         sum += mbar[k.id][i.id][arg.id]
-                u = self.psi(arg, i) + sum
+                u = psis[i_idx][arg_idx] + sum
                 ubar[i.id][arg.id] = np.exp(u)
             sum = 0
             for arg in i.candidates:  # Gamma(mi)
