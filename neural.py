@@ -99,7 +99,7 @@ class NeuralNet(nn.Module):
     def phi_kss(self, e_i, candidates):
         vals = e_i.entEmbeddingTorch().T
         vals = vals.matmul(self.R).reshape(SETTINGS.k, SETTINGS.d)
-        embeddings = torch.stack([e_i.entEmbeddingTorch() for e_j in candidates])
+        embeddings = torch.stack([e_j.entEmbeddingTorch() for e_j in candidates])
         vals = embeddings.matmul(vals.T)  # see image 1
         return vals
 
@@ -114,10 +114,8 @@ class NeuralNet(nn.Module):
 
     def phis(self, e_i, candidates, m_i, m_j):
         values = self.phi_kss(e_i, candidates)
-        print("phi valus", values)
         values *= self.a(m_i, m_j)
-        print("phi valus", values, "sum", values.sum(dim=0))
-        return values.sum(dim=0)
+        return values.sum(dim=1)
 
     def a(self, m_i, m_j):
         x = self.exp_bracketss(m_i, m_j)
