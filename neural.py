@@ -12,7 +12,7 @@ import hyperparameters
 import processeddata
 from datastructures import Model, Mention, Candidate, Document
 from hyperparameters import SETTINGS
-from utils import debug
+from utils import debug, map_2D, map_1D
 
 
 def evaluate():  # TODO - params
@@ -62,36 +62,59 @@ class NeuralNet(nn.Module):
     B: diagonal matrix
     c_i: context'''
 
-    def psi(self, e: Candidate, m: Mention, B: np.ndarray):
+    def psi(self, e: Candidate, m: Mention):
         c_i = m.left_context + m.right_context  # TODO - use context in f properly
         # I think f(c_i) is just the word embeddings in the 3 parts of context? needs to be a dim*1 vector?
         # f_c = self.f(c_i)#TODO - define f properly (Attention mechanism)
         f_c = self.perform_fmc(m)  # TODO - is f_m_c equal to f_c???
         embedding = e.entEmbeddingTorch()
         embedding = embedding.T
-        val = embedding.matmul(B)
+        val = embedding.matmul(self.B)
         val = val.matmul(f_c)
         return val
 
-    '''e_i,e_j:entity embeddings
-    R: k diagonal matrices
-    D: diagonal matrix'''
+    '''
+    Compute PSI for candidates for a mention
+    INPUT:
+    candidates: 1D (arb) python list of candidate(entities) to consider
+    m: the mention 
+    f_m_c: 1D tensor (d) f_m_c score for the mention
+    RETURN:
+    1D tensor (arb) psi values per candidate for this mention
+    '''
 
-    def phi_ks(self, e_i, e_j, R, ks):
+    def psis(self, candidates: List[Candidate], m: Mention, f_m_c):
+        c_i = m.left_context + m.right_context  # TODO - use context in f properly
+        # I think f(c_i) is just the word embeddings in the 3 parts of context? needs to be a dim*1 vector?
+        # f_c = self.f(c_i)#TODO - define f properly (Attention mechanism)
+        f_c = f_m_c  # TODO - is f_m_c equal to f_c???
+        embeddings = [e.entEmbeddingTorch() for e in candidates]
+        embeddings = torch.stack(embeddings)
+        vals = embeddings.matmul(self.B)
+        vals = vals.matmul(f_c)
+        print("f1", f_m_c, "f2", self.perform_fmc(m))
+        print("vals", vals)
+        print("vals2")
+        for c in candidates:
+            print(self.psi(c, m))
+        return vals
+
+    '''e_i,e_j:entities (embedding can be obtained)
+    Returns: 1D Tensor of phi_k values foreach k'''
+
+    def phi_ks(self, e_i, e_j):
         vals = e_i.entEmbeddingTorch().T
-        size = len(vals)
-        vals = vals.matmul(R).reshape(ks, size)
+        vals = vals.matmul(self.R).reshape(SETTINGS.k, SETTINGS.d)
         vals = vals.matmul(e_j.entEmbeddingTorch())
         return vals
 
-    def phi(self, e_i, e_j, m_i, m_j, R, D):
-        sum = 0
-        values = self.phi_ks(e_i, e_j, R, SETTINGS.k)
-        values *= self.a(D, SETTINGS.k, m_i, m_j)
+    def phi(self, e_i, e_j, m_i, m_j):
+        values = self.phi_ks(e_i, e_j)
+        values *= self.a(m_i, m_j)
         return values.sum()
 
-    def a(self, D, ks, m_i, m_j):
-        x = self.exp_bracketss(D, ks, m_i, m_j)
+    def a(self, m_i, m_j):
+        x = self.exp_bracketss(m_i, m_j)
         if SETTINGS.normalisation == hyperparameters.NormalisationMethod.RelNorm:
             z_ijk = x.sum()
         else:
@@ -117,23 +140,47 @@ class NeuralNet(nn.Module):
         rightTensor = torch.sum(rightTensors, dim=0)
         tensors = [leftTensor, midTensor, rightTensor]
         input_ = torch.cat(tensors).type(torch.Tensor)  #make default tensor type for network
+        torch.manual_seed(0)
         f = self.f_m_c(input_)
         return f
 
-    def exp_brackets(self, D, k, m_i: Mention, m_j: Mention):
-        f_i = self.perform_fmc(m_i)
-        f_j = self.perform_fmc(m_j)
-        y = f_i.T
-        y = torch.matmul(y, D[k])  # mulmul not dot for non-1D dotting
-        y = torch.matmul(y, f_j)
-        x = y / np.math.sqrt(SETTINGS.d)
-        return np.math.exp(x)
+    '''
+    mentions:python list of all mentions
+    RETURNS:Tensor of f_m_c per mention'''
 
-    def exp_bracketss(self, D, ks, m_i: Mention, m_j: Mention):
+    def perform_fmcs(self, mentions):
+        leftWordss = [m_i.left_context.split(" ") for m_i in mentions]
+        midWordss = [m_i.text.split(" ") for m_i in mentions]
+        rightWordss = [m_i.right_context.split(" ") for m_i in mentions]
+        wordEmbedding = lambda word: processeddata.wordid2embedding[
+            processeddata.word2wordid.get(word,
+                                          processeddata.unkwordid)]
+        # 2D i*arbitrary python list of word embeddings (each word embedding is numpy array)
+        leftEmbeddingss = map_2D(wordEmbedding, leftWordss)
+        midEmbeddingss = map_2D(wordEmbedding, midWordss)
+        rightEmbeddingss = map_2D(wordEmbedding, rightWordss)
+        # 1D i python list of numpy arrays of summed embeddings
+        sumFunc = lambda embeddingsList: np.array(embeddingsList).sum(axis=0)
+        leftEmbeddingSums = map_1D(sumFunc, leftEmbeddingss)
+        midEmbeddingSums = map_1D(sumFunc, midEmbeddingss)
+        rightEmbeddingSums = map_1D(sumFunc, rightEmbeddingss)
+        # 2D i*d tensor of sum embedding for each mention
+        leftTensor = torch.from_numpy(np.array(leftEmbeddingSums))
+        midTensor = torch.from_numpy(np.array(midEmbeddingSums))
+        rightTensor = torch.from_numpy(np.array(rightEmbeddingSums))
+        #
+        tensors = [leftTensor, midTensor, rightTensor]
+        input_ = torch.cat(tensors, dim=1).type(torch.Tensor)  # make default tensor type for network
+        torch.manual_seed(0)
+        f = self.f_m_c(input_)
+        print("OUTPUT:", f)
+        return f
+
+    def exp_bracketss(self, m_i: Mention, m_j: Mention):
         f_i = self.perform_fmc(m_i)
         f_j = self.perform_fmc(m_j)
         y = f_i.T
-        y = torch.matmul(y, D).reshape(ks, 300)  # mulmul not dot for non-1D dotting
+        y = torch.matmul(y, self.D).reshape(SETTINGS.k, SETTINGS.d)  # mulmul not dot for non-1D dotting
         y = torch.matmul(y, f_j)
         x = y / np.math.sqrt(SETTINGS.d)
         return torch.exp(x)
@@ -142,12 +189,12 @@ class NeuralNet(nn.Module):
     m and mbar from t-1
     m & mbar: [i][j][arg]'''
     # LBP FROM https://arxiv.org/pdf/1704.04920.pdf
-    def lbp_iteration_individual(self, mbar, mentions, i, j, arg, B, R, D):
+    def lbp_iteration_individual(self, mbar, mentions, i, j, arg):
         # TODO ensure candidates is Gamma(i) - Gamma is the set of candidates for a mention?
         maxValue = torch.Tensor([0]).reshape([])  # Default 0 to prevent errors, TODO - what do here?
         for e_prime in i.candidates:
-            value = self.psi(e_prime, i, B)
-            value += self.phi(arg, e_prime, i, j, R, D)
+            value = self.psi(e_prime, i)
+            value += self.phi(arg, e_prime, i, j)
             for k in mentions:
                 if k != j:
                     value += mbar[k.id][i.id][e_prime.id]
@@ -156,7 +203,7 @@ class NeuralNet(nn.Module):
                 maxValue = value
         return maxValue
 
-    def lbp_iteration_complete(self, mbar, mentions, B, R, D):
+    def lbp_iteration_complete(self, mbar, mentions):
         newmbar = {}
         for i in tqdm(mentions):
             newmbar[i.id] = {}
@@ -164,7 +211,7 @@ class NeuralNet(nn.Module):
                 newmbar[i.id][j.id] = {}
                 mvalues = {}
                 for arg in j.candidates:
-                    newmval = self.lbp_iteration_individual(mbar, mentions, i, j, arg, B, R, D)
+                    newmval = self.lbp_iteration_individual(mbar, mentions, i, j, arg)
                     mvalues[arg.id] = newmval
                 mvalsum = 0  # Eq 13 denominator from LBP paper
                 for value in mvalues.values():
@@ -180,9 +227,11 @@ class NeuralNet(nn.Module):
                     newmbar[i.id][j.id][arg.id] = bar
         return newmbar
 
-    def lbp_total(self, mentions: List[Mention], B, R, D):
+    def lbp_total(self, mentions: List[Mention], f_m_cs):
         mbar = {}
         debug("mbar")
+        for (i, f_m_c) in tqdm(zip(mentions, f_m_cs)):
+            us = self.psis(i.candidates, i, f_m_c)
         for i in tqdm(mentions):
             mbar[i.id] = {}
             for j in mentions:
@@ -190,19 +239,20 @@ class NeuralNet(nn.Module):
                 for arg in j.candidates:
                     mbar[i.id][j.id][arg.id] = torch.Tensor([0]).reshape([])  # just a scalar
         for loopno in range(0, SETTINGS.LBP_loops):
-            newmbar = self.lbp_iteration_complete(mbar, mentions, B, R, D)
+            newmbar = self.lbp_iteration_complete(mbar, mentions)
             mbar = newmbar
         # Now compute ubar
         ubar = {}
         debug("ubar")
-        for i in tqdm(mentions):
+        for (i, f_m_c) in tqdm(zip(mentions, f_m_cs)):
             ubar[i.id] = {}
+            us = self.psis(i.candidates, i, f_m_c)
             for arg in i.candidates:
                 sum = 0
                 for k in mentions:
                     if k != i:
                         sum += mbar[k.id][i.id][arg.id]
-                u = self.psi(arg, i, B) + sum
+                u = self.psi(arg, i) + sum
                 ubar[i.id][arg.id] = np.exp(u)
             sum = 0
             for arg in i.candidates:  # Gamma(mi)
@@ -213,7 +263,8 @@ class NeuralNet(nn.Module):
 
     def forward(self, document: Document):
         mentions = document.mentions
-        ubar = self.lbp_total(mentions, self.B, self.R, self.D)
+        f_m_cs = self.perform_fmcs(mentions)
+        ubar = self.lbp_total(mentions, f_m_cs)
         m: Mention
         p = {}
         debug("Starting mention loop")
