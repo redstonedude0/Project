@@ -67,10 +67,10 @@ class NeuralNet(nn.Module):
         # I think f(c_i) is just the word embeddings in the 3 parts of context? needs to be a dim*1 vector?
         # f_c = self.f(c_i)#TODO - define f properly (Attention mechanism)
         f_c = self.perform_fmc(m)  # TODO - is f_m_c equal to f_c???
-        embedding = e.entEmbedding()
+        embedding = e.entEmbeddingTorch()
         embedding = embedding.T
-        val = embedding.dot(B.detach())
-        val = val.dot(f_c.detach())
+        val = embedding.matmul(B)
+        val = val.matmul(f_c)
         return val
 
     '''e_i,e_j:entity embeddings
@@ -91,21 +91,13 @@ class NeuralNet(nn.Module):
         return values.sum()
 
     def a(self, D, ks, m_i, m_j):
-        z_ijk = self.Z(D, m_i, m_j)
         x = self.exp_bracketss(D, ks, m_i, m_j)
-        return x / z_ijk
-
-    '''D: diagonal matri'''
-
-    def Z(self, D, m_i, m_j):
         if SETTINGS.normalisation == hyperparameters.NormalisationMethod.RelNorm:
-            sum = 0
-            for k_prime in range(0, SETTINGS.k):
-                sum += self.exp_brackets(D, k_prime, m_i, m_j)
-            return sum
+            z_ijk = x.sum()
         else:
             raise Exception("Unimplemented normalisation method")
-        # TODO ment-norm Z
+            # TODO ment-norm Z
+        return x / z_ijk
 
     def perform_fmc(self, m_i):
         leftWords = m_i.left_context.split(" ")
@@ -152,8 +144,7 @@ class NeuralNet(nn.Module):
     # LBP FROM https://arxiv.org/pdf/1704.04920.pdf
     def lbp_iteration_individual(self, mbar, mentions, i, j, arg, B, R, D):
         # TODO ensure candidates is Gamma(i) - Gamma is the set of candidates for a mention?
-        maxValue = 0
-        max = 0  #Random number to prevent errors, TODO - what do here?
+        maxValue = torch.Tensor([0]).reshape([])  # Default 0 to prevent errors, TODO - what do here?
         for e_prime in i.candidates:
             value = self.psi(e_prime, i, B)
             value += self.phi(arg, e_prime, i, j, R, D)
@@ -161,13 +152,13 @@ class NeuralNet(nn.Module):
                 if k != j:
                     value += mbar[k.id][i.id][e_prime.id]
             if value > maxValue:
-                max = int(e_prime.id)
+                #max = int(e_prime.id)
                 maxValue = value
         return maxValue
 
     def lbp_iteration_complete(self, mbar, mentions, B, R, D):
         newmbar = {}
-        for i in mentions:
+        for i in tqdm(mentions):
             newmbar[i.id] = {}
             for j in mentions:
                 newmbar[i.id][j.id] = {}
