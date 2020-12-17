@@ -194,16 +194,16 @@ class NeuralNet(nn.Module):
     def lbp_iteration_individual(self, mbar, mentions, i, psis_i, j, arg):
         # TODO ensure candidates is Gamma(i) - Gamma is the set of candidates for a mention?
         maxValue = torch.Tensor([0]).reshape([])  # Default 0 to prevent errors, TODO - what do here?
-        phivalues = self.phis(arg, i.candidates, i, j)  # TODO - check, shouldn't arg be for i, not j?
-        for idx, e_prime in enumerate(i.candidates):
-            value = psis_i[idx]
-            value += phivalues[idx]
-            for k in mentions:
-                if k != j:
-                    value += mbar[k.id][i.id][e_prime.id]
-            if value > maxValue:
-                #max = int(e_prime.id)
-                maxValue = value
+        phis_i = self.phis(arg, i.candidates, i, j)  # TODO - check, shouldn't arg be for i, not j?
+        values = psis_i
+        values += phis_i
+        mbarmatrix = torch.tensor(mbar)  # Convert mbar to a torch tensor #TODO - keep it as a torch tensor
+        mbarslice = mbarmatrix[:, i.id]  # Slice it to a k*arb tensor
+        mbarslice[j.id] = 0  # 0 out side where k == j, so it can be summed inconsequentially
+        mbarsums = mbarslice.sum(dim=0)
+        values += mbarsums
+        if len(values) != 0:  # Prevent identity error when tensor is empty
+            maxValue = values.max()
         return maxValue
 
     '''
