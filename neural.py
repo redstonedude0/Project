@@ -64,7 +64,7 @@ class NeuralNet(nn.Module):
     m: the mention (provides candidates)
     f_m_c: 1D tensor (d) f_m_c score for the mention
     RETURN:
-    1D tensor (arb) psi values per candidate for this mention
+    1D tensor (arb_m) psi values per candidate for this mention
     '''
 
     def psis(self, m: Mention, f_m_c):
@@ -77,19 +77,6 @@ class NeuralNet(nn.Module):
         vals = embeddings.matmul(self.B)
         vals = vals.matmul(f_c)
         return vals
-
-    '''e_i,e_j:entities (embedding can be obtained)
-    Returns: 1D Tensor of phi_k values foreach k'''
-    def phi_ks(self, e_i, e_j):
-        vals = e_i.entEmbeddingTorch().T
-        vals = vals.matmul(self.R).reshape(SETTINGS.k, SETTINGS.d)
-        vals = vals.matmul(e_j.entEmbeddingTorch())
-        return vals
-
-    def phi(self, e_i, e_j, m_i, m_j):
-        values = self.phi_ks(e_i, e_j)
-        values *= self.a(m_i, m_j)
-        return values.sum()
 
     '''
     e_i:entity to calculate phi_k values for
@@ -109,7 +96,7 @@ class NeuralNet(nn.Module):
     candidates: 1D python list of candidates to compute phi value with
     m_i: mention for i
     m_j: mention for j
-    RETURN: 1D () Tensor of phi values foreach candidate j
+    RETURN: 1D (arb_j) Tensor of phi values foreach candidate for j
     '''
 
     def phis(self, e_i, candidates, m_i, m_j):
@@ -117,10 +104,30 @@ class NeuralNet(nn.Module):
         values *= self.a(m_i, m_j)
         return values.sum(dim=1)
 
+    '''
+    RETURNS:
+    1D (k) tensor of a_ijk per k'''
+
     def a(self, m_i, m_j):
         x = self.exp_bracketss(m_i, m_j)
         if SETTINGS.normalisation == hyperparameters.NormalisationMethod.RelNorm:
             z_ijk = x.sum()
+        else:
+            raise Exception("Unimplemented normalisation method")
+            # TODO ment-norm Z
+        return x / z_ijk
+
+    '''
+    INPUT:
+    mentions: python array of mentions
+    RETURNS:
+    3D (n,n,k) tensor of a_ijk per each pair of (n) mentions
+    '''
+
+    def ass(self, mentions):
+        x = self.exp_bracketssss(mentions)
+        if SETTINGS.normalisation == hyperparameters.NormalisationMethod.RelNorm:
+            z_ijk = x.sum()  # TODO fix - 1 sum per entry
         else:
             raise Exception("Unimplemented normalisation method")
             # TODO ment-norm Z
@@ -144,6 +151,7 @@ class NeuralNet(nn.Module):
         rightTensor = torch.sum(rightTensors, dim=0)
         tensors = [leftTensor, midTensor, rightTensor]
         input_ = torch.cat(tensors).type(torch.Tensor)  #make default tensor type for network
+        torch.manual_seed(0)
         f = self.f_m_c(input_)
         return f
 
@@ -178,28 +186,61 @@ class NeuralNet(nn.Module):
         print("OUTPUT:", f)
         return f
 
+    '''
+    Returns:
+    1D (k) tensor of 'exp brackets' values (equation 4 MRN paper)
+    '''
+
     def exp_bracketss(self, m_i: Mention, m_j: Mention):
         f_i = self.perform_fmc(m_i)
         f_j = self.perform_fmc(m_j)
-        y = f_i.T
-        y = torch.matmul(y, self.D).reshape(SETTINGS.k, SETTINGS.d)  # mulmul not dot for non-1D dotting
+        y = f_i
+        y = torch.matmul(y, self.D)  # mulmul not dot for non-1D dotting
         y = torch.matmul(y, f_j)
         x = y / np.math.sqrt(SETTINGS.d)
         return torch.exp(x)
 
     '''
-    m and mbar from t-1
-    m & mbar: [i][j][arg]'''
+    INPUT:
+    mentions: python list of all mentions
+    Returns:
+    3D (n,n,k) tensor of 'exp brackets' values (equation 4 MRN paper)
+    '''
+
+    def exp_bracketssss(self, mentions: List[Mention]):
+        fs = [self.perform_fmc(m) for m in mentions]
+        fs = torch.stack(fs)
+        # each fmc is a 1D (d) tensor, fs is a 2D (n,d) tensor of fmc vals
+        y = torch.matmul(fs, self.D)  # mulmul not dot for non-1D dotting
+        # y is a 3D (k,n,d) tensor
+        y = y.transpose(0, 1)
+        # y is a 3D (n,k,d) tensor)
+        y = torch.matmul(y, fs.T).transpose(1, 2)
+        # y is a 3D (n,n,k) tensor)
+        x = y / np.math.sqrt(SETTINGS.d)
+        return torch.exp(x)
+
+    '''
+    compute lbp values for 2 mentions and 1 candidate over all candidates for j
+    mbar: mbar 3D tensor from t-1
+    i,j: mentions (will calculate for all candidates of j)
+    i_idx,j_idx: mbar indexes for i and j
+    psis_j: 1D (arb_j) tensor of psi values per candidate for j
+    arg:candidate for i
+    RETURNS:
+    maximum value (new message value) for the given i,j,arg(i candidate)
+    '''
+
     # LBP FROM https://arxiv.org/pdf/1704.04920.pdf
-    def lbp_iteration_individual(self, mbar, mentions, i, psis_i, j, arg):
+    def lbp_iteration_individual(self, mbar, i, j, i_idx, j_idx, psis_j, arg):
         # TODO ensure candidates is Gamma(i) - Gamma is the set of candidates for a mention?
         maxValue = torch.Tensor([0]).reshape([])  # Default 0 to prevent errors, TODO - what do here?
-        phis_i = self.phis(arg, i.candidates, i, j)  # TODO - check, shouldn't arg be for i, not j?
-        values = psis_i
-        values += phis_i
-        mbarmatrix = torch.tensor(mbar)  # Convert mbar to a torch tensor #TODO - keep it as a torch tensor
-        mbarslice = mbarmatrix[:, i.id]  # Slice it to a k*arb tensor
-        mbarslice[j.id] = 0  # 0 out side where k == j, so it can be summed inconsequentially
+        phis_ij = self.phis(arg, j.candidates, i, j)  # TODO - check, shouldn't arg be for i, not j?
+        values = psis_j
+        values += phis_ij
+        mbarmatrix = mbar  # Convert mbar to a torch tensor #TODO - keep it as a torch tensor - Do this, it will be easiest
+        mbarslice = mbarmatrix[:, i_idx][:, 0:len(values)]  # Slice it to a k*7 tensor then down to k*arb
+        mbarslice[j_idx] = 0  # 0 out side where k == j, so it can be summed inconsequentially
         mbarsums = mbarslice.sum(dim=0)
         values += mbarsums
         if len(values) != 0:  # Prevent identity error when tensor is empty
@@ -212,28 +253,26 @@ class NeuralNet(nn.Module):
     '''
 
     def lbp_iteration_complete(self, mbar, mentions, psis):
-        newmbar = {}
-        for idx, i in tqdm(enumerate(mentions)):
-            psis_i = psis[idx]
-            newmbar[i.id] = {}
-            for j in mentions:
-                newmbar[i.id][j.id] = {}
+        newmbar = mbar.clone()
+        for i_idx, i in tqdm(enumerate(mentions)):
+            for j_idx, j in enumerate(mentions):
+                psis_j = psis[j_idx]
                 mvalues = {}
-                for arg in j.candidates:
-                    newmval = self.lbp_iteration_individual(mbar, mentions, i, psis_i, j, arg)
+                for arg in i.candidates:
+                    newmval = self.lbp_iteration_individual(mbar, i, j, i_idx, j_idx, psis_j, arg)
                     mvalues[arg.id] = newmval
                 mvalsum = 0  # Eq 13 denominator from LBP paper
                 for value in mvalues.values():
                     mvalsum += value.exp()
-                for arg in j.candidates:
+                for arg_idx, arg in enumerate(i.candidates):
                     # Bar (needs softmax)
                     dampingFactor = 0.5  # delta in the paper
                     mval = mvalues[arg.id]
-                    bar = mbar[i.id][j.id][arg.id].exp()
+                    bar = mbar[i_idx][j_idx][arg_idx].exp()
                     bar *= (1 - dampingFactor)
                     bar += dampingFactor * (mval.exp() / mvalsum)
                     bar = bar.log()
-                    newmbar[i.id][j.id][arg.id] = bar
+                    newmbar[i_idx][j_idx][arg_idx] = bar
         return newmbar
 
     def lbp_total(self, mentions: List[Mention], f_m_cs):
@@ -242,15 +281,12 @@ class NeuralNet(nn.Module):
         for (i, f_m_c) in zip(mentions, f_m_cs):
             psis_i = self.psis(i, f_m_c)
             psis.append(psis_i)
+        #Note: Should be i*j*arb but arb dependent so i*j*7 but unused cells will be 0 and trimmed
         debug("Computing initial mbar for LBP")
-        for i in tqdm(mentions):
-            mbar[i.id] = {}
-            for j in mentions:
-                mbar[i.id][j.id] = {}
-                for arg in j.candidates:
-                    mbar[i.id][j.id][arg.id] = torch.Tensor([0]).reshape([])  # just a scalar
+        mbar = torch.zeros(len(mentions), len(mentions), 7)
         debug("Now doing LBP Loops")
         for loopno in range(0, SETTINGS.LBP_loops):
+            print(f"Doing loop {loopno + 1}/{SETTINGS.LBP_loops}")
             newmbar = self.lbp_iteration_complete(mbar, mentions, psis)
             mbar = newmbar
         # Now compute ubar
@@ -260,9 +296,9 @@ class NeuralNet(nn.Module):
             ubar[i.id] = {}
             for arg_idx, arg in enumerate(i.candidates):
                 sum = 0
-                for k in mentions:
+                for k_idx, k in enumerate(mentions):
                     if k != i:
-                        sum += mbar[k.id][i.id][arg.id]
+                        sum += mbar[k_idx][i_idx][arg_idx]
                 u = psis[i_idx][arg_idx] + sum
                 ubar[i.id][arg.id] = np.exp(u)
             sum = 0

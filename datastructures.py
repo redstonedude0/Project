@@ -15,7 +15,7 @@ class Candidate:
     text: str = None  # Textual label for this candidate
     # TODO - I understand initial_prob to be p_e_m scores
     initial_prob: float = None  # Initial probability for this candidate
-    MAXID = 0
+    MAXID = 0  # TODO - unused?
 
     def __init__(self, id, initial_prob, text):
         self.id = id
@@ -23,7 +23,7 @@ class Candidate:
         self.text = text
 
     def __repr__(self):
-        return f"Candidate({self.id},{self.initial_prob},{self.text})"
+        return f"Candidate({self.id},{self.initial_prob},\"{self.text}\")"
 
     def entEmbedding(self) -> np.ndarray:
         # TODO what happens if an ent isn't seen before?
@@ -39,12 +39,22 @@ class Candidate:
 
 class Mention:
     # Represents a mention in a document
-    id: int = None  #Document-Unique identifier
+    id: int = None  # Document-Unique identifier
     text: str = None  # The text of the mention
     left_context: str = None  # Context to the left of the mention
     right_context: str = None  # Context to the right of the mention
     candidates: List[Candidate] = None  # Candidates for the mention
     gold_id: str = None  # Gold truth - actual candidate (id) for this mention
+
+    def FromData(id, text, left_context, right_context, candidates, gold_id):
+        self = Mention()
+        self.id = id
+        self.text = text
+        self.left_context = left_context
+        self.right_context = right_context
+        self.candidates = candidates
+        self.gold_id = gold_id
+        return self
 
     def goldCand(self):
         for cand in self.candidates:
@@ -55,10 +65,23 @@ class Mention:
     def wordEmbedding(self):
         return processeddata.wordid2embedding[processeddata.word2wordid.get(self.text, processeddata.unkwordid)]
 
+    def __repr__(self):
+        return f"Mention.FromData({self.id},\"{self.text}\",\"{self.left_context}\",\"{self.right_context}\",{self.candidates},\"{self.gold_id}\")"
+
 
 class Document:
     id: str = None  # Document ID
     mentions: List[Mention] = None
+
+    def FromData(id, mentions):
+        self = Document()
+        self.id = id
+        self.mentions = mentions
+        return self
+
+    def __repr__(self):
+        # TODO - if any string contains " then it will cause errors recreating
+        return f"Document.FromData(\"{self.id}\",{self.mentions})"
 
 
 """

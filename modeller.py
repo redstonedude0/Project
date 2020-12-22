@@ -54,6 +54,7 @@ def trainToCompletion():  # TODO - add params
     # TODO - checkpoint along the way
     # DEBUG - select only 1 document to train on
     SETTINGS.dataset.documents = [SETTINGS.dataset.documents[0]]
+    print("testing doc", SETTINGS.dataset.documents)
     utils.reportedRun("Candidate Selection", candidateSelection)
     model = Model()
     # Make the NN
