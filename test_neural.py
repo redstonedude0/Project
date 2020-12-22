@@ -5416,6 +5416,7 @@ class TestNeural(unittest.TestCase):
         pass
 
     def test_exp_bracket_methods_equiv(self):
+        raise NotImplementedError("method exp_bracketss removed")
         # test exp_brackets code is equal
         ssss = self.network.exp_bracketssss(self.testingDoc.mentions)
         count = len(self.testingDoc.mentions)
@@ -5434,6 +5435,7 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(maxError < 0.01)
 
     def test_a_methods_equiv(self):
+        raise NotImplementedError("method a removed")
         # test a code is equal
         ass = self.network.ass(self.testingDoc.mentions)
         count = len(self.testingDoc.mentions)
