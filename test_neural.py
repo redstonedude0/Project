@@ -5415,23 +5415,6 @@ class TestNeural(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
-    def test_exp_bracketssss(self):
-        # TODO test exp_brackets code is equal
-        ssss = self.network.exp_bracketssss(self.testingDoc.mentions)
-        count = len(self.testingDoc.mentions)
-        for i in range(0, count):
-            for j in range(0, count):
-                ssss_vals = ssss[i][j]
-                m_i = self.testingDoc.mentions[i]
-                m_j = self.testingDoc.mentions[j]
-                ss_vals = self.network.exp_bracketss(m_i, m_j)
-                if not utils.withinError(ssss_vals, ss_vals):
-                    print("tensor1", ssss_vals)
-                    print("tensor2", ss_vals)
-                    print("f1", self.network.perform_fmc(m_i))
-                    print("f2", self.network.perform_fmc(m_j))
-                    self.assertTrue(False)
-
     def test_exp_bracket_methods_equiv(self):
         # test exp_brackets code is equal
         ssss = self.network.exp_bracketssss(self.testingDoc.mentions)
@@ -5447,5 +5430,23 @@ class TestNeural(unittest.TestCase):
             is_.append(torch.stack(js))
         ss = torch.stack(is_)
         maxError = utils.maxError(ssss, ss)
+        print(f"MaxError: {maxError}")
+        self.assertTrue(maxError < 0.01)
+
+    def test_a_methods_equiv(self):
+        # test a code is equal
+        ass = self.network.ass(self.testingDoc.mentions)
+        count = len(self.testingDoc.mentions)
+        is_ = []
+        for i in range(0, count):
+            js = []
+            for j in range(0, count):
+                m_i = self.testingDoc.mentions[i]
+                m_j = self.testingDoc.mentions[j]
+                ss_vals = self.network.a(m_i, m_j)
+                js.append(ss_vals)
+            is_.append(torch.stack(js))
+        a = torch.stack(is_)
+        maxError = utils.maxError(ass, a)
         print(f"MaxError: {maxError}")
         self.assertTrue(maxError < 0.01)

@@ -127,11 +127,18 @@ class NeuralNet(nn.Module):
     def ass(self, mentions):
         x = self.exp_bracketssss(mentions)
         if SETTINGS.normalisation == hyperparameters.NormalisationMethod.RelNorm:
-            z_ijk = x.sum()  # TODO fix - 1 sum per entry
+            # X is (ni*nj*k)
+            z_ijk = x.sum(dim=2)
+            # Z_ijk is (ni*nj) sum
+            x_trans = x.transpose(0, 2).transpose(1, 2)
+            # x_trans is (k*ni*nj)
+            x_trans /= z_ijk
+            x = x_trans.transpose(1, 2).transpose(0, 2)
+            # x is (ni*nj*k)
         else:
             raise Exception("Unimplemented normalisation method")
             # TODO ment-norm Z
-        return x / z_ijk
+        return x
 
     def perform_fmc(self, m_i):
         leftWords = m_i.left_context.split(" ")
