@@ -29,9 +29,9 @@ class Candidate:
         # TODO what happens if an ent isn't seen before?
         return processeddata.entid2embedding[processeddata.ent2entid.get(self.text)]
 
-    def entEmbeddingTorch(self) -> np.ndarray:
+    def entEmbeddingTorch(self) -> torch.Tensor:
         # TODO what happens if an ent isn't seen before?
-        return torch.from_numpy(processeddata.entid2embedding[processeddata.ent2entid.get(self.text)]).type(
+        return torch.from_numpy(self.entEmbedding()).type(
             torch.Tensor)
 
 """Represents a mention in a document"""

@@ -5452,3 +5452,21 @@ class TestNeural(unittest.TestCase):
         maxError = utils.maxError(ass, a)
         print(f"MaxError: {maxError}")
         self.assertTrue(maxError < 0.01)
+
+    def test_phik_methods_equiv(self):
+        # test a code is equal
+        for m_i in self.testingDoc.mentions:
+            for m_j in self.testingDoc.mentions:
+                print("69", processeddata.ent2entid.get(m_i.candidates[69].text))
+                print("69", m_i.candidates[69].entEmbedding().shape)
+                ksss = self.network.phi_ksss(m_i.candidates, m_j.candidates)
+                count_i = len(m_i.candidates)
+                is_ = []
+                for i in range(0, count_i):
+                    c_i = m_i.candidates[i]
+                    kss = self.network.phi_kss(c_i, m_j.candidates)
+                    is_.append(kss)
+                ksss_ = torch.stack(is_)
+                maxError = utils.maxError(ksss, ksss_)
+                print(f"MaxError: {maxError}")
+                self.assertTrue(maxError < 0.01)

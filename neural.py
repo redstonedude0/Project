@@ -91,6 +91,21 @@ class NeuralNet(nn.Module):
         return vals
 
     '''
+    Calculate phi_k values for pairs of candidates in lists
+    candidates_i:1D (arb_i) python list of entities to compute phi_k with
+    candidates_j:1D (arb_j) python list of entities to compute phi_k with
+    Returns: 3D (arb_i,arb_j,k) Tensor of phi_k values foreach k foreach candidate'''
+
+    def phi_ksss(self, candidates_i, candidates_j):
+        valss = torch.stack([e_i.entEmbeddingTorch() for e_i in candidates_i])
+        arb_i = len(candidates_i)
+        # valss is a (arb_i,d) tensor
+        valss = valss.matmul(self.R).reshape(arb_i, SETTINGS.k, SETTINGS.d)
+        embeddings = torch.stack([e_j.entEmbeddingTorch() for e_j in candidates_j])
+        valss = valss.matmul(embeddings.T)  # see image 1 (applied to 2D version, this is 3D)
+        return valss
+
+    '''
     Calculates Phi for every e_j in a list
     e_i: specific entity to calculate it for
     candidates: 1D python list of candidates to compute phi value with
@@ -106,14 +121,31 @@ class NeuralNet(nn.Module):
         return values.sum(dim=1)
 
     '''
+    Calculates Phi for every e_j and e_i in lists
+    candidates_i: 1D python list of candidates to compute phi value with
+    candidates_j: 1D python list of candidates to compute phi value with
+    m_i: mention for i
+    m_j: mention for j
+    ass: 3D (n*n*k) matrix of a values 
+    RETURN: 2D (arb_i,arb_j) Tensor of phi values foreach candidate for i,j
+    '''
+
+    def phiss(self, candidates_i, candidates_j, i_idx, j_idx, ass):
+        # TODO can use float("NaN") to make it (7,7) not (arb,arb)
+        values = self.phi_kss(e_i, candidates_j)
+        values *= ass[i_idx][j_idx]
+        return values.sum(dim=1)
+
+    '''
     INPUT:
     mentions: python array of mentions
+    fmcs: 2D (n,d) tensor of fmc values for each mention n
     RETURNS:
     3D (n,n,k) tensor of a_ijk per each pair of (n) mentions
     '''
 
-    def ass(self, mentions):
-        x = self.exp_bracketssss(mentions)
+    def ass(self, mentions, fmcs):
+        x = self.exp_bracketssss(mentions, fmcs)
         if SETTINGS.normalisation == hyperparameters.NormalisationMethod.RelNorm:
             # X is (ni*nj*k)
             z_ijk = x.sum(dim=2)
@@ -128,31 +160,9 @@ class NeuralNet(nn.Module):
             # TODO ment-norm Z
         return x
 
-    def perform_fmc(self, m_i):
-        leftWords = m_i.left_context.split(" ")
-        midWords = m_i.text.split(" ")
-        rightWords = m_i.right_context.split(" ")
-        wordEmbedding = lambda word: processeddata.wordid2embedding[
-            processeddata.word2wordid.get(word,
-                                          processeddata.unkwordid)]
-        leftEmbeddings = list(map(wordEmbedding, leftWords))
-        midEmbeddings = list(map(wordEmbedding, midWords))
-        rightEmbeddings = list(map(wordEmbedding, rightWords))
-        leftTensors = torch.from_numpy(np.array(leftEmbeddings))
-        midTensors = torch.from_numpy(np.array(midEmbeddings))
-        rightTensors = torch.from_numpy(np.array(rightEmbeddings))
-        leftTensor = torch.sum(leftTensors, dim=0)
-        midTensor = torch.sum(midTensors, dim=0)
-        rightTensor = torch.sum(rightTensors, dim=0)
-        tensors = [leftTensor, midTensor, rightTensor]
-        input_ = torch.cat(tensors).type(torch.Tensor)  #make default tensor type for network
-        torch.manual_seed(0)
-        f = self.f_m_c(input_)
-        return f
-
     '''
     mentions:python list of all mentions
-    RETURNS:Tensor of f_m_c per mention'''
+    RETURNS: 2D (n,d) tensor of f_m_c per mention'''
 
     def perform_fmcs(self, mentions):
         leftWordss = [m_i.left_context.split(" ") for m_i in mentions]
@@ -184,19 +194,19 @@ class NeuralNet(nn.Module):
     '''
     INPUT:
     mentions: python list of all mentions
+    fmcs: 2D (n,d) tensor of fmc values for each mention n
     Returns:
     3D (n,n,k) tensor of 'exp brackets' values (equation 4 MRN paper)
     '''
 
-    def exp_bracketssss(self, mentions: List[Mention]):
-        fs = [self.perform_fmc(m) for m in mentions]
-        fs = torch.stack(fs)
+    def exp_bracketssss(self, mentions: List[Mention], fmcs):
+        # fmcs = torch.stack(fmcs)
         # each fmc is a 1D (d) tensor, fs is a 2D (n,d) tensor of fmc vals
-        y = torch.matmul(fs, self.D)  # mulmul not dot for non-1D dotting
+        y = torch.matmul(fmcs, self.D)  # mulmul not dot for non-1D dotting
         # y is a 3D (k,n,d) tensor
         y = y.transpose(0, 1)
         # y is a 3D (n,k,d) tensor)
-        y = torch.matmul(y, fs.T).transpose(1, 2)
+        y = torch.matmul(y, fmcs.T).transpose(1, 2)
         # y is a 3D (n,n,k) tensor)
         x = y / np.math.sqrt(SETTINGS.d)
         return torch.exp(x)
@@ -217,6 +227,31 @@ class NeuralNet(nn.Module):
         # TODO ensure candidates is Gamma(i) - Gamma is the set of candidates for a mention?
         maxValue = torch.Tensor([0]).reshape([])  # Default 0 to prevent errors, TODO - what do here?
         phis_ij = self.phis(arg, j.candidates, i_idx, j_idx, ass)  # TODO - check, shouldn't arg be for i, not j?
+        values = psis_j
+        values += phis_ij
+        mbarmatrix = mbar  # Convert mbar to a torch tensor #TODO - keep it as a torch tensor - Do this, it will be easiest
+        mbarslice = mbarmatrix[:, i_idx][:, 0:len(values)]  # Slice it to a k*7 tensor then down to k*arb
+        mbarslice[j_idx] = 0  # 0 out side where k == j, so it can be summed inconsequentially
+        mbarsums = mbarslice.sum(dim=0)
+        values += mbarsums
+        if len(values) != 0:  # Prevent identity error when tensor is empty
+            maxValue = values.max()
+        return maxValue
+
+    '''
+    Perform LBP iteration for set of candidates
+    mbar: mbar message values (n,n,7) 3D tensor
+    j,j_idx: j mention
+    i_idx: i mention
+    psis_j: 1D tensor (arb_j) psi values for j (per candidate)
+    ass: 3D tensor (n,n,k) a values per i,j,k
+    args: python list of candidates for i
+    '''
+
+    def lbp_iteration_individuals(self, mbar, j, i_idx, j_idx, psis_j, ass, args):
+        # TODO ensure candidates is Gamma(i) - Gamma is the set of candidates for a mention?
+        maxValue = torch.Tensor([0]).reshape([])  # Default 0 to prevent errors, TODO - what do here?
+        phis_ij = self.phiss(args, j.candidates, i_idx, j_idx, ass)  # TODO - check, shouldn't arg be for i, not j?
         values = psis_j
         values += phis_ij
         mbarmatrix = mbar  # Convert mbar to a torch tensor #TODO - keep it as a torch tensor - Do this, it will be easiest
@@ -291,8 +326,11 @@ class NeuralNet(nn.Module):
 
     def forward(self, document: Document):
         mentions = document.mentions
+        debug("Calculating f_m_c values")
         f_m_cs = self.perform_fmcs(mentions)
-        ass = self.ass(mentions)
+        debug("Calculating a values")
+        ass = self.ass(mentions, f_m_cs)
+        debug("Calculating ubar(lbp) values")
         ubar = self.lbp_total(mentions, f_m_cs, ass)
         m: Mention
         p = {}
