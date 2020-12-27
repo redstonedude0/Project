@@ -26,8 +26,9 @@ class Candidate:
         return f"Candidate({self.id},{self.initial_prob},\"{self.text}\")"
 
     def entEmbedding(self) -> np.ndarray:
-        # TODO what happens if an ent isn't seen before?
-        return processeddata.entid2embedding[processeddata.ent2entid.get(self.text)]
+        # If unseen then give average embedding (https://github.com/lephong/mulrel-nel/blob/db14942450f72c87a4d46349860e96ef2edf353d/nel/utils.py line 104)
+        # TODO discuss this
+        return processeddata.entid2embedding[processeddata.ent2entid.get(self.text, processeddata.unkentid)]
 
     def entEmbeddingTorch(self) -> torch.Tensor:
         # TODO what happens if an ent isn't seen before?

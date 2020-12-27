@@ -10,6 +10,7 @@ from tqdm import tqdm
 word2wordid = {}
 unkwordid = 0
 ent2entid = {}
+unkentid = 0
 wordid2embedding = []
 entid2embedding = []
 
@@ -21,6 +22,7 @@ def loadEmbeddings():
     global word2wordid
     global unkwordid
     global ent2entid
+    global unkentid
     global wordid2embedding
     global entid2embedding
     with open(SETTINGS.dataDir_embeddings + "dict.word", "r") as f:
@@ -34,5 +36,9 @@ def loadEmbeddings():
             entname = entname.replace("en.wikipedia.org/wiki/", "").replace("_", " ").replace("%22", '"')
             ent2entid[entname] = len(ent2entid)
     unkwordid = word2wordid["#UNK#"]
+    unkentid = len(ent2entid)
+    ent2entid["#UNK#"] = unkentid
     wordid2embedding = np.load(SETTINGS.dataDir_embeddings + "word_embeddings.npy")
     entid2embedding = np.load(SETTINGS.dataDir_embeddings + "entity_embeddings.npy")
+    unkentembed = np.mean(entid2embedding, axis=0, keepdims=True)  # mean embedding, as a (1,d) array
+    entid2embedding = np.append(entid2embedding, unkentembed, axis=0)  # append as 1D

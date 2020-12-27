@@ -5457,7 +5457,7 @@ class TestNeural(unittest.TestCase):
         # test a code is equal
         for m_i in self.testingDoc.mentions:
             for m_j in self.testingDoc.mentions:
-                print("69", processeddata.ent2entid.get(m_i.candidates[69].text))
+                print("69", processeddata.ent2entid.get(m_i.candidates[69].text, processeddata.unkentid))
                 print("69", m_i.candidates[69].entEmbedding().shape)
                 ksss = self.network.phi_ksss(m_i.candidates, m_j.candidates)
                 count_i = len(m_i.candidates)
@@ -5467,6 +5467,27 @@ class TestNeural(unittest.TestCase):
                     kss = self.network.phi_kss(c_i, m_j.candidates)
                     is_.append(kss)
                 ksss_ = torch.stack(is_)
+                print("shape A", ksss.shape)
+                print("shape B", ksss_.shape)
+                maxError = utils.maxError(ksss, ksss_)
+                print(f"MaxError: {maxError}")
+                self.assertTrue(maxError < 0.01)
+
+    def test_phik_methods_equiv_basic(self):
+        # test a code is equal
+        for m_i in self.testingDoc.mentions:
+            for m_j in self.testingDoc.mentions:
+                i_cands = [m_i.candidates[0]]
+                ksss = self.network.phi_ksss(i_cands, m_j.candidates)
+                count_i = len(i_cands)
+                is_ = []
+                for i in range(0, count_i):
+                    c_i = i_cands[i]
+                    kss = self.network.phi_kss(c_i, m_j.candidates)
+                    is_.append(kss)
+                ksss_ = torch.stack(is_)
+                print("shape A", ksss.shape)
+                print("shape B", ksss_.shape)
                 maxError = utils.maxError(ksss, ksss_)
                 print(f"MaxError: {maxError}")
                 self.assertTrue(maxError < 0.01)
