@@ -100,7 +100,9 @@ class NeuralNet(nn.Module):
         valss = torch.stack([e_i.entEmbeddingTorch() for e_i in candidates_i])
         arb_i = len(candidates_i)
         # valss is a (arb_i,d) tensor
-        valss = valss.matmul(self.R).reshape(arb_i, SETTINGS.k, SETTINGS.d)
+        valss = valss.matmul(self.R)
+        # valss is (k,arb_i,d) tensor
+        valss = valss.transpose(0, 1)
         # valss is (arb_i,k,d) tensor
         embeddings = torch.stack([e_j.entEmbeddingTorch() for e_j in candidates_j])
         valss = valss.matmul(embeddings.T)  # see image 1 (applied to 2D version, this is 3D)
