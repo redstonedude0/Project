@@ -138,9 +138,9 @@ class NeuralNet(nn.Module):
 
     def phiss(self, candidates_i, candidates_j, i_idx, j_idx, ass):
         # TODO can use float("NaN") to make it (7,7) not (arb,arb)
-        values = self.phi_kss(e_i, candidates_j)
+        values = self.phi_ksss(candidates_i, candidates_j)
         values *= ass[i_idx][j_idx]
-        return values.sum(dim=1)
+        return values.sum(dim=2)
 
     '''
     INPUT:
@@ -194,7 +194,6 @@ class NeuralNet(nn.Module):
         tensors = [leftTensor, midTensor, rightTensor]
         input_ = torch.cat(tensors, dim=1).type(torch.Tensor)  # make default tensor type for network
         f = self.f_m_c(input_)
-        print("OUTPUT:", f)
         return f
 
     '''
@@ -245,28 +244,29 @@ class NeuralNet(nn.Module):
         return maxValue
 
     '''
-    Perform LBP iteration for set of candidates
+    Perform LBP iteration for set of candidates for j (e_js/es)
     mbar: mbar message values (n,n,7) 3D tensor
-    j,j_idx: j mention
-    i_idx: i mention
-    psis_j: 1D tensor (arb_j) psi values for j (per candidate)
+    j,j_idx: j mention (candidates e come from)
+    i,i_idx: i mention (candidates e' come from)
+    psis_i: 1D tensor (arb_i) psi values for i (per candidate e')
     ass: 3D tensor (n,n,k) a values per i,j,k
-    args: python list of candidates for i
+    RETURNS:
+    1D tensor (arb_j) of maximum message values for this i,j
     '''
 
-    def lbp_iteration_individuals(self, mbar, j, i_idx, j_idx, psis_j, ass, args):
-        # TODO ensure candidates is Gamma(i) - Gamma is the set of candidates for a mention?
-        maxValue = torch.Tensor([0]).reshape([])  # Default 0 to prevent errors, TODO - what do here?
-        phis_ij = self.phiss(args, j.candidates, i_idx, j_idx, ass)  # TODO - check, shouldn't arg be for i, not j?
-        values = psis_j
-        values += phis_ij
-        mbarmatrix = mbar  # Convert mbar to a torch tensor #TODO - keep it as a torch tensor - Do this, it will be easiest
-        mbarslice = mbarmatrix[:, i_idx][:, 0:len(values)]  # Slice it to a k*7 tensor then down to k*arb
-        mbarslice[j_idx] = 0  # 0 out side where k == j, so it can be summed inconsequentially
-        mbarsums = mbarslice.sum(dim=0)
-        values += mbarsums
-        if len(values) != 0:  # Prevent identity error when tensor is empty
-            maxValue = values.max()
+    def lbp_iteration_individuals(self, mbar, i, i_idx, j, j_idx, psis_i, ass):
+        # mbar intuition: mbar[m_i][m_j][e_j] is how much m_i votes for e_j to be the candidate for m_j (at each timestep)
+        # TODO maxValue = torch.Tensor([0]).reshape([])  # Default 0 to prevent errors, TODO - what do here (when i has no candidates)?
+        phis_ij = self.phiss(i.candidates, j.candidates, i_idx, j_idx, ass)  # 2d (arb_i,arb_j) tensor
+        values = phis_ij  # values inside max{} brackets - Eq (10) LBP paper
+        values = (values.T + psis_i).T  # broadcast (from (arb_i) to (arb_i,arb_j) tensor)
+        # mbar is a 3D (n,n,7) tensor
+        mbarslice = mbar[:, i_idx][:, 0:len(psis_i)]  # Slice it to a n*7 tensor then down to n*arb_i
+        mbarslice[j_idx] = 0  # 0 out side where n == j, so it can be summed inconsequentially
+        mbarsums = mbarslice.sum(dim=0)  # (arb_i) tensor of sums (1 for each e')
+        values = (values.T + mbarsums).T  # broadcast (from (arb_i) to (arb_i,arb_j) tensor)
+        #        if len(values) != 0:  # Prevent identity error when tensor is empty#TODO - how to prevent in multiple dimensions?
+        maxValue = values.max(dim=0)[0]  # (arb_j) tensor of max values ([0] gets max not argmax)
         return maxValue
 
     '''
@@ -297,6 +297,26 @@ class NeuralNet(nn.Module):
                     newmbar[i_idx][j_idx][arg_idx] = bar
         return newmbar
 
+    def lbp_iteration_complete_new(self, mbar, mentions, psis, ass):
+        newmbar = mbar.clone()
+        for i_idx, i in tqdm(enumerate(mentions)):
+            psis_i = psis[i_idx]
+            for j_idx, j in enumerate(mentions):
+                mvalues = self.lbp_iteration_individuals(mbar, i, i_idx, j, j_idx, psis_i, ass)
+                softmaxdenom = mvalues.exp().sum()  # Eq 11 softmax denominator from LBP paper
+
+                # Do Eq 11 (old mbars + mvalues to new mbars)
+                dampingFactor = 0.5  # delta in the paper
+                bars = mbar[i_idx][j_idx].exp()
+                bars *= (1 - dampingFactor)
+                otherbit = dampingFactor * (mvalues.exp() / softmaxdenom)
+                # add padding
+                otherbit = torch.cat([otherbit, torch.zeros(7 - len(otherbit))])
+                bars += otherbit
+                bars = bars.log()
+                newmbar[i_idx][j_idx] = bars
+        return newmbar
+
     def lbp_total(self, mentions: List[Mention], f_m_cs, ass):
         mbar = {}
         psis = []
@@ -309,7 +329,7 @@ class NeuralNet(nn.Module):
         debug("Now doing LBP Loops")
         for loopno in range(0, SETTINGS.LBP_loops):
             print(f"Doing loop {loopno + 1}/{SETTINGS.LBP_loops}")
-            newmbar = self.lbp_iteration_complete(mbar, mentions, psis, ass)
+            newmbar = self.lbp_iteration_complete_new(mbar, mentions, psis, ass)
             mbar = newmbar
         # Now compute ubar
         ubar = {}
