@@ -122,7 +122,7 @@ class TestNeural(unittest.TestCase):
         print(f"MaxError: {maxTotalError} (of {count} pairs)")
         self.assertTrue(maxTotalError < 0.01)
 
-    def test_lbp(self):
+    def test_lbp_individual(self):
         mentions = self.testingDoc.mentions
         mentions = [mentions[0]]
         mbar = torch.zeros(len(mentions), len(mentions), 7)
@@ -147,5 +147,20 @@ class TestNeural(unittest.TestCase):
         maxError = utils.maxError(lbps, lbps_)
         print("lbps", lbps)
         print("lbps_", lbps_)
+        print(f"Max(Sub)Error: {maxError}")
+        self.assertTrue(maxError < 0.01)
+
+    def test_lbp_complete(self):
+        mentions = self.testingDoc.mentions
+        mbar = torch.zeros(len(mentions), len(mentions), 7)
+        for m in mentions:
+            m.candidates = m.candidates[0:7]  # at most 7 cands per mention
+        # print("em",processeddata.wordid2embedding)
+        fmcs = self.network.perform_fmcs(mentions)
+        psis = [self.network.psis(m, fmcs[m_idx]) for m_idx, m in enumerate(mentions)]
+        ass = self.network.ass(mentions, fmcs)
+        lbp = self.network.lbp_iteration_complete_new(mbar, mentions, psis, ass)
+        lbp_ = self.network.lbp_iteration_complete(mbar, mentions, psis, ass)
+        maxError = utils.maxError(lbp, lbp_)
         print(f"Max(Sub)Error: {maxError}")
         self.assertTrue(maxError < 0.01)

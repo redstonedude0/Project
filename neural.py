@@ -12,7 +12,7 @@ import hyperparameters
 import processeddata
 from datastructures import Model, Mention, Document
 from hyperparameters import SETTINGS
-from utils import debug, map_2D, map_1D
+from utils import debug, map_2D, map_1D, nantensor
 
 
 def evaluate():  # TODO - params
@@ -218,33 +218,7 @@ class NeuralNet(nn.Module):
         x = y / np.math.sqrt(SETTINGS.d)
         return torch.exp(x)
 
-    '''
-    compute lbp values for 2 mentions and 1 candidate over all candidates for j
-    mbar: mbar 3D tensor from t-1
-    i,j: mentions (will calculate for all candidates of j)
-    i_idx,j_idx: mbar indexes for i and j
-    psis_j: 1D (arb_j) tensor of psi values per candidate for j
-    arg:candidate for i
-    RETURNS:
-    maximum value (new message value) for the given i,j,arg(i candidate)
-    '''
-
     # LBP FROM https://arxiv.org/pdf/1704.04920.pdf
-    def lbp_iteration_individual(self, mbar, j, i_idx, j_idx, psis_j, ass, arg):
-        # TODO ensure candidates is Gamma(i) - Gamma is the set of candidates for a mention?
-        maxValue = torch.Tensor([0]).reshape([])  # Default 0 to prevent errors, TODO - what do here?
-        phis_ij = self.phis(arg, j.candidates, i_idx, j_idx, ass)  # TODO - check, shouldn't arg be for i, not j?
-        values = psis_j
-        values += phis_ij
-        mbarmatrix = mbar  # Convert mbar to a torch tensor #TODO - keep it as a torch tensor - Do this, it will be easiest
-        mbarslice = mbarmatrix[:, i_idx][:, 0:len(values)]  # Slice it to a k*7 tensor then down to k*arb
-        mbarslice[j_idx] = 0  # 0 out side where k == j, so it can be summed inconsequentially
-        mbarsums = mbarslice.sum(dim=0)
-        values += mbarsums
-        if len(values) != 0:  # Prevent identity error when tensor is empty
-            maxValue = values.max()
-        return maxValue
-
     '''
     Perform LBP iteration for set of candidates for j (e_js/es)
     mbar: mbar message values (n,n,7) 3D tensor
@@ -279,16 +253,16 @@ class NeuralNet(nn.Module):
     def lbp_iteration_complete(self, mbar, mentions, psis, ass):
         newmbar = mbar.clone()
         for i_idx, i in tqdm(enumerate(mentions)):
+            psis_i = psis[i_idx]
             for j_idx, j in enumerate(mentions):
-                psis_j = psis[j_idx]
+                mvalues_ = self.lbp_iteration_individuals(mbar, i, i_idx, j, j_idx, psis_i, ass)
                 mvalues = {}
-                for arg in i.candidates:
-                    newmval = self.lbp_iteration_individual(mbar, j, i_idx, j_idx, psis_j, ass, arg)
+                for arg, newmval in zip(j.candidates, mvalues_):
                     mvalues[arg.id] = newmval
                 mvalsum = 0  # Eq 13 denominator from LBP paper
                 for value in mvalues.values():
                     mvalsum += value.exp()
-                for arg_idx, arg in enumerate(i.candidates):
+                for arg_idx, arg in enumerate(j.candidates):
                     # Bar (needs softmax)
                     dampingFactor = 0.5  # delta in the paper
                     mval = mvalues[arg.id]
@@ -313,7 +287,7 @@ class NeuralNet(nn.Module):
                 bars *= (1 - dampingFactor)
                 otherbit = dampingFactor * (mvalues.exp() / softmaxdenom)
                 # add padding
-                otherbit = torch.cat([otherbit, torch.zeros(7 - len(otherbit))])
+                otherbit = torch.cat([otherbit, nantensor(7 - len(otherbit))])
                 bars += otherbit
                 bars = bars.log()
                 newmbar[i_idx][j_idx] = bars

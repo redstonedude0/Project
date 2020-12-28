@@ -1,6 +1,8 @@
 # File containing utilities
 from typing import Callable
 
+import torch
+
 from hyperparameters import SETTINGS
 
 
@@ -36,4 +38,11 @@ def withinError(tensor1, tensor2, relativeError=0.01):
 def maxError(tensor1, tensor2):
     # Error relative to tensor 1
     relError = abs((tensor1 - tensor2) / tensor1)
-    return relError.max()
+    inverseMask = relError.eq(relError)
+    # TODO - if there are no non-nan values this will error
+    return relError[inverseMask].max()
+
+
+def nantensor(size):
+    zeros = torch.zeros(size)
+    return zeros / zeros
