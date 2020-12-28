@@ -113,6 +113,44 @@ class NeuralNet(nn.Module):
         return valss
 
     '''
+    Calculate phi_k values for pairs of candidates in lists
+    mentions: 1D (n) python list of entities to compute phi_k with
+    Returns: 
+    5D (n_i,n_j,7,7,k) Tensor of phi_k values foreach k foreach candidate
+    4D (n_i,n_j,7,7) Boolean mask Tensor for (arb_i,arb_j) masking'''
+
+    def phi_ksssss(self, mentions):
+        n = len(mentions)
+        embeddings = torch.zeros([n, 7, SETTINGS.d])  # 3D (n,7,d) tensor of embeddings
+        masks = torch.zeros([n, 7], dtype=torch.bool)  # 2D (n,7) bool tensor of masks
+        for m_idx, m in enumerate(mentions):
+            valss = torch.stack([e_i.entEmbeddingTorch() for e_i in m.candidates])
+            embeddings[m_idx][0:len(valss)] = valss
+            masks[m_idx][0:len(valss)] = True
+        # embeddings is a (n,7,d) tensor
+        # R is a (k,d,d) tensor
+        valsss = embeddings.reshape([n, 1, 7, SETTINGS.d])
+        # valss is a (n,1,7,d) tensor
+        # See image 2
+        valsss = torch.matmul(valsss, self.R)
+        # valss is (n,k,7,d) tensor
+        # Have (n,k,7,d) and (n,7,d) want (n,n,7,7,k)
+        # (n,1,7,d)*(n,1,7,d,k) should do it?
+        valsss = valsss.transpose(1, 2)
+        # valsss is (n,7,k,d)
+        valsss = valsss.transpose(2, 3)
+        # valsss is (n,7,d,k)
+        valsss = valsss.reshape([n, 1, 7, SETTINGS.d, SETTINGS.k])
+        # valsss is (n,1,7,d,k)
+        embeddings = embeddings.reshape([n, 1, 7, SETTINGS.d])
+        # embeddings is (n,1,7,d)
+        # see image 1 (applied to 2D version, this was 3D)
+        # valss = valss.matmul(embeddings.T)
+        valsss = torch.matmul(embeddings, valsss)
+        # valsss is (n,n,7,7,k)
+        return valsss
+
+    '''
     Calculates Phi for every e_j in a list
     e_i: specific entity to calculate it for
     candidates: 1D python list of candidates to compute phi value with
@@ -139,6 +177,19 @@ class NeuralNet(nn.Module):
 
     def phiss(self, candidates_i, candidates_j, i_idx, j_idx, ass):
         # TODO can use float("NaN") to make it (7,7) not (arb,arb)
+        values = self.phi_ksss(candidates_i, candidates_j)
+        values *= ass[i_idx][j_idx]
+        return values.sum(dim=2)
+
+    '''
+    Calculates Phi for every candidate pair for every mention
+    mentions: all mentions (1D python list)
+    ass: 3D (n*n*k) matrix of a values 
+    RETURN: 4D (n_i,n_j,arb_i,arb_j) Tensor of phi values foreach candidate foreach i,j
+    '''
+
+    def phissss(self, mentions, ass):
+        # TODO mask
         values = self.phi_ksss(candidates_i, candidates_j)
         values *= ass[i_idx][j_idx]
         return values.sum(dim=2)
@@ -246,6 +297,33 @@ class NeuralNet(nn.Module):
         return maxValue
 
     '''
+    Perform LBP iteration for all pairs of candidates
+    mbar: mbar message values (n,n,7) 3D tensor
+    mentions: python list of mentions (for j,i (e/e') mentions and candidates)
+    psiss: 2D tensor (n,arb_i) all psi values for each mention i (per candidate e')
+    ass: 3D tensor (n,n,k) a values per i,j,k
+    RETURNS:
+    3D tensor (n,n,arb_j) of maximum message values for each i,j and each candidate for j
+    #TODO - add mbar mask
+    '''
+
+    def lbp_iteration_individualsss(self, mbar, mentions, psiss, ass):
+        # mbar intuition: mbar[m_i][m_j][e_j] is how much m_i votes for e_j to be the candidate for m_j (at each timestep)
+        # TODO maxValue = torch.Tensor([0]).reshape([])  # Default 0 to prevent errors, TODO - what do here (when i has no candidates)?
+
+        phis_ij = self.phiss(i.candidates, j.candidates, i_idx, j_idx, ass)  # 2d (arb_i,arb_j) tensor
+        values = phis_ij  # values inside max{} brackets - Eq (10) LBP paper
+        values = (values.T + psis_i).T  # broadcast (from (arb_i) to (arb_i,arb_j) tensor)
+        # mbar is a 3D (n,n,7) tensor
+        mbarslice = mbar[:, i_idx][:, 0:len(psis_i)]  # Slice it to a n*7 tensor then down to n*arb_i
+        mbarslice[j_idx] = 0  # 0 out side where n == j, so it can be summed inconsequentially
+        mbarsums = mbarslice.sum(dim=0)  # (arb_i) tensor of sums (1 for each e')
+        values = (values.T + mbarsums).T  # broadcast (from (arb_i) to (arb_i,arb_j) tensor)
+        #        if len(values) != 0:  # Prevent identity error when tensor is empty#TODO - how to prevent in multiple dimensions?
+        maxValue = values.max(dim=0)[0]  # (arb_j) tensor of max values ([0] gets max not argmax)
+        return maxValue
+
+    '''
     INPUT:
     psis: python array of 1D tensors (i,arb) of psi values
     '''
@@ -328,6 +406,7 @@ class NeuralNet(nn.Module):
 
     def forward(self, document: Document):
         mentions = document.mentions
+        self.phi_ksssss(mentions)
         debug("Calculating f_m_c values")
         f_m_cs = self.perform_fmcs(mentions)
         debug("Calculating a values")

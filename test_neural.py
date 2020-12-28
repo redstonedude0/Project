@@ -162,5 +162,27 @@ class TestNeural(unittest.TestCase):
         lbp = self.network.lbp_iteration_complete_new(mbar, mentions, psis, ass)
         lbp_ = self.network.lbp_iteration_complete(mbar, mentions, psis, ass)
         maxError = utils.maxError(lbp, lbp_)
-        print(f"Max(Sub)Error: {maxError}")
+        print(f"MaxError: {maxError}")
         self.assertTrue(maxError < 0.01)
+
+    def test_phik_equiv_5D(self):
+        mentions = self.testingDoc.mentions
+        for m in mentions:
+            m.candidates = m.candidates[0:7]  # at most 7 cands per mention
+        phisss = self.network.phi_ksssss(mentions)
+        maxTotalError = 0
+        count = 0
+        for i_idx, i in enumerate(mentions):
+            for j_idx, j in enumerate(mentions):
+                phis_ = self.network.phi_ksss(i.candidates, j.candidates)
+                # Check the error between them only as far as the arbs of phis_
+                arb_i, arb_j, k = phis_.shape
+                maxError = utils.maxError(phis_, phisss[i_idx][j_idx].narrow(0, 0, arb_i).narrow(1, 0, arb_j))
+                print(f"Max(Sub)Error: {maxError}")
+                self.assertTrue(maxError < 0.01)
+                maxTotalError = max(maxTotalError, maxError)
+                count += 1
+                # print(f"Max(Sub)Error: {maxError}")
+                # self.assertTrue(maxError < 0.01)
+        print(f"MaxError: {maxTotalError} (of {count} pairs)")
+        self.assertTrue(maxTotalError < 0.01)
