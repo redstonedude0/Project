@@ -124,6 +124,7 @@ class TestNeural(unittest.TestCase):
 
     def test_lbp(self):
         mentions = self.testingDoc.mentions
+        mentions = [mentions[0]]
         mbar = torch.zeros(len(mentions), len(mentions), 7)
         i_idx = 0
         j_idx = 0
@@ -131,15 +132,18 @@ class TestNeural(unittest.TestCase):
         j = mentions[j_idx]
         i.candidates = i.candidates[0:5]
         j.candidates = j.candidates[0:6]
+        # print("em",processeddata.wordid2embedding)
         fmcs = self.network.perform_fmcs(mentions)
         psis_i = self.network.psis(i, fmcs[i_idx])
         ass = self.network.ass(mentions, fmcs)
         lbps = self.network.lbp_iteration_individuals(mbar, i, i_idx, j, j_idx, psis_i, ass)
-        lbps_ = []
-        for c in j.candidates:
-            lbp_ = self.network.lbp_iteration_individual(mbar, i, j_idx, i_idx, psis_i, ass, c)
-            lbps_.append(lbp_)
-        lbps_ = torch.stack(lbps_)
+        # lbps_ = []
+        # for c in j.candidates:
+        #    lbp_ = self.network.lbp_iteration_individual(mbar, i, j_idx, i_idx, psis_i, ass, c)
+        #    lbps_.append(lbp_)
+        # lbps_ = torch.stack(lbps_)
+        lbps_ = torch.tensor(
+            [0.9441, 0.6720, 0.7305, 0.5730, 0.6093])  # just assert static answer is right and ensure nothing changes
         maxError = utils.maxError(lbps, lbps_)
         print("lbps", lbps)
         print("lbps_", lbps_)

@@ -37,6 +37,7 @@ def train(model: Model):  # TODO - add params
 class NeuralNet(nn.Module):
     def __init__(self):
         super(NeuralNet, self).__init__()
+        torch.manual_seed(0)
         self.features = nn.Sequential(
             nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
@@ -193,6 +194,7 @@ class NeuralNet(nn.Module):
         #
         tensors = [leftTensor, midTensor, rightTensor]
         input_ = torch.cat(tensors, dim=1).type(torch.Tensor)  # make default tensor type for network
+        torch.manual_seed(0)
         f = self.f_m_c(input_)
         return f
 
