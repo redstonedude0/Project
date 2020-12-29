@@ -15,6 +15,9 @@ class TestNeural(unittest.TestCase):
         self.network = NeuralNet()
         processeddata.loadEmbeddings()
         self.testingDoc = testdata.getTestData()
+        # at most 7 cands per mention in doc
+        for m in self.testingDoc.mentions:
+            m.candidates = m.candidates[0:7]
     def tearDown(self) -> None:
         pass
 
@@ -78,8 +81,8 @@ class TestNeural(unittest.TestCase):
         count = 0
         for m_i in tqdm(self.testingDoc.mentions):
             for m_j in self.testingDoc.mentions:
-                i_cands = m_i.candidates[0:7]
-                j_cands = m_j.candidates[0:7]
+                i_cands = m_i.candidates
+                j_cands = m_j.candidates
                 ksss = self.network.phi_ksss(i_cands, j_cands)
                 count_i = len(i_cands)
                 is_ = []
@@ -97,6 +100,7 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(maxTotalError < 0.01)
 
     def test_phis_methods_equiv(self):
+        raise NotImplementedError("Methos phis removed")
         # test phis code is equal
         fmcs = self.network.perform_fmcs(self.testingDoc.mentions)
         ass = self.network.ass(self.testingDoc.mentions, fmcs)
@@ -104,8 +108,8 @@ class TestNeural(unittest.TestCase):
         count = 0
         for i_idx, m_i in enumerate(self.testingDoc.mentions):
             for j_idx, m_j in enumerate(self.testingDoc.mentions):
-                i_cands = m_i.candidates[0:7]
-                j_cands = m_j.candidates[0:7]
+                i_cands = m_i.candidates
+                j_cands = m_j.candidates
                 phiss = self.network.phiss(i_cands, j_cands, i_idx, j_idx, ass)
                 count_i = len(i_cands)
                 is_ = []
@@ -153,8 +157,6 @@ class TestNeural(unittest.TestCase):
     def test_lbp_complete(self):
         mentions = self.testingDoc.mentions
         mbar = torch.zeros(len(mentions), len(mentions), 7)
-        for m in mentions:
-            m.candidates = m.candidates[0:7]  # at most 7 cands per mention
         # print("em",processeddata.wordid2embedding)
         fmcs = self.network.perform_fmcs(mentions)
         psis = [self.network.psis(m, fmcs[m_idx]) for m_idx, m in enumerate(mentions)]
@@ -167,9 +169,8 @@ class TestNeural(unittest.TestCase):
 
     def test_phik_equiv_5D(self):
         mentions = self.testingDoc.mentions
-        for m in mentions:
-            m.candidates = m.candidates[0:7]  # at most 7 cands per mention
         phisss, maskss = self.network.phi_ksssss(mentions)
+        print("PHISSS", phisss[11][0])
         maxTotalError = 0
         count = 0
         for i_idx, i in enumerate(mentions):
@@ -201,8 +202,6 @@ class TestNeural(unittest.TestCase):
         mentions = self.testingDoc.mentions
         fmcs = self.network.perform_fmcs(mentions)
         ass = self.network.ass(mentions, fmcs)
-        for m in mentions:
-            m.candidates = m.candidates[0:7]  # at most 7 cands per mention
         phisss, maskss = self.network.phissss(mentions, ass)
         maxTotalError = 0
         count = 0
@@ -228,5 +227,55 @@ class TestNeural(unittest.TestCase):
 
                 # print(f"Max(Sub)Error: {maxError}")
                 # self.assertTrue(maxError < 0.01)
+        print(f"MaxError: {maxTotalError} (of {count} pairs)")
+        self.assertTrue(maxTotalError < 0.01)
+
+    def test_psis_equiv(self):
+        mentions = self.testingDoc.mentions
+        fmcs = self.network.perform_fmcs(mentions)
+        psiss = self.network.psiss(mentions, fmcs)
+        print("psiss1", psiss[11])
+        print("psiss2", self.network.psis(mentions[11], fmcs[11]))
+        maxTotalError = 0
+        count = 0
+        for i_idx, i in enumerate(mentions):
+            psis_ = self.network.psis(i, fmcs[i_idx])
+            # Check the error between them only as far as the arb of psis_
+            arb_i = psis_.shape[0]  # need [0] to explicitely cast from torch.size to int
+            psiss_sub = psiss[i_idx].narrow(0, 0, arb_i)
+            maxError = utils.maxError(psis_, psiss_sub)
+            print(f"Max(Sub)Error: {maxError}")
+            self.assertTrue(maxError < 0.01)
+            maxTotalError = max(maxTotalError, maxError)
+            count += 1
+            # Check masks
+            # TODO (if add masks)
+        print(f"MaxError: {maxTotalError} (of {count} pairs)")
+        self.assertTrue(maxTotalError < 0.01)
+
+    def test_lbp_indiv_equiv(self):
+        mentions = self.testingDoc.mentions
+        fmcs = self.network.perform_fmcs(mentions)
+        ass = self.network.ass(mentions, fmcs)
+        psiss = self.network.psiss(mentions, fmcs)
+        mbar = torch.zeros(len(mentions), len(mentions), 7)
+        mbarnew = self.network.lbp_iteration_individualsss(mbar, mentions, psiss, ass)
+        maxTotalError = 0
+        count = 0
+        for i_idx, i in enumerate(mentions):
+            psis_i = psiss[i_idx]
+            for j_idx, j in enumerate(mentions):
+                mbarnew_ = self.network.lbp_iteration_individuals(mbar, i, i_idx, j, j_idx, psis_i, ass)
+                # Check the error between them only as far as the arbs of mbarnew_
+                arb_j = mbarnew_.shape[0]
+                mbarnew_sub = mbarnew[i_idx][j_idx].narrow(0, 0, arb_j)
+                maxError = utils.maxError(mbarnew_sub, mbarnew_)
+                if i_idx == 11 and j_idx == 0:
+                    print(f"Max(Sub)Error: {maxError}")
+                    print("comp", mbarnew[i_idx][j_idx], mbarnew_)
+                    print("comp", i_idx, j_idx)
+                #                    self.assertTrue(maxError < 0.01)
+                maxTotalError = max(maxTotalError, maxError)
+                count += 1
         print(f"MaxError: {maxTotalError} (of {count} pairs)")
         self.assertTrue(maxTotalError < 0.01)
