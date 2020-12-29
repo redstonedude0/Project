@@ -46,3 +46,19 @@ def maxError(tensor1, tensor2):
 def nantensor(size):
     zeros = torch.zeros(size)
     return zeros / zeros
+
+
+'''
+This will take the masked min
+In the event that there is no min in a dimension the identity will be the
+absolute min of the tensor
+'''
+
+
+def maskedmax(tensor, mask, dim=0):
+    mask = mask.logical_not()  # True when needs to be masked out
+    absmin = tensor.min()  # absolute min
+    absmax = tensor.max()  # absolute max
+    mask = mask.type(torch.Tensor) * (absmin - absmax)  # (absmin-abssmax) when needs to be masked out, 0 when kept
+    tensor += mask  # doesn't affect non-masked out, maskedout values have min added, max removed. They will be made at least as low as the lowest value
+    return tensor.max(dim)

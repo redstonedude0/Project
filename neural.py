@@ -12,7 +12,7 @@ import hyperparameters
 import processeddata
 from datastructures import Model, Mention, Document
 from hyperparameters import SETTINGS
-from utils import debug, map_2D, map_1D, nantensor
+from utils import debug, map_2D, map_1D, nantensor, maskedmax
 
 
 def evaluate():  # TODO - params
@@ -320,8 +320,6 @@ class NeuralNet(nn.Module):
         phis_ij = self.phiss(i.candidates, j.candidates, i_idx, j_idx, ass)  # 2d (arb_i,arb_j) tensor
         values = phis_ij  # values inside max{} brackets - Eq (10) LBP paper
         values = (values.T + psis_i).T  # broadcast (from (arb_i) to (arb_i,arb_j) tensor)
-        if i_idx == 11 and j_idx == 0:
-            print("AHAH", values)
         # mbar is a 3D (n,n,7) tensor
         mbarslice = mbar[:, i_idx][:, 0:len(psis_i)]  # Slice it to a n*7 tensor then down to n*arb_i
         mbarslice[j_idx] = 0  # 0 out side where n == j, so it can be summed inconsequentially
@@ -347,10 +345,8 @@ class NeuralNet(nn.Module):
         # TODO maxValue = torch.Tensor([0]).reshape([])  # Default 0 to prevent errors, TODO - what do here (when i has no candidates)?
         n = len(mentions)
         phis, maskss = self.phissss(mentions, ass)  # 4d (n_i,n_j,7_i,7_j) tensor
-        #        print("a", phis[11][0])
         values = phis  # values inside max{} brackets - Eq (10) LBP paper
         values = values + psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
-        #        print("b", values[11][0])
         # mbar is a 3D (n_i,n_j,7_j) tensor
         mbarsum = mbar  # start by reading mbar as k->i beliefs
         # (n_k,n_i,7_i)
@@ -367,9 +363,8 @@ class NeuralNet(nn.Module):
         # (n_i,n_j,7_i)
         values = values + mbarsum.reshape([n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
         #        if len(values) != 0:  # Prevent identity error when tensor is empty#TODO - how to prevent in multiple dimensions?
-        #        print("VALUES",values[11][0])
-        maxValue = values.max(dim=2)[0]  # (n_i,n_j,7_j) tensor of max values ([0] gets max not argmax)
-        #        print("VALUES",maxValue[11][0])
+        # Masked max
+        maxValue = maskedmax(values, maskss, dim=2)[0]  # (n_i,n_j,7_j) tensor of max values ([0] gets max not argmax)
         return maxValue
 
     '''

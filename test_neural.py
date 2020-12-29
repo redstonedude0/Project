@@ -263,7 +263,7 @@ class TestNeural(unittest.TestCase):
         maxTotalError = 0
         count = 0
         for i_idx, i in enumerate(mentions):
-            psis_i = psiss[i_idx]
+            psis_i = psiss[i_idx][0:len(i.candidates)]
             for j_idx, j in enumerate(mentions):
                 mbarnew_ = self.network.lbp_iteration_individuals(mbar, i, i_idx, j, j_idx, psis_i, ass)
                 # Check the error between them only as far as the arbs of mbarnew_
