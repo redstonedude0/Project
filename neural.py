@@ -395,12 +395,11 @@ class NeuralNet(nn.Module):
                     newmbar[i_idx][j_idx][arg_idx] = bar
         return newmbar
 
-    def lbp_iteration_complete_new(self, mbar, mentions, psis, ass):
+    def lbp_iteration_complete_new(self, mbar, mentions, psiss, ass):
         newmbar = mbar.clone()
         for i_idx, i in tqdm(enumerate(mentions)):
-            psis_i = psis[i_idx]
             for j_idx, j in enumerate(mentions):
-                mvalues = self.lbp_iteration_individuals(mbar, i, i_idx, j, j_idx, psis_i, ass)
+                mvalues = self.lbp_iteration_individualsss(mbar, mentions, psiss, ass)[i_idx][j_idx]
                 softmaxdenom = mvalues.exp().sum()  # Eq 11 softmax denominator from LBP paper
 
                 # Do Eq 11 (old mbars + mvalues to new mbars)
@@ -417,17 +416,14 @@ class NeuralNet(nn.Module):
 
     def lbp_total(self, mentions: List[Mention], f_m_cs, ass):
         mbar = {}
-        psis = []
-        for (i, f_m_c) in zip(mentions, f_m_cs):
-            psis_i = self.psis(i, f_m_c)
-            psis.append(psis_i)
+        psiss = self.psiss(mentions, f_m_cs)
         # Note: Should be i*j*arb but arb dependent so i*j*7 but unused cells will be 0 and trimmed
         debug("Computing initial mbar for LBP")
         mbar = torch.zeros(len(mentions), len(mentions), 7)
         debug("Now doing LBP Loops")
         for loopno in range(0, SETTINGS.LBP_loops):
             print(f"Doing loop {loopno + 1}/{SETTINGS.LBP_loops}")
-            newmbar = self.lbp_iteration_complete_new(mbar, mentions, psis, ass)
+            newmbar = self.lbp_iteration_complete_new(mbar, mentions, psiss, ass)
             mbar = newmbar
         # Now compute ubar
         ubar = {}
@@ -439,7 +435,7 @@ class NeuralNet(nn.Module):
                 for k_idx, k in enumerate(mentions):
                     if k != i:
                         sum += mbar[k_idx][i_idx][arg_idx]
-                u = psis[i_idx][arg_idx] + sum
+                u = psiss[i_idx][arg_idx] + sum
                 ubar[i.id][arg.id] = np.exp(u)
             sum = 0
             for arg in i.candidates:  # Gamma(mi)
