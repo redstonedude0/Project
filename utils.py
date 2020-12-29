@@ -43,6 +43,15 @@ def maxError(tensor1, tensor2):
     return relError[inverseMask].max()
 
 
+def maxErrorMasked(tensor1, tensor2, mask):
+    # Error relative to tensor 1
+    relError = abs((tensor1 - tensor2) / tensor1)
+    inverseMask = relError.eq(relError)
+    inverseMask = inverseMask.logical_and(mask)  # True iff keep
+    # TODO - if there are no non-nan values this will error
+    return relError[inverseMask].max()
+
+
 def nantensor(size):
     zeros = torch.zeros(size)
     return zeros / zeros
@@ -55,10 +64,12 @@ absolute min of the tensor
 '''
 
 
-def maskedmax(tensor, mask, dim=0):
+def maskedmax(tensor, mask, dim=-1):
     mask = mask.logical_not()  # True when needs to be masked out
     absmin = tensor.min()  # absolute min
     absmax = tensor.max()  # absolute max
     mask = mask.type(torch.Tensor) * (absmin - absmax)  # (absmin-abssmax) when needs to be masked out, 0 when kept
     tensor += mask  # doesn't affect non-masked out, maskedout values have min added, max removed. They will be made at least as low as the lowest value
+    if dim == -1:
+        return tensor.max()
     return tensor.max(dim)

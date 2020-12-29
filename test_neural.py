@@ -279,3 +279,21 @@ class TestNeural(unittest.TestCase):
                 count += 1
         print(f"MaxError: {maxTotalError} (of {count} pairs)")
         self.assertTrue(maxTotalError < 0.01)
+
+    def test_lbp_compl_equiv(self):
+        mentions = self.testingDoc.mentions
+        embs, maskss = self.network.embeddings(mentions, len(mentions))
+        fmcs = self.network.perform_fmcs(mentions)
+        ass = self.network.ass(mentions, fmcs)
+        psiss = self.network.psiss(mentions, fmcs)
+        # random mbar for better testing
+        mbar = torch.zeros(len(mentions), len(mentions), 7)
+        mbarnew = self.network.lbp_iteration_complete_new(mbar, mentions, psiss, ass)
+        psis = []
+        for i_idx, i in enumerate(mentions):
+            psis_ = psiss[i_idx][0:len(i.candidates)]
+            psis.append(psis_)
+        mbarnew_ = self.network.lbp_iteration_complete(mbar, mentions, psis, ass)
+        maxError = utils.maxErrorMasked(mbarnew, mbarnew_, maskss)
+        print(f"MaxError: {maxError}")
+        self.assertTrue(maxError < 0.01)

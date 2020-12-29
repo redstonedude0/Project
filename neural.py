@@ -12,7 +12,7 @@ import hyperparameters
 import processeddata
 from datastructures import Model, Mention, Document
 from hyperparameters import SETTINGS
-from utils import debug, map_2D, map_1D, nantensor, maskedmax
+from utils import debug, map_2D, map_1D, maskedmax
 
 
 def evaluate():  # TODO - params
@@ -337,7 +337,7 @@ class NeuralNet(nn.Module):
     ass: 3D tensor (n,n,k) a values per i,j,k
     RETURNS:
     3D tensor (n,n,7_j) of maximum message values for each i,j and each candidate for j
-    #TODO - add mbar mask
+    3D tensor (n,n,7) boolean mask
     '''
 
     def lbp_iteration_individualsss(self, mbar, mentions, psiss, ass):
@@ -365,7 +365,9 @@ class NeuralNet(nn.Module):
         #        if len(values) != 0:  # Prevent identity error when tensor is empty#TODO - how to prevent in multiple dimensions?
         # Masked max
         maxValue = maskedmax(values, maskss, dim=2)[0]  # (n_i,n_j,7_j) tensor of max values ([0] gets max not argmax)
-        return maxValue
+        # compute mask
+        masks = maskss.type(torch.Tensor).max(dim=2)[0].type(torch.BoolTensor)
+        return maxValue, masks
 
     '''
     INPUT:
@@ -378,6 +380,8 @@ class NeuralNet(nn.Module):
             psis_i = psis[i_idx]
             for j_idx, j in enumerate(mentions):
                 mvalues_ = self.lbp_iteration_individuals(mbar, i, i_idx, j, j_idx, psis_i, ass)
+                if i_idx == 11 and j_idx == 11:
+                    print("alpha-1", mvalues_)
                 mvalues = {}
                 for arg, newmval in zip(j.candidates, mvalues_):
                     mvalues[arg.id] = newmval
@@ -396,22 +400,21 @@ class NeuralNet(nn.Module):
         return newmbar
 
     def lbp_iteration_complete_new(self, mbar, mentions, psiss, ass):
-        newmbar = mbar.clone()
-        for i_idx, i in tqdm(enumerate(mentions)):
-            for j_idx, j in enumerate(mentions):
-                mvalues = self.lbp_iteration_individualsss(mbar, mentions, psiss, ass)[i_idx][j_idx]
-                softmaxdenom = mvalues.exp().sum()  # Eq 11 softmax denominator from LBP paper
+        n = len(mentions)
+        # (n,n,7_j) tensor
+        mvalues, masks = self.lbp_iteration_individualsss(mbar, mentions, psiss, ass)
+        print("beta-1", mvalues[11][11])
+        expmvals = mvalues.exp()
+        expmvals *= masks.type(torch.Tensor)  # 0 if masked out
+        softmaxdenoms = expmvals.sum(dim=2)  # Eq 11 softmax denominator from LBP paper
 
-                # Do Eq 11 (old mbars + mvalues to new mbars)
-                dampingFactor = 0.5  # delta in the paper
-                bars = mbar[i_idx][j_idx].exp()
-                bars *= (1 - dampingFactor)
-                otherbit = dampingFactor * (mvalues.exp() / softmaxdenom)
-                # add padding
-                otherbit = torch.cat([otherbit, nantensor(7 - len(otherbit))])
-                bars += otherbit
-                bars = bars.log()
-                newmbar[i_idx][j_idx] = bars
+        # Do Eq 11 (old mbars + mvalues to new mbars)
+        dampingFactor = 0.5  # delta in the paper
+        newmbar = mbar.exp()
+        newmbar *= (1 - dampingFactor)
+        otherbit = dampingFactor * (expmvals / softmaxdenoms.reshape([n, n, 1]))  # broadcast (n,n) to (n,n,7)
+        newmbar += otherbit
+        newmbar = newmbar.log()
         return newmbar
 
     def lbp_total(self, mentions: List[Mention], f_m_cs, ass):
