@@ -148,7 +148,10 @@ class NeuralNet(nn.Module):
         # valss = valss.matmul(embeddings.T)
         valsss = torch.matmul(embeddings, valsss)
         # valsss is (n,n,7,7,k)
-        return valsss
+        # Make maskss (n_i,n_j,7_i,7_j)
+        maskss = torch.matmul(masks.reshape([n, 1, 7, 1]).type(torch.Tensor),
+                              masks.reshape([n, 1, 7]).type(torch.Tensor)).type(torch.BoolTensor)
+        return valsss, maskss
 
     '''
     Calculates Phi for every e_j in a list
@@ -185,14 +188,17 @@ class NeuralNet(nn.Module):
     Calculates Phi for every candidate pair for every mention
     mentions: all mentions (1D python list)
     ass: 3D (n*n*k) matrix of a values 
-    RETURN: 4D (n_i,n_j,arb_i,arb_j) Tensor of phi values foreach candidate foreach i,j
+    RETURN:
+    4D (n_i,n_j,7_i,7_j) Tensor of phi values foreach candidate foreach i,j
+    4D (n_i,n_j,7_i,7_j) Mask tensor
     '''
 
     def phissss(self, mentions, ass):
-        # TODO mask
-        values = self.phi_ksss(candidates_i, candidates_j)
-        values *= ass[i_idx][j_idx]
-        return values.sum(dim=2)
+        n = len(mentions)
+        # 5D(n_i,n_j,7_i,7_j,k) , 4D (n_i,n_j,7_i,7_j)
+        values, mask = self.phi_ksssss(mentions)
+        values *= ass.reshape([n, n, 1, 1, SETTINGS.k])  # broadcast along 7*7
+        return values.sum(dim=4), mask
 
     '''
     INPUT:
@@ -406,7 +412,6 @@ class NeuralNet(nn.Module):
 
     def forward(self, document: Document):
         mentions = document.mentions
-        self.phi_ksssss(mentions)
         debug("Calculating f_m_c values")
         f_m_cs = self.perform_fmcs(mentions)
         debug("Calculating a values")

@@ -169,7 +169,7 @@ class TestNeural(unittest.TestCase):
         mentions = self.testingDoc.mentions
         for m in mentions:
             m.candidates = m.candidates[0:7]  # at most 7 cands per mention
-        phisss = self.network.phi_ksssss(mentions)
+        phisss, maskss = self.network.phi_ksssss(mentions)
         maxTotalError = 0
         count = 0
         for i_idx, i in enumerate(mentions):
@@ -177,11 +177,55 @@ class TestNeural(unittest.TestCase):
                 phis_ = self.network.phi_ksss(i.candidates, j.candidates)
                 # Check the error between them only as far as the arbs of phis_
                 arb_i, arb_j, k = phis_.shape
-                maxError = utils.maxError(phis_, phisss[i_idx][j_idx].narrow(0, 0, arb_i).narrow(1, 0, arb_j))
+                phisss_sub = phisss[i_idx][j_idx].narrow(0, 0, arb_i).narrow(1, 0, arb_j)
+                maxError = utils.maxError(phis_, phisss_sub)
                 print(f"Max(Sub)Error: {maxError}")
                 self.assertTrue(maxError < 0.01)
                 maxTotalError = max(maxTotalError, maxError)
                 count += 1
+                # Check maskss
+                mask = maskss[i_idx][j_idx]
+                expectedMask = torch.zeros([7, 7])
+                horizontalMask = torch.zeros([7])
+                horizontalMask[0:arb_j] = 1
+                expectedMask[0:arb_i] = horizontalMask
+                expectedMask = expectedMask.type(torch.BoolTensor)
+                self.assertTrue(mask.equal(expectedMask))
+
+                # print(f"Max(Sub)Error: {maxError}")
+                # self.assertTrue(maxError < 0.01)
+        print(f"MaxError: {maxTotalError} (of {count} pairs)")
+        self.assertTrue(maxTotalError < 0.01)
+
+    def test_phis_equiv_5D(self):
+        mentions = self.testingDoc.mentions
+        fmcs = self.network.perform_fmcs(mentions)
+        ass = self.network.ass(mentions, fmcs)
+        for m in mentions:
+            m.candidates = m.candidates[0:7]  # at most 7 cands per mention
+        phisss, maskss = self.network.phissss(mentions, ass)
+        maxTotalError = 0
+        count = 0
+        for i_idx, i in enumerate(mentions):
+            for j_idx, j in enumerate(mentions):
+                phis_ = self.network.phiss(i.candidates, j.candidates, i_idx, j_idx, ass)
+                # Check the error between them only as far as the arbs of phis_
+                arb_i, arb_j = phis_.shape
+                phisss_sub = phisss[i_idx][j_idx].narrow(0, 0, arb_i).narrow(1, 0, arb_j)
+                maxError = utils.maxError(phis_, phisss_sub)
+                print(f"Max(Sub)Error: {maxError}")
+                self.assertTrue(maxError < 0.01)
+                maxTotalError = max(maxTotalError, maxError)
+                count += 1
+                # Check maskss
+                mask = maskss[i_idx][j_idx]
+                expectedMask = torch.zeros([7, 7])
+                horizontalMask = torch.zeros([7])
+                horizontalMask[0:arb_j] = 1
+                expectedMask[0:arb_i] = horizontalMask
+                expectedMask = expectedMask.type(torch.BoolTensor)
+                self.assertTrue(mask.equal(expectedMask))
+
                 # print(f"Max(Sub)Error: {maxError}")
                 # self.assertTrue(maxError < 0.01)
         print(f"MaxError: {maxTotalError} (of {count} pairs)")
