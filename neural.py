@@ -321,12 +321,9 @@ class NeuralNet(nn.Module):
         values = phis_ij  # values inside max{} brackets - Eq (10) LBP paper
         values = (values.T + psis_i).T  # broadcast (from (arb_i) to (arb_i,arb_j) tensor)
         # mbar is a 3D (n,n,7) tensor
-        print("dims", mbar.shape)
         mbarslice = mbar.clone()[:, i_idx][:, 0:len(psis_i)]  # Slice it to a n*7 tensor then down to n*arb_i
         mbarslice[j_idx] = 0  # 0 out side where n == j, so it can be summed inconsequentially
         mbarsums = mbarslice.sum(dim=0)  # (arb_i) tensor of sums (1 for each e')
-        if i_idx == 4 and j_idx == 29:
-            print("beta", mbar[:, 4])
         values = (values.T + mbarsums).T  # broadcast (from (arb_i) to (arb_i,arb_j) tensor)
         #        if len(values) != 0:  # Prevent identity error when tensor is empty#TODO - how to prevent in multiple dimensions?
         maxValue = values.max(dim=0)[0]  # (arb_j) tensor of max values ([0] gets max not argmax)
@@ -364,7 +361,6 @@ class NeuralNet(nn.Module):
         # sum to a (n_j,n_i,7_i) tensor of sums(over k) for each j,i,e'
         mbarsum = mbarsum.sum(dim=1).transpose(0, 1)
         # (n_i,n_j,7_i)
-        print("alpha", mbarsum[4][29])
         values = values + mbarsum.reshape([n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
         #        if len(values) != 0:  # Prevent identity error when tensor is empty#TODO - how to prevent in multiple dimensions?
         # Masked max
