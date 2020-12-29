@@ -215,7 +215,6 @@ class NeuralNet(nn.Module):
 
     '''
     INPUT:
-    mentions: python list of all mentions
     fmcs: 2D (n,d) tensor of fmc values for each mention n
     Returns:
     3D (n,n,k) tensor of 'exp brackets' values (equation 4 MRN paper)
@@ -293,7 +292,6 @@ class NeuralNet(nn.Module):
         return newmbar
 
     def lbp_total(self, mentions: List[Mention], f_m_cs, ass):
-        mbar = {}
         psiss = self.psiss(mentions, f_m_cs)
         # Note: Should be i*j*arb but arb dependent so i*j*7 but unused cells will be 0 and trimmed
         debug("Computing initial mbar for LBP")
@@ -314,7 +312,7 @@ class NeuralNet(nn.Module):
                     if k != i:
                         sum += mbar[k_idx][i_idx][arg_idx]
                 u = psiss[i_idx][arg_idx] + sum
-                ubar[i.id][arg.id] = np.exp(u)
+                ubar[i.id][arg.id] = u.exp()
             sum = 0
             for arg in i.candidates:  # Gamma(mi)
                 sum += ubar[i.id][arg.id]
