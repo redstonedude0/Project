@@ -60,6 +60,7 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(maxError < 0.01)
 
     def test_phik_methods_equiv_full(self):
+        raise NotImplementedError("phi_kss removed")
         # test phi_k code is equal for all candidates for 2 mentions
         m_i = self.testingDoc.mentions[0]
         m_j = self.testingDoc.mentions[1]
@@ -76,6 +77,7 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(maxError < 0.01)
 
     def test_phik_methods_equiv_total(self):
+        raise NotImplementedError("phi_kss removed")
         # test phi_k code is equal for all mentions for first 7 candidates
         maxTotalError = 0
         count = 0
@@ -127,6 +129,7 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(maxTotalError < 0.01)
 
     def test_lbp_individual(self):
+        raise NotImplementedError("lbp_iteration_individuals removed")
         mentions = self.testingDoc.mentions
         mentions = [mentions[0]]
         mbar = torch.zeros(len(mentions), len(mentions), 7)
@@ -155,6 +158,7 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(maxError < 0.01)
 
     def test_lbp_complete(self):
+        raise NotImplementedError("Changed _new signature, no longer needed")
         mentions = self.testingDoc.mentions
         mbar = torch.zeros(len(mentions), len(mentions), 7)
         # print("em",processeddata.wordid2embedding)
@@ -168,6 +172,7 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(maxError < 0.01)
 
     def test_phik_equiv_5D(self):
+        raise NotImplementedError("phi_ksss removed")
         mentions = self.testingDoc.mentions
         phisss, maskss = self.network.phi_ksssss(mentions)
         print("PHISSS", phisss[11][0])
@@ -199,6 +204,7 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(maxTotalError < 0.01)
 
     def test_phis_equiv_5D(self):
+        raise NotImplementedError("phiss removed")
         mentions = self.testingDoc.mentions
         fmcs = self.network.perform_fmcs(mentions)
         ass = self.network.ass(mentions, fmcs)
@@ -231,6 +237,7 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(maxTotalError < 0.01)
 
     def test_psis_equiv(self):
+        raise NotImplementedError("psis removed")
         mentions = self.testingDoc.mentions
         fmcs = self.network.perform_fmcs(mentions)
         psiss = self.network.psiss(mentions, fmcs)
@@ -254,6 +261,7 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(maxTotalError < 0.01)
 
     def test_lbp_indiv_equiv(self):
+        raise NotImplementedError("lbp_iteration_individuals removed")
         mentions = self.testingDoc.mentions
         fmcs = self.network.perform_fmcs(mentions)
         ass = self.network.ass(mentions, fmcs)
@@ -283,6 +291,7 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(maxTotalError < 0.01)
 
     def test_lbp_compl_equiv(self):
+        raise NotImplementedError("lbp_iteratoin_complete removed")
         mentions = self.testingDoc.mentions
         embs, maskss = self.network.embeddings(mentions, len(mentions))
         fmcs = self.network.perform_fmcs(mentions)
