@@ -258,8 +258,9 @@ class TestNeural(unittest.TestCase):
         fmcs = self.network.perform_fmcs(mentions)
         ass = self.network.ass(mentions, fmcs)
         psiss = self.network.psiss(mentions, fmcs)
-        mbar = torch.zeros(len(mentions), len(mentions), 7)
-        mbarnew = self.network.lbp_iteration_individualsss(mbar, mentions, psiss, ass)
+        torch.manual_seed(0)
+        mbar = torch.rand([len(mentions), len(mentions), 7])
+        mbarnew, masks = self.network.lbp_iteration_individualsss(mbar, mentions, psiss, ass)
         maxTotalError = 0
         count = 0
         for i_idx, i in enumerate(mentions):
@@ -270,8 +271,9 @@ class TestNeural(unittest.TestCase):
                 arb_j = mbarnew_.shape[0]
                 mbarnew_sub = mbarnew[i_idx][j_idx].narrow(0, 0, arb_j)
                 maxError = utils.maxError(mbarnew_sub, mbarnew_)
-                if i_idx == 11 and j_idx == 0:
+                if maxError > 1:
                     print(f"Max(Sub)Error: {maxError}")
+                    print("at", i_idx, j_idx)
                     print("comp", mbarnew[i_idx][j_idx], mbarnew_)
                     print("comp", i_idx, j_idx)
                 #                    self.assertTrue(maxError < 0.01)
@@ -287,7 +289,7 @@ class TestNeural(unittest.TestCase):
         ass = self.network.ass(mentions, fmcs)
         psiss = self.network.psiss(mentions, fmcs)
         # random mbar for better testing
-        mbar = torch.zeros(len(mentions), len(mentions), 7)
+        mbar = torch.rand([len(mentions), len(mentions), 7])
         mbarnew = self.network.lbp_iteration_complete_new(mbar, mentions, psiss, ass)
         psis = []
         for i_idx, i in enumerate(mentions):
