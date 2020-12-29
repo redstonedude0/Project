@@ -161,7 +161,6 @@ class NeuralNet(nn.Module):
 
     '''
     INPUT:
-    mentions: python array of mentions
     fmcs: 2D (n,d) tensor of fmc values for each mention n
     RETURNS:
     3D (n,n,k) tensor of a_ijk per each pair of (n) mentions
