@@ -308,3 +308,19 @@ class TestNeural(unittest.TestCase):
         maxError = utils.maxErrorMasked(mbarnew, mbarnew_, maskss)
         print(f"MaxError: {maxError}")
         self.assertTrue(maxError < 0.01)
+
+    def test_lbp_total_equiv(self):
+        mentions = self.testingDoc.mentions
+        embs, maskss = self.network.embeddings(mentions, len(mentions))
+        fmcs = self.network.perform_fmcs(mentions)
+        ass = self.network.ass(fmcs)
+        ubar = self.network.lbp_total_new(mentions, fmcs, ass)
+        ubar_ = self.network.lbp_total(mentions, fmcs, ass)
+        n = len(mentions)
+        ubar_2 = torch.zeros([n, 7])
+        for i_idx, i in enumerate(mentions):
+            for arg_idx, arg in enumerate(i.candidates):
+                ubar_2[i_idx][arg_idx] = ubar_[i.id][arg.id]
+        maxError = utils.maxError(ubar, ubar_2)
+        print(f"MaxError: {maxError}")
+        self.assertTrue(maxError < 0.01)

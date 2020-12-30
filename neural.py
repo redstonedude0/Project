@@ -6,7 +6,6 @@ from typing import List
 import numpy as np
 import torch
 from torch import nn
-from tqdm import tqdm
 
 import hyperparameters
 import processeddata
@@ -51,6 +50,13 @@ class NeuralNet(nn.Module):
             nn.Tanh(),
             nn.Dropout(p=SETTINGS.dropout_rate),
         ).float()
+        g_hid_dims = 100  # TODO - this is the default used by the paper's code, not mentioned anywhere in paper
+        self.g = nn.Sequential(
+            nn.Linear(2, g_hid_dims),
+            nn.ReLU(),
+            nn.Linear(g_hid_dims, 1)
+            # TODO - this is the 2-layer nn 'g' referred to in the paper, called score_combine in mulrel_ranker.py
+        )
         # TODO - set default parameter values properly
         self.register_parameter("B", torch.nn.Parameter(torch.diag(torch.ones(300))))
         self.register_parameter("R", torch.nn.Parameter(torch.stack(
@@ -304,7 +310,7 @@ class NeuralNet(nn.Module):
         # Now compute ubar
         ubar = {}
         debug("Computing final ubar out the back of LBP")
-        for (i_idx, (i, f_m_c)) in tqdm(enumerate(zip(mentions, f_m_cs))):
+        for (i_idx, (i, f_m_c)) in enumerate(zip(mentions, f_m_cs)):
             ubar[i.id] = {}
             for arg_idx, arg in enumerate(i.candidates):
                 sum = 0
@@ -320,6 +326,40 @@ class NeuralNet(nn.Module):
                 ubar[i.id][arg.id] /= sum  # Normalise
         return ubar
 
+    def lbp_total_new(self, mentions: List[Mention], f_m_cs, ass):
+        n = len(mentions)
+        _, masks = self.embeddings(mentions, n)
+        psiss = self.psiss(mentions, f_m_cs)
+        # Note: Should be i*j*arb but arb dependent so i*j*7 but unused cells will be 0 and trimmed
+        debug("Computing initial mbar for LBP")
+        mbar = torch.zeros(len(mentions), len(mentions), 7)
+        debug("Now doing LBP Loops")
+        for loopno in range(0, SETTINGS.LBP_loops):
+            print(f"Doing loop {loopno + 1}/{SETTINGS.LBP_loops}")
+            newmbar = self.lbp_iteration_complete(mbar, mentions, psiss, ass)
+            mbar = newmbar
+        # Now compute ubar
+        debug("Computing final ubar out the back of LBP")
+        antieye = 1 - torch.eye(n)
+        # read mbar as (n_k,n_i,e_i)
+        antieye = antieye.reshape([n, n, 1])  # reshape for broadcast
+        mbar = mbar * antieye  # remove where k=i
+        # make (n_i,7_i) mask of 1 where keep, 0 where delete
+        mask = masks.type(torch.Tensor)
+        mask = mask.reshape([1, n, 7])  # add dim1 for broadcasting
+        mbar = mbar * mask
+        mbar = mbar.sum(dim=0)  # (n_i,e_i) sums
+        u = psiss + mbar
+        ubar = u.exp()
+        # Mask ubar (n,7)
+        mask = mask.reshape([n, 7])
+        ubar = ubar * mask
+        # Normalise ubar (n,7)
+        ubarsum = ubar.sum(dim=1)  # (n_i) sums over candidats
+        ubarsum = ubarsum.reshape([n, 1])  # (n_i,1) sum
+        ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
+        return ubar
+
     def forward(self, document: Document):
         mentions = document.mentions
         debug("Calculating f_m_c values")
@@ -328,18 +368,17 @@ class NeuralNet(nn.Module):
         ass = self.ass(f_m_cs)
         debug("Calculating ubar(lbp) values")
         ubar = self.lbp_total(mentions, f_m_cs, ass)
-        m: Mention
-        p = {}
-        debug("Starting mention loop")
-        for m in mentions:  # all mentions
-            p[m.id] = {}
-            for e in m.candidates:  # candidate entities
-                p_e_m = e.initial_prob  # input from data
-                q_e_d = ubar[m.id][e.id]  # From LBP
-                g = lambda x, y: None  # 2-layer NN #TODO
-                p_e = g(q_e_d, p_e_m)
-                p[m.id][e.id] = p_e
-                #return all p_e for all m
+        debug("Starting mention calculations")
+        n = len(mentions)
+        p_e_m = torch.zeros([n, 7])
+        for m_idx, m in enumerate(mentions):  # all mentions
+            for e_idx, e in enumerate(m.candidates):  # candidate entities
+                p_e_m[m_idx][e_idx] = e.initial_prob  # input from data
+        # reshape to a (n*7,2) tensor for use by the nn
+        ubar = ubar.reshape(n * 7)
+        p_e_m = p_e_m.reshape(n * 7)
+        p = self.g(torch.cat([ubar, p_e_m], dim=1))
+        p.reshape(n, 7)  # back to original dims
         return p
 
 #TODO perhaps? pdf page 4 - investigate if Rij=diag{...} actually gives poor performance
