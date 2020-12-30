@@ -310,12 +310,13 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(maxError < 0.01)
 
     def test_lbp_total_equiv(self):
+        raise NotImplementedError("lbp_total_old removed")
         mentions = self.testingDoc.mentions
         embs, maskss = self.network.embeddings(mentions, len(mentions))
         fmcs = self.network.perform_fmcs(mentions)
         ass = self.network.ass(fmcs)
-        ubar = self.network.lbp_total_new(mentions, fmcs, ass)
-        ubar_ = self.network.lbp_total(mentions, fmcs, ass)
+        ubar = self.network.lbp_total(mentions, fmcs, ass)
+        ubar_ = self.network.lbp_total_old(mentions, fmcs, ass)
         n = len(mentions)
         ubar_2 = torch.zeros([n, 7])
         for i_idx, i in enumerate(mentions):
