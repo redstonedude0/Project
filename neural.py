@@ -318,7 +318,7 @@ class NeuralNet(nn.Module):
         psiss = self.psiss(n, embeddings, f_m_cs)
         # Note: Should be i*j*arb but arb dependent so i*j*7 but unused cells will be 0 and trimmed
         debug("Computing initial mbar for LBP")
-        mbar = torch.zeros(len(mentions), len(mentions), 7)
+        mbar = torch.zeros(n, n, 7)
         debug("Now doing LBP Loops")
         for loopno in range(0, SETTINGS.LBP_loops):
             print(f"Doing loop {loopno + 1}/{SETTINGS.LBP_loops}")
@@ -358,7 +358,6 @@ class NeuralNet(nn.Module):
         debug("Calculating ubar(lbp) values")
         ubar = self.lbp_total(mentions, n, masks, embeddings, f_m_cs, ass)
         debug("Starting mention calculations")
-        n = len(mentions)
         p_e_m = torch.zeros([n, 7])
         for m_idx, m in enumerate(mentions):  # all mentions
             for e_idx, e in enumerate(m.candidates):  # candidate entities
