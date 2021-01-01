@@ -1,6 +1,7 @@
 # This file is for setting up and interfacing directly with the neural model
 
 """Evaluate the F1 score (and other metrics) of a neural model"""
+from math import isnan
 from typing import List
 
 import numpy as np
@@ -11,7 +12,7 @@ import hyperparameters
 import processeddata
 from datastructures import Model, Mention, Document
 from hyperparameters import SETTINGS
-from utils import debug, map_2D, map_1D, maskedmax
+from utils import debug, map_2D, map_1D, maskedmax, maskedsum
 
 
 def evaluate():  # TODO - params
@@ -247,13 +248,27 @@ class NeuralNet(nn.Module):
     3D tensor (n,n,7_j) of maximum message values for each i,j and each candidate for j
     '''
 
+    global IT
+    IT = 0
+
     def lbp_iteration_individualsss(self, mbar, n, embeddings, masks, psiss, ass):
+        global IT
+        IT += 1
         # mbar intuition: mbar[m_i][m_j][e_j] is how much m_i votes for e_j to be the candidate for m_j (at each timestep)
         # TODO maxValue = torch.Tensor([0]).reshape([])  # Default 0 to prevent errors, TODO - what do here (when i has no candidates)?
         phis = self.phissss(n, embeddings, ass)  # 4d (n_i,n_j,7_i,7_j) tensor
         values = phis  # values inside max{} brackets - Eq (10) LBP paper
         values = values + psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
         # mbar is a 3D (n_i,n_j,7_j) tensor
+        if IT == 2:
+            for n_i in range(0, n):
+                for n_j in range(0, n):
+                    for j_7 in range(0, 7):
+                        val = mbar[n_i][n_j][j_7]
+                        mask = masks[n_j][j_7]
+                        if isnan(val):
+                            if mask:
+                                print("Error -1 ", val)
         mbarsum = mbar  # start by reading mbar as k->i beliefs
         # (n_k,n_i,7_i)
         # foreach j we will have a different sum, introduce j dimension
@@ -264,15 +279,39 @@ class NeuralNet(nn.Module):
         cancel = cancel.reshape([n, n, 1, 1])  # add extra dimensions
         mbarsum = mbarsum * cancel  # broadcast (n,n,1,1) to (n,n,n,7), setting (n,7) dim to 0 where j=k
         # (n_j,n_k,n_i,7_i)
-        # sum to a (n_j,n_i,7_i) tensor of sums(over k) for each j,i,e'
-        mbarsum = mbarsum.sum(dim=1).transpose(0, 1)
+        # sum to a (n_i,n_j,7_i) tensor of sums(over k) for each j,i,e'
+        # mbarsum = mbarsum.sum(dim=1).transpose(0, 1)
+        mbarsum = maskedsum(mbarsum, masks.reshape([1, 1, n, 7]), 1).transpose(0, 1)
+
         # (n_i,n_j,7_i)
-        values = values + mbarsum.reshape([n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
         #        if len(values) != 0:  # Prevent identity error when tensor is empty#TODO - how to prevent in multiple dimensions?
         # Masked max
         # reshape masks from (n_j,7_j) to (1,n_j,1,7_j) to broadcast to (n_i,n_j,7_i,7_j) tensor)
-        maxValue = maskedmax(values, masks.reshape([1, n, 1, 7]), dim=2)[
-            0]  # (n_i,n_j,7_j) tensor of max values ([0] gets max not argmax)
+        # reshape masks from (n_j,7_j) to (1,n_j,1,7_j) to broadcast to (n_i,n_j,7_i,7_j) tensor)
+        maskss = torch.matmul(masks.reshape([n, 1, 7, 1]).type(torch.Tensor),
+                              masks.reshape([1, n, 1, 7]).type(torch.Tensor)).type(torch.BoolTensor)
+        values = values + mbarsum.reshape([n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
+        maxValue = maskedmax(values, maskss, dim=2)  # (n_i,n_j,7_j) tensor of max values
+        if IT == 3:
+            for n_i in range(0, n):
+                for n_j in range(0, n):
+                    for j_7 in range(0, 7):
+                        val = maxValue[n_i][n_j][j_7]
+                        imask = masks[n_i]
+                        imask = imask.type(torch.Tensor).max()
+                        imask = imask == 1  # True if i has atleast 1 candidate, if not then max() over i's candidates is nan
+                        mask = masks[n_j][
+                            j_7]  # does j have a candidate here, this ought to be nan iff (no cand or i has no cand)
+                        if isnan(val):
+                            if not mask:
+                                # No cand, okay
+                                pass
+                            elif not imask:
+                                # No i cands, okay
+                                pass
+                            else:
+                                print("Error F ", n_i, n_j, j_7)
+                                print(imask, mask)
         return maxValue
 
     '''
@@ -295,18 +334,13 @@ class NeuralNet(nn.Module):
             [1, n, 7])  # 0 if masked out, reshape (1,n,7) to broadcast to (n_i,n_j,7_j)
         softmaxdenoms = expmvals.sum(dim=2)  # Eq 11 softmax denominator from LBP paper
 
-        print("exp", expmvals)
-        print("mask", masks)
         # Do Eq 11 (old mbars + mvalues to new mbars)
         dampingFactor = 0.5  # delta in the paper
         newmbar = mbar.exp()
         newmbar *= (1 - dampingFactor)
         otherbit = dampingFactor * (expmvals / softmaxdenoms.reshape([n, n, 1]))  # broadcast (n,n) to (n,n,7)
         newmbar += otherbit
-        print("newmbar", newmbar)
         newmbar = newmbar.log()
-        print("newmbar", newmbar)
-        raise Exception
         return newmbar
 
     '''

@@ -335,13 +335,14 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(maxError < 0.01)
 
     def test_neural_consistency(self):
-        saving = True
+        saving = False
         output = self.network.forward(self.testingDoc2)
         if saving:
             torch.save(output, "test_neural_consistency.pt")
+            print(output)
             raise Exception("Saving consistency map, failing test...")
         else:
             load = torch.load("test_neural_consistency.pt")
             maxError = utils.maxError(output, load)
             print(f"MaxError: {maxError}")
-            self.assertTrue(maxError < 0.01)
+            self.assertTrue(maxError == 0)

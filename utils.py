@@ -64,12 +64,39 @@ absolute min of the tensor
 '''
 
 
+'''
+max over a tensor with a mask, nan values are ignored
+'''
+
+
 def maskedmax(tensor, mask, dim=-1):
     mask = mask.logical_not()  # True when needs to be masked out
-    absmin = tensor.min()  # absolute min
-    absmax = tensor.max()  # absolute max
+    absmin = tensor[tensor == tensor].min()  # absolute min (ignoring nans)
+    absmax = tensor[tensor == tensor].max()  # absolute max
     mask = mask.type(torch.Tensor) * (absmin - absmax)  # (absmin-abssmax) when needs to be masked out, 0 when kept
     tensor += mask  # doesn't affect non-masked out, maskedout values have min added, max removed. They will be made at least as low as the lowest value
     if dim == -1:
-        return tensor.max()
-    return tensor.max(dim)
+        return tensor[tensor == tensor].max()
+    ninf = float("-inf")
+    nan = float("nan")
+    tensor = tensor.clone()  # dont change original tensor
+    tensor[tensor != tensor] = ninf  # make nans negative inf for purposes of finding max
+    maxTensor = tensor.max(dim)[0]  # values only
+    maxTensor[maxTensor == ninf] = nan  # convert ninfs to nans
+    return maxTensor
+
+
+'''
+Sum over a tensor with a mask, nan values are ignored
+'''
+
+
+def maskedsum(tensor, mask, dim=-1):
+    mask = mask.type(torch.Tensor)  # 0 when needs to be masked out, 1 when kept
+    tensor *= mask  # doesn't affect non-masked out, maskedout values now equal 0
+    if dim == -1:
+        return tensor[tensor == tensor].sum()
+    tensor = tensor.clone()  # dont change original tensor
+    tensor[tensor != tensor] = 0  # make nans 0 for purposes of finding sum
+    sumTensor = tensor.sum(dim)
+    return sumTensor  # If summing nans a default of 0 will have to do
