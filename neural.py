@@ -106,9 +106,10 @@ class NeuralNet(nn.Module):
         embeddings = torch.zeros([n, 7, SETTINGS.d])  # 3D (n,7,d) tensor of embeddings
         masks = torch.zeros([n, 7], dtype=torch.bool)  # 2D (n,7) bool tensor of masks
         for m_idx, m in enumerate(mentions):
-            valss = torch.stack([e_i.entEmbeddingTorch() for e_i in m.candidates])
-            embeddings[m_idx][0:len(valss)] = valss
-            masks[m_idx][0:len(valss)] = True
+            if len(m.candidates) > 0:
+                valss = torch.stack([e_i.entEmbeddingTorch() for e_i in m.candidates])
+                embeddings[m_idx][0:len(valss)] = valss
+                masks[m_idx][0:len(valss)] = True
         return embeddings, masks
 
     '''
@@ -294,13 +295,18 @@ class NeuralNet(nn.Module):
             [1, n, 7])  # 0 if masked out, reshape (1,n,7) to broadcast to (n_i,n_j,7_j)
         softmaxdenoms = expmvals.sum(dim=2)  # Eq 11 softmax denominator from LBP paper
 
+        print("exp", expmvals)
+        print("mask", masks)
         # Do Eq 11 (old mbars + mvalues to new mbars)
         dampingFactor = 0.5  # delta in the paper
         newmbar = mbar.exp()
         newmbar *= (1 - dampingFactor)
         otherbit = dampingFactor * (expmvals / softmaxdenoms.reshape([n, n, 1]))  # broadcast (n,n) to (n,n,7)
         newmbar += otherbit
+        print("newmbar", newmbar)
         newmbar = newmbar.log()
+        print("newmbar", newmbar)
+        raise Exception
         return newmbar
 
     '''
@@ -351,6 +357,8 @@ class NeuralNet(nn.Module):
         n = len(mentions)
         debug("Calculating embeddings")
         embeddings, masks = self.embeddings(mentions, n)
+        maskCoverage = (masks.type(torch.Tensor).sum() / (n * 7)) * 100
+        debug(f"Mask coverage {maskCoverage}%")
         debug("Calculating f_m_c values")
         f_m_cs = self.perform_fmcs(mentions)
         debug("Calculating a values")

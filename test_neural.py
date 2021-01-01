@@ -1,3 +1,4 @@
+import math
 import unittest
 
 import torch
@@ -18,6 +19,13 @@ class TestNeural(unittest.TestCase):
         # at most 7 cands per mention in doc
         for m in self.testingDoc.mentions:
             m.candidates = m.candidates[0:7]
+        self.testingDoc2 = testdata.getTestData()
+        # Rand candidates
+        torch.manual_seed(0)
+        n = len(self.testingDoc2.mentions)
+        rands = torch.rand(n) * 7
+        for m, n in zip(self.testingDoc2.mentions, rands):
+            m.candidates = m.candidates[0:math.floor(n)]
     def tearDown(self) -> None:
         pass
 
@@ -325,3 +333,15 @@ class TestNeural(unittest.TestCase):
         maxError = utils.maxError(ubar, ubar_2)
         print(f"MaxError: {maxError}")
         self.assertTrue(maxError < 0.01)
+
+    def test_neural_consistency(self):
+        saving = True
+        output = self.network.forward(self.testingDoc2)
+        if saving:
+            torch.save(output, "test_neural_consistency.pt")
+            raise Exception("Saving consistency map, failing test...")
+        else:
+            load = torch.load("test_neural_consistency.pt")
+            maxError = utils.maxError(output, load)
+            print(f"MaxError: {maxError}")
+            self.assertTrue(maxError < 0.01)
