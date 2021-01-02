@@ -245,7 +245,7 @@ class NeuralNet(nn.Module):
     3D tensor (n,n,7_j) of maximum message values for each i,j and each candidate for j
     '''
 
-    def lbp_iteration_individualsss(self, mbar, n, lbp_inputs):
+    def lbp_iteration_mvaluesss(self, mbar, n, lbp_inputs):
         # mbar intuition: mbar[m_i][m_j][e_j] is how much m_i votes for e_j to be the candidate for m_j (at each timestep)
         # mbar is a 3D (n_i,n_j,7_j) tensor
         mbarsum = mbar  # start by reading mbar as k->i beliefs
@@ -278,7 +278,7 @@ class NeuralNet(nn.Module):
 
     def lbp_iteration_complete(self, mbar, n, lbp_inputs):
         # (n,n,7_j) tensor
-        mvalues = self.lbp_iteration_individualsss(mbar, n, lbp_inputs)
+        mvalues = self.lbp_iteration_mvaluesss(mbar, n, lbp_inputs)
         expmvals = mvalues.exp()
         softmaxdenoms = smartsum(expmvals, dim=2)  # Eq 11 softmax denominator from LBP paper
 
