@@ -100,3 +100,34 @@ def maskedsum(tensor, mask, dim=-1):
     tensor[tensor != tensor] = 0  # make nans 0 for purposes of finding sum
     sumTensor = tensor.sum(dim)
     return sumTensor  # If summing nans a default of 0 will have to do
+
+
+'''
+max over a tensor, nan values are ignored (unless entire thing nans, then result is nan)
+'''
+
+
+def smartmax(tensor, dim=-1):
+    if dim == -1:
+        return tensor[tensor == tensor].max()
+    ninf = float("-inf")
+    nan = float("nan")
+    tensor = tensor.clone()  # dont change original tensor
+    tensor[tensor != tensor] = ninf  # make nans negative inf for purposes of finding max
+    maxTensor = tensor.max(dim)[0]  # values only
+    maxTensor[maxTensor == ninf] = nan  # convert ninfs to nans
+    return maxTensor
+
+
+'''
+Sum over a tensor, nan values are ignored (treated as 0s)
+'''
+
+
+def smartsum(tensor, dim=-1):
+    if dim == -1:
+        return tensor[tensor == tensor].sum()
+    tensor = tensor.clone()  # dont change original tensor
+    tensor[tensor != tensor] = 0  # make nans 0 for purposes of finding sum
+    sumTensor = tensor.sum(dim)
+    return sumTensor  # If summing nans a default of 0 will have to do

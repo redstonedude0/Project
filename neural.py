@@ -12,7 +12,7 @@ import hyperparameters
 import processeddata
 from datastructures import Model, Mention, Document
 from hyperparameters import SETTINGS
-from utils import debug, map_2D, map_1D, maskedmax, maskedsum
+from utils import debug, map_2D, map_1D, maskedmax, maskedsum, smartsum
 
 
 def evaluate():  # TODO - params
@@ -281,7 +281,14 @@ class NeuralNet(nn.Module):
         # (n_j,n_k,n_i,7_i)
         # sum to a (n_i,n_j,7_i) tensor of sums(over k) for each j,i,e'
         # mbarsum = mbarsum.sum(dim=1).transpose(0, 1)
-        mbarsum = maskedsum(mbarsum, masks.reshape([1, 1, n, 7]), 1).transpose(0, 1)
+        mbarsum1 = maskedsum(mbarsum.clone(), masks.reshape([1, 1, n, 7]), 1).transpose(0, 1)
+        mbarsum2 = smartsum(mbarsum, 1).transpose(0, 1)
+        if not mbarsum1.equal(mbarsum2) or True:
+            print("NEQ")
+            print("L1", mbarsum1[0][0], mbarsum2[0][0])
+            print("L2", mbarsum[0][:, 0, 3])
+            print("L3", masks[0, 3])
+        mbarsum = mbarsum1
 
         # (n_i,n_j,7_i)
         #        if len(values) != 0:  # Prevent identity error when tensor is empty#TODO - how to prevent in multiple dimensions?
@@ -291,6 +298,7 @@ class NeuralNet(nn.Module):
         maskss = torch.matmul(masks.reshape([n, 1, 7, 1]).type(torch.Tensor),
                               masks.reshape([1, n, 1, 7]).type(torch.Tensor)).type(torch.BoolTensor)
         values = values + mbarsum.reshape([n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
+        # TODO - compare maskss vs masks vs no mask
         maxValue = maskedmax(values, maskss, dim=2)  # (n_i,n_j,7_j) tensor of max values
         if IT == 3:
             for n_i in range(0, n):
@@ -359,6 +367,11 @@ class NeuralNet(nn.Module):
         # Note: Should be i*j*arb but arb dependent so i*j*7 but unused cells will be 0 and trimmed
         debug("Computing initial mbar for LBP")
         mbar = torch.zeros(n, n, 7)
+        # should be nan if no candidate there (n_i,n_j,7_j)
+        mbar_mask = masks.repeat([n, 1, 1]).type(torch.Tensor)  # 1 where keep,0 where nan-out
+        nan = float("nan")
+        mbar_mask[mbar_mask == 0] = nan
+        mbar *= mbar_mask
         debug("Now doing LBP Loops")
         for loopno in range(0, SETTINGS.LBP_loops):
             print(f"Doing loop {loopno + 1}/{SETTINGS.LBP_loops}")
@@ -374,14 +387,16 @@ class NeuralNet(nn.Module):
         mask = masks.type(torch.Tensor)
         mask = mask.reshape([1, n, 7])  # add dim1 for broadcasting
         mbar = mbar * mask
-        mbar = mbar.sum(dim=0)  # (n_i,e_i) sums
+        mbar = smartsum(mbar, 0)
+        #        mbar = mbar.sum(dim=0)  # (n_i,e_i) sums
         u = psiss + mbar
         ubar = u.exp()
         # Mask ubar (n,7)
         mask = mask.reshape([n, 7])
         ubar = ubar * mask
         # Normalise ubar (n,7)
-        ubarsum = ubar.sum(dim=1)  # (n_i) sums over candidats
+        ubarsum = smartsum(ubar, 1)
+        #        ubarsum = ubar.sum(dim=1)  # (n_i) sums over candidats
         ubarsum = ubarsum.reshape([n, 1])  # (n_i,1) sum
         ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
         return ubar
