@@ -105,6 +105,8 @@ class NeuralNet(nn.Module):
 
     def embeddings(self, mentions, n):
         embeddings = torch.zeros([n, 7, SETTINGS.d])  # 3D (n,7,d) tensor of embeddings
+        nan = float("nan")
+        embeddings *= nan  # Actually a (n,7,d) tensor of nans to begin with
         masks = torch.zeros([n, 7], dtype=torch.bool)  # 2D (n,7) bool tensor of masks
         for m_idx, m in enumerate(mentions):
             if len(m.candidates) > 0:
@@ -159,7 +161,7 @@ class NeuralNet(nn.Module):
         # 5D(n_i,n_j,7_i,7_j,k) , 4D (n_i,n_j,7_i,7_j)
         values = self.phi_ksssss(n, embeddings)
         values *= ass.reshape([n, n, 1, 1, SETTINGS.k])  # broadcast along 7*7
-        return values.sum(dim=4)
+        return smartsum(values, dim=4)
 
     '''
     INPUT:
@@ -172,7 +174,7 @@ class NeuralNet(nn.Module):
         x = self.exp_bracketssss(fmcs)
         if SETTINGS.normalisation == hyperparameters.NormalisationMethod.RelNorm:
             # X is (ni*nj*k)
-            z_ijk = x.sum(dim=2)
+            z_ijk = smartsum(x, dim=2)
             # Z_ijk is (ni*nj) sum
             x_trans = x.transpose(0, 2).transpose(1, 2)
             # x_trans is (k*ni*nj)
@@ -268,7 +270,8 @@ class NeuralNet(nn.Module):
                         mask = masks[n_j][j_7]
                         if isnan(val):
                             if mask:
-                                print("Error -1 ", val)
+                                pass
+                                #print("Error -1 ", val)
         mbarsum = mbar  # start by reading mbar as k->i beliefs
         # (n_k,n_i,7_i)
         # foreach j we will have a different sum, introduce j dimension
@@ -340,7 +343,7 @@ class NeuralNet(nn.Module):
         expmvals = mvalues.exp()
         expmvals *= masks.type(torch.Tensor).reshape(
             [1, n, 7])  # 0 if masked out, reshape (1,n,7) to broadcast to (n_i,n_j,7_j)
-        softmaxdenoms = expmvals.sum(dim=2)  # Eq 11 softmax denominator from LBP paper
+        softmaxdenoms = smartsum(expmvals, dim=2)  # Eq 11 softmax denominator from LBP paper
 
         # Do Eq 11 (old mbars + mvalues to new mbars)
         dampingFactor = 0.5  # delta in the paper
