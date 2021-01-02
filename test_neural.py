@@ -345,4 +345,5 @@ class TestNeural(unittest.TestCase):
             load = torch.load("test_neural_consistency.pt")
             maxError = utils.maxError(output, load)
             print(f"MaxError: {maxError}")
+            print(output)
             self.assertTrue(maxError == 0)

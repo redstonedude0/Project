@@ -120,14 +120,21 @@ def smartmax(tensor, dim=-1):
 
 
 '''
-Sum over a tensor, nan values are ignored (treated as 0s)
+Sum over a tensor, nan values are ignored (treated as 0s, unless entire thing is nan then result is nan)
 '''
 
 
 def smartsum(tensor, dim=-1):
     if dim == -1:
+        # TODO: ERROR! If dim=-1 and entire tensor is nans then sum is not nan as specced (unity error)
         return tensor[tensor == tensor].sum()
-    tensor = tensor.clone()  # dont change original tensor
-    tensor[tensor != tensor] = 0  # make nans 0 for purposes of finding sum
-    sumTensor = tensor.sum(dim)
+    tensor_ = tensor.clone()  # dont change original tensor
+    tensor_[tensor_ != tensor_] = 0  # make nans 0 for purposes of finding sum
+    sumTensor = tensor_.sum(dim)
+    # Replace sums with nans if the summing dim was only nans:
+    tensor_ = torch.zeros(tensor.shape)  # create same shape tensor of ones
+    nan = float("nan")
+    tensor_[tensor == tensor] = nan  # where tensor is number, make tensor_ nan
+    tensor_ = tensor_.sum(dim)  # nan if row contained atleast 1 numeral, 0 otherwise
+    sumTensor[tensor_ == tensor_] = nan  # nan where tensor row contained no numerals
     return sumTensor  # If summing nans a default of 0 will have to do
