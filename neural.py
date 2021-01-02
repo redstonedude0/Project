@@ -73,7 +73,6 @@ class NeuralNet(nn.Module):
     fmcs: 2D tensor(n,d) fmc values
     RETURN:
     2D tensor (n,7) psi values per candidate per mention
-    #TODO - mask?
     '''
 
     def psiss(self, n, embeddings, fmcs):
@@ -241,19 +240,13 @@ class NeuralNet(nn.Module):
     Perform LBP iteration for all pairs of candidates
     mbar: mbar message values (n,n,7) 3D tensor
     n: len(mentions)
-    embeddings: 3D (n,7,d) tensor of embeddings
-    psiss: 2D tensor (n,7) all psi values for each mention i (per candidate e')
-    ass: 3D tensor (n,n,k) a values per i,j,k
+    lbp_inputs: 4D tensor (n_i,n_j,7_i,7_j) psi+phi values per i,j per candidates (e',e)
     RETURNS:
     3D tensor (n,n,7_j) of maximum message values for each i,j and each candidate for j
     '''
 
-    def lbp_iteration_individualsss(self, mbar, n, embeddings, psiss, ass):
+    def lbp_iteration_individualsss(self, mbar, n, lbp_inputs):
         # mbar intuition: mbar[m_i][m_j][e_j] is how much m_i votes for e_j to be the candidate for m_j (at each timestep)
-        # TODO maxValue = torch.Tensor([0]).reshape([])  # Default 0 to prevent errors, TODO - what do here (when i has no candidates)?
-        phis = self.phissss(n, embeddings, ass)  # 4d (n_i,n_j,7_i,7_j) tensor
-        values = phis  # values inside max{} brackets - Eq (10) LBP paper
-        values = values + psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
         # mbar is a 3D (n_i,n_j,7_j) tensor
         mbarsum = mbar  # start by reading mbar as k->i beliefs
         # (n_k,n_i,7_i)
@@ -268,9 +261,9 @@ class NeuralNet(nn.Module):
         # sum to a (n_i,n_j,7_i) tensor of sums(over k) for each j,i,e'
         mbarsum = smartsum(mbarsum, 1).transpose(0, 1)
 
-        # (n_i,n_j,7_i)
-        #        if len(values) != 0:  # Prevent identity error when tensor is empty#TODO - how to prevent in multiple dimensions?
-        values = values + mbarsum.reshape([n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
+        # lbp_inputs is phi+psi values, add to the mbar sums to get the values in the max brackets
+        values = lbp_inputs + mbarsum.reshape(
+            [n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
         maxValue = smartmax(values, dim=2)  # (n_i,n_j,7_j) tensor of max values
         return maxValue
 
@@ -278,16 +271,14 @@ class NeuralNet(nn.Module):
     Compute an iteration of LBP
     mbar: mbar message values (n,n,7) 3D tensor
     n: len(mentions)
-    embeddings: 3D (n,7,d) tensor of embeddings
-    psiss: 2D tensor (n,7) all psi values for each mention i (per candidate e')
-    ass: 3D tensor (n,n,k) a values per i,j,k
+    lbp_inputs: 4D tensor (n_i,n_j,7_i,7_j) psi+phi values per i,j per candidates (e',e)
     RETURNS:
     3D tensor (n,n,7_j) next mbar
     '''
 
-    def lbp_iteration_complete(self, mbar, n, embeddings, psiss, ass):
+    def lbp_iteration_complete(self, mbar, n, lbp_inputs):
         # (n,n,7_j) tensor
-        mvalues = self.lbp_iteration_individualsss(mbar, n, embeddings, psiss, ass)
+        mvalues = self.lbp_iteration_individualsss(mbar, n, lbp_inputs)
         expmvals = mvalues.exp()
         softmaxdenoms = smartsum(expmvals, dim=2)  # Eq 11 softmax denominator from LBP paper
 
@@ -302,17 +293,16 @@ class NeuralNet(nn.Module):
 
     '''
     Compute all LBP loops
-    mentions: 1D (n) python list of mentions
     n: len(mentions)
     masks 2D (n,7) boolean tensor mask
     f_m_cs: 2D (n,d) tensor of fmc values
-    ass: 3D (n,n,k) tensor of a values
+    psiss: 2D tensor (n,7) psi values per candidate per mention
+    lbp_inputs: 4D tensor (n_i,n_j,7_i,7_j) psi+phi values per i,j per candidates (e',e)
     RETURNS:
     2D (n,7) tensor of ubar values
     '''
 
-    def lbp_total(self, n, masks, embeddings, f_m_cs, ass):
-        psiss = self.psiss(n, embeddings, f_m_cs)
+    def lbp_total(self, n, masks, psiss, lbp_inputs):
         # Note: Should be i*j*arb but arb dependent so i*j*7 but unused cells will be 0 and trimmed
         debug("Computing initial mbar for LBP")
         mbar = torch.zeros(n, n, 7)
@@ -324,7 +314,7 @@ class NeuralNet(nn.Module):
         debug("Now doing LBP Loops")
         for loopno in range(0, SETTINGS.LBP_loops):
             print(f"Doing loop {loopno + 1}/{SETTINGS.LBP_loops}")
-            newmbar = self.lbp_iteration_complete(mbar, n, embeddings, psiss, ass)
+            newmbar = self.lbp_iteration_complete(mbar, n, lbp_inputs)
             mbar = newmbar
         # Now compute ubar
         debug("Computing final ubar out the back of LBP")
@@ -351,16 +341,28 @@ class NeuralNet(nn.Module):
     def forward(self, document: Document):
         mentions = document.mentions
         n = len(mentions)
+
         debug("Calculating embeddings")
         embeddings, masks = self.embeddings(mentions, n)
+
         maskCoverage = (masks.type(torch.Tensor).sum() / (n * 7)) * 100
         debug(f"Mask coverage {maskCoverage}%")
+
         debug("Calculating f_m_c values")
         f_m_cs = self.perform_fmcs(mentions)
+
         debug("Calculating a values")
         ass = self.ass(f_m_cs)
+
+        debug("Calculating lbp inputs")
+        phis = self.phissss(n, embeddings, ass)  # 4d (n_i,n_j,7_i,7_j) tensor
+        psiss = self.psiss(n, embeddings, f_m_cs)  # 2d (n_i,7_i) tensor
+        lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
+        lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
+
         debug("Calculating ubar(lbp) values")
-        ubar = self.lbp_total(n, masks, embeddings, f_m_cs, ass)
+        ubar = self.lbp_total(n, masks, psiss, lbp_inputs)
+
         debug("Starting mention calculations")
         p_e_m = torch.zeros([n, 7])
         for m_idx, m in enumerate(mentions):  # all mentions
