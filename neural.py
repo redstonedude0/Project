@@ -12,7 +12,7 @@ import hyperparameters
 import processeddata
 from datastructures import Model, Mention, Document
 from hyperparameters import SETTINGS
-from utils import debug, map_2D, map_1D, maskedmax, maskedsum, smartsum
+from utils import debug, map_2D, map_1D, smartsum, smartmax
 
 
 def evaluate():  # TODO - params
@@ -123,7 +123,7 @@ class NeuralNet(nn.Module):
     5D (n_i,n_j,7,7,k) Tensor of phi_k values foreach k foreach candidate
     '''
 
-    def phi_ksssss(self, n, embeddings):
+    def phi_ksssss(self, n, embeddings, masks):
         # embeddings is a 3D (n,7,d) tensor
         # masks is a 2D (n,7) bool tensor
         # R is a (k,d,d) tensor
@@ -146,6 +146,31 @@ class NeuralNet(nn.Module):
         # valss = valss.matmul(embeddings.T)
         valsss = torch.matmul(embeddings, valsss)
         # valsss is (n,n,7,7,k)
+        HELP = smartsum(valsss, dim=4)
+        for n_i in range(0, n):
+            for n_j in range(0, n):
+                for j_7 in range(0, 7):
+                    for i_7 in range(0, 7):
+                        val = HELP[n_i][n_j][i_7][j_7]
+                        imask = masks[n_i][i_7]
+                        jmask = masks[n_j][j_7]
+                        if isnan(val):
+                            if not imask:
+                                # No cand, okay
+                                pass
+                            elif not jmask:
+                                # No i cands, okay
+                                pass
+                            else:
+                                print("Error H1 ", n_i, n_j, i_7, j_7)
+                                print(imask, jmask)
+                        else:
+                            if not imask:  # not nan but i cand is nan
+                                print("Error H2 ", valsss[n_i][n_j][i_7][j_7])
+                                print(imask, jmask)
+                            elif not jmask:
+                                print("Error H3 ", valsss[n_i][n_j][i_7][j_7])
+                                print(imask, jmask)
         return valsss
 
     '''
@@ -157,11 +182,39 @@ class NeuralNet(nn.Module):
     4D (n_i,n_j,7_i,7_j) Tensor of phi values foreach candidate foreach i,j
     '''
 
-    def phissss(self, n, embeddings, ass):
+    def phissss(self, n, embeddings, masks, ass):
         # 5D(n_i,n_j,7_i,7_j,k) , 4D (n_i,n_j,7_i,7_j)
-        values = self.phi_ksssss(n, embeddings)
+        values = self.phi_ksssss(n, embeddings, masks)
         values *= ass.reshape([n, n, 1, 1, SETTINGS.k])  # broadcast along 7*7
-        return smartsum(values, dim=4)
+        values = smartsum(values, dim=4)
+        for n_i in range(0, n):
+            for n_j in range(0, n):
+                for j_7 in range(0, 7):
+                    for i_7 in range(0, 7):
+                        val = values[n_i][n_j][i_7][j_7]
+                        imask = masks[n_i][i_7]
+                        jmask = masks[n_j][j_7]
+                        if isnan(val):
+                            if not imask:
+                                # No cand, okay
+                                pass
+                            elif not jmask:
+                                # No i cands, okay
+                                pass
+                            else:
+                                # print("Error G1 ", n_i, n_j, i_7,j_7)
+                                # print(imask, jmask)
+                                pass
+                        else:
+                            if not imask:  # not nan but i cand is nan
+                                # print("Error G2 ", n_i, n_j, i_7,j_7)
+                                # print(imask, jmask)
+                                pass
+                            elif not jmask:
+                                # print("Error G3 ", n_i, n_j, i_7,j_7)
+                                # print(imask, jmask)
+                                pass
+        return values
 
     '''
     INPUT:
@@ -249,29 +302,13 @@ class NeuralNet(nn.Module):
     RETURNS:
     3D tensor (n,n,7_j) of maximum message values for each i,j and each candidate for j
     '''
-
-    global IT
-    IT = 0
-
     def lbp_iteration_individualsss(self, mbar, n, embeddings, masks, psiss, ass):
-        global IT
-        IT += 1
         # mbar intuition: mbar[m_i][m_j][e_j] is how much m_i votes for e_j to be the candidate for m_j (at each timestep)
         # TODO maxValue = torch.Tensor([0]).reshape([])  # Default 0 to prevent errors, TODO - what do here (when i has no candidates)?
-        phis = self.phissss(n, embeddings, ass)  # 4d (n_i,n_j,7_i,7_j) tensor
+        phis = self.phissss(n, embeddings, masks, ass)  # 4d (n_i,n_j,7_i,7_j) tensor
         values = phis  # values inside max{} brackets - Eq (10) LBP paper
         values = values + psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
         # mbar is a 3D (n_i,n_j,7_j) tensor
-        if IT == 2:
-            for n_i in range(0, n):
-                for n_j in range(0, n):
-                    for j_7 in range(0, 7):
-                        val = mbar[n_i][n_j][j_7]
-                        mask = masks[n_j][j_7]
-                        if isnan(val):
-                            if mask:
-                                pass
-                                #print("Error -1 ", val)
         mbarsum = mbar  # start by reading mbar as k->i beliefs
         # (n_k,n_i,7_i)
         # foreach j we will have a different sum, introduce j dimension
@@ -283,46 +320,38 @@ class NeuralNet(nn.Module):
         mbarsum = mbarsum * cancel  # broadcast (n,n,1,1) to (n,n,n,7), setting (n,7) dim to 0 where j=k
         # (n_j,n_k,n_i,7_i)
         # sum to a (n_i,n_j,7_i) tensor of sums(over k) for each j,i,e'
-        # mbarsum = mbarsum.sum(dim=1).transpose(0, 1)
-        mbarsum1 = maskedsum(mbarsum.clone(), masks.reshape([1, 1, n, 7]), 1).transpose(0, 1)
-        mbarsum2 = smartsum(mbarsum, 1).transpose(0, 1)
-        if not mbarsum1.equal(mbarsum2) or True:
-            print("NEQ")
-            print("L1", mbarsum1[0][0], mbarsum2[0][0])
-            print("L2", mbarsum[0][:, 0, 3])
-            print("L3", masks[0, 3])
-        mbarsum = mbarsum1
+        mbarsum = smartsum(mbarsum, 1).transpose(0, 1)
 
         # (n_i,n_j,7_i)
         #        if len(values) != 0:  # Prevent identity error when tensor is empty#TODO - how to prevent in multiple dimensions?
-        # Masked max
-        # reshape masks from (n_j,7_j) to (1,n_j,1,7_j) to broadcast to (n_i,n_j,7_i,7_j) tensor)
-        # reshape masks from (n_j,7_j) to (1,n_j,1,7_j) to broadcast to (n_i,n_j,7_i,7_j) tensor)
-        maskss = torch.matmul(masks.reshape([n, 1, 7, 1]).type(torch.Tensor),
-                              masks.reshape([1, n, 1, 7]).type(torch.Tensor)).type(torch.BoolTensor)
         values = values + mbarsum.reshape([n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
-        # TODO - compare maskss vs masks vs no mask
-        maxValue = maskedmax(values, maskss, dim=2)  # (n_i,n_j,7_j) tensor of max values
-        if IT == 3:
-            for n_i in range(0, n):
-                for n_j in range(0, n):
-                    for j_7 in range(0, 7):
-                        val = maxValue[n_i][n_j][j_7]
-                        imask = masks[n_i]
-                        imask = imask.type(torch.Tensor).max()
-                        imask = imask == 1  # True if i has atleast 1 candidate, if not then max() over i's candidates is nan
-                        mask = masks[n_j][
-                            j_7]  # does j have a candidate here, this ought to be nan iff (no cand or i has no cand)
-                        if isnan(val):
-                            if not mask:
-                                # No cand, okay
-                                pass
-                            elif not imask:
-                                # No i cands, okay
-                                pass
-                            else:
-                                print("Error F ", n_i, n_j, j_7)
-                                print(imask, mask)
+        maxValue = smartmax(values, dim=2)  # (n_i,n_j,7_j) tensor of max values
+        for n_i in range(0, n):
+            for n_j in range(0, n):
+                for j_7 in range(0, 7):
+                    val = maxValue[n_i][n_j][j_7]
+                    imask = masks[n_i]
+                    imask = imask.type(torch.Tensor).max()
+                    imask = imask == 1  # True if i has atleast 1 candidate, if not then max() over i's candidates is nan
+                    mask = masks[n_j][
+                        j_7]  # does j have a candidate here, this ought to be nan iff (no cand or i has no cand)
+                    if isnan(val):
+                        if not mask:
+                            # No cand, okay
+                            pass
+                        elif not imask:
+                            # No i cands, okay
+                            pass
+                        else:
+                            print("Error F1 ", n_i, n_j, j_7)
+                            print(imask, mask)
+                    else:
+                        if not mask:  # not nan but j cand is nan
+                            print("Error F2 ", n_i, n_j, j_7)
+                            print(imask, mask)
+                        elif not imask:
+                            print("Error F3 ", n_i, n_j, j_7)
+                            print(imask, mask)
         return maxValue
 
     '''
@@ -341,6 +370,7 @@ class NeuralNet(nn.Module):
         # (n,n,7_j) tensor
         mvalues = self.lbp_iteration_individualsss(mbar, n, embeddings, masks, psiss, ass)
         expmvals = mvalues.exp()
+        #Still need to mask out here - smartsum in individualsss assumes sum=0 if no candidates, yet should be nan
         expmvals *= masks.type(torch.Tensor).reshape(
             [1, n, 7])  # 0 if masked out, reshape (1,n,7) to broadcast to (n_i,n_j,7_j)
         softmaxdenoms = smartsum(expmvals, dim=2)  # Eq 11 softmax denominator from LBP paper
@@ -390,16 +420,14 @@ class NeuralNet(nn.Module):
         mask = masks.type(torch.Tensor)
         mask = mask.reshape([1, n, 7])  # add dim1 for broadcasting
         mbar = mbar * mask
-        mbar = smartsum(mbar, 0)
-        #        mbar = mbar.sum(dim=0)  # (n_i,e_i) sums
+        mbar = smartsum(mbar, 0)  # (n_i,e_i) sums
         u = psiss + mbar
         ubar = u.exp()
         # Mask ubar (n,7)
         mask = mask.reshape([n, 7])
         ubar = ubar * mask
         # Normalise ubar (n,7)
-        ubarsum = smartsum(ubar, 1)
-        #        ubarsum = ubar.sum(dim=1)  # (n_i) sums over candidats
+        ubarsum = smartsum(ubar, 1)  # (n_i) sums over candidates
         ubarsum = ubarsum.reshape([n, 1])  # (n_i,1) sum
         ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
         return ubar
