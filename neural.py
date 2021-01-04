@@ -34,6 +34,7 @@ def train(model: Model):  # TODO - add params
     loss = loss_fn(SETTINGS.dataset.documents[0], out, model.neuralNet.R, model.neuralNet.D)
     print("loss", loss)
     optimizer.zero_grad()  # zero all gradients to clear buffers
+
     loss.backward()  # compute backwards loss
     optimizer.step()  # step - update parameters backwards as requried
     print("Done.")
