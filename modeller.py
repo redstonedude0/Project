@@ -22,6 +22,7 @@ def _embeddingScore(mention: Mention, candidate: Candidate):
     for word in leftWords + rightWords:
         wordSumVec += processeddata.wordid2embedding[processeddata.word2wordid.get(word, processeddata.unkwordid)]
     goldCand = mention.goldCand()
+    goldCand = candidate  # TODO - just added this line for now, what is this code meant to do?? It seems to ignore the candidate otherwise??? And uses gold truth???
     if goldCand is not None:
         entityVec = processeddata.entid2embedding[processeddata.ent2entid[goldCand.text]]
         return entityVec.T.dot(wordSumVec)

@@ -63,6 +63,12 @@ class Mention:
                 return cand
         return None
 
+    def goldCandIndex(self):
+        for cand_idx, cand in enumerate(self.candidates):
+            if cand.id == self.gold_id:
+                return cand_idx
+        return -1
+
     def wordEmbedding(self):
         return processeddata.wordid2embedding[processeddata.word2wordid.get(self.text, processeddata.unkwordid)]
 

@@ -30,6 +30,8 @@ class Hyperparameters:
     learning_rate_final: float = 10E-5
     learning_stop_threshold_epochs: int = 20
     DEBUG: bool = True
+    lambda1: float = -1E-7
+    lambda2: float = -1E-7
 
 
 SETTINGS = Hyperparameters()

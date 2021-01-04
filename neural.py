@@ -24,12 +24,58 @@ def evaluate():  # TODO - params
 def train(model: Model):  # TODO - add params
     model.neuralNet: NeuralNet
     model.neuralNet.train()  # Set training flag
+    # True for debugging to detect gradient anomolies
+    torch.autograd.set_detect_anomaly(True)
     print("Model output:")
     print("Selecting 1 document to train on")
     out = model.neuralNet(SETTINGS.dataset.documents[0])
-    print(out)
+    lr = SETTINGS.learning_rate_initial
+    optimizer = torch.optim.Adam(model.neuralNet.parameters(), lr=lr)
+    loss = loss_fn(SETTINGS.dataset.documents[0], out, model.neuralNet.R, model.neuralNet.D)
+    print("loss", loss)
+    optimizer.zero_grad()  # zero all gradients to clear buffers
+    loss.backward()  # compute backwards loss
+    optimizer.step()  # step - update parameters backwards as requried
     print("Done.")
+    print(model.neuralNet.parameters())
     # TODO - train neural network using ADAM
+
+
+def loss_fn(document: Document, output, R, D):
+    n = len(document.mentions)
+    # MRN equation 7
+    p_i_e = output  # 2D (n,7) tensor of p_i_e values
+    truth_indices = [m.goldCandIndex() for m in document.mentions]
+    # truth_indices is 1D (n) tensor of index of truth (0-6)
+    p_i_eSTAR = p_i_e.transpose(0, 1)[truth_indices].diagonal()
+    # broadcast (n,1) to (n,7)
+    GammaEqn = SETTINGS.gamma - p_i_eSTAR.reshape([n, 1]) + p_i_e
+    # Max each element with 0 (repeated to (n,7))
+    h = torch.max(GammaEqn, torch.tensor(0.).repeat([n, 7]))
+    L = smartsum(h)  # ignore nans in loss function (outside of candidate rangde)
+    Regularisation_R = 0
+    for i in range(0, SETTINGS.k):
+        for j in range(0, i):
+            # Do for every ordered pair i,j
+            # If the paper means to do for all possible combinations i,j ignoring order then change this
+            # TODO
+            Regularisation_R += dist(R[i], R[j])
+    Regularisation_D = 0
+    for i in range(0, SETTINGS.k):
+        for j in range(0, i):
+            # TODO Change if necesssary
+            Regularisation_D += dist(D[i], D[j])
+    Regularisation_R *= SETTINGS.lambda1
+    Regularisation_D *= SETTINGS.lambda2
+    Regularisation = Regularisation_R + Regularisation_D
+    return L + Regularisation
+
+
+def dist(x, y):
+    # p-norm with p=2 is the Euclidean/Frobenius norm given by .norm()
+    xpart = x / x.norm()
+    ypart = y / y.norm()
+    return (xpart - ypart).norm()
 
 
 class NeuralNet(nn.Module):
@@ -372,7 +418,7 @@ class NeuralNet(nn.Module):
         ubar = ubar.reshape(n * 7, 1)
         p_e_m = p_e_m.reshape(n * 7, 1)
         p = self.g(torch.cat([ubar, p_e_m], dim=1))
-        p.reshape(n, 7)  # back to original dims
+        p = p.reshape(n, 7)  # back to original dims
         return p
 
 #TODO perhaps? pdf page 4 - investigate if Rij=diag{...} actually gives poor performance
