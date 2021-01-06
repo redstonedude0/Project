@@ -299,7 +299,7 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(maxTotalError < 0.01)
 
     def test_lbp_compl_equiv(self):
-        raise NotImplementedError("lbp_iteratoin_complete removed")
+        raise NotImplementedError("lbp_iteration_complete removed")
         mentions = self.testingDoc.mentions
         embs, maskss = self.network.embeddings(mentions, len(mentions))
         fmcs = self.network.perform_fmcs(mentions)
@@ -343,6 +343,7 @@ class TestNeural(unittest.TestCase):
             raise Exception("Saving consistency map, failing test...")
         else:
             load = torch.load("test_neural_consistency.pt")
+            load = load.reshape([30, 7])
             maxError = utils.maxError(output, load)
             print(f"MaxError: {maxError}")
             print(output)

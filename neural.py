@@ -365,6 +365,7 @@ class NeuralNet(nn.Module):
             mbar = newmbar
         # Now compute ubar
         debug("Computing final ubar out the back of LBP")
+        print("FINAL MBAR", mbar)
         antieye = 1 - torch.eye(n)
         # read mbar as (n_k,n_i,e_i)
         antieye = antieye.reshape([n, n, 1])  # reshape for broadcast
@@ -375,14 +376,24 @@ class NeuralNet(nn.Module):
         mbar = mbar * mask
         mbar = smartsum(mbar, 0)  # (n_i,e_i) sums
         u = psiss + mbar
-        ubar = u.exp()
+        print("u", u)
+        u += 50  # softmax invariant under translation, translate to around 0 to reduce float errors
+        # TODO - what to translate by? why does 50 work here?
+        u[~masks] = float("-inf")
+        ubar = u.exp()  # nans become 0
         # Mask ubar (n,7)
         mask = mask.reshape([n, 7])
         ubar = ubar * mask
         # Normalise ubar (n,7)
         ubarsum = smartsum(ubar, 1)  # (n_i) sums over candidates
         ubarsum = ubarsum.reshape([n, 1])  # (n_i,1) sum
+        ubarsumnans = ubarsum != ubarsum
+        ubarsum[ubarsumnans] = 1
+        print("ubar", ubar, "sum", ubarsum)
         ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
+        print("after div", ubar)
+        ubar[~masks] = float("nan")
+        ubar[ubarsumnans.reshape([n])] *= float("nan")
         return ubar
 
     def forward(self, document: Document):
@@ -418,7 +429,10 @@ class NeuralNet(nn.Module):
         # reshape to a (n*7,2) tensor for use by the nn
         ubar = ubar.reshape(n * 7, 1)
         p_e_m = p_e_m.reshape(n * 7, 1)
-        p = self.g(torch.cat([ubar, p_e_m], dim=1))
+        inputs = torch.cat([ubar, p_e_m], dim=1)
+        inputs[~masks.reshape(n * 7)] = 0
+        p = self.g(inputs)
+        p[~masks.reshape(n * 7)] = float("nan")
         p = p.reshape(n, 7)  # back to original dims
         return p
 
