@@ -10,7 +10,7 @@ import hyperparameters
 import processeddata
 from datastructures import Model, Document
 from hyperparameters import SETTINGS
-from utils import debug, map_2D, map_1D, smartsum, smartmax
+from utils import debug, map_2D, map_1D, smartsum, smartmax, normalise_avgToZero, setMaskBroadcastable
 
 
 def evaluate():  # TODO - params
@@ -355,8 +355,9 @@ class NeuralNet(nn.Module):
         mbar = torch.zeros(n, n, 7)
         # should be nan if no candidate there (n_i,n_j,7_j)
         mbar_mask = masks.repeat([n, 1, 1]).type(torch.Tensor)  # 1 where keep,0 where nan-out
-        nan = float("nan")
-        mbar_mask[mbar_mask == 0] = nan
+        if SETTINGS.allow_nans:
+            nan = float("nan")
+            mbar_mask[mbar_mask == 0] = nan  # make nan not 0
         mbar *= mbar_mask
         debug("Now doing LBP Loops")
         for loopno in range(0, SETTINGS.LBP_loops):
@@ -365,35 +366,29 @@ class NeuralNet(nn.Module):
             mbar = newmbar
         # Now compute ubar
         debug("Computing final ubar out the back of LBP")
-        print("FINAL MBAR", mbar)
         antieye = 1 - torch.eye(n)
         # read mbar as (n_k,n_i,e_i)
         antieye = antieye.reshape([n, n, 1])  # reshape for broadcast
         mbar = mbar * antieye  # remove where k=i
-        # make (n_i,7_i) mask of 1 where keep, 0 where delete
-        mask = masks.type(torch.Tensor)
-        mask = mask.reshape([1, n, 7])  # add dim1 for broadcasting
-        mbar = mbar * mask
+        # make mbar 0 where masked out
+        setMaskBroadcastable(mbar, ~masks.reshape([1, n, 7]), 0)
         mbar = smartsum(mbar, 0)  # (n_i,e_i) sums
         u = psiss + mbar
-        print("u", u)
-        u += 50  # softmax invariant under translation, translate to around 0 to reduce float errors
+        # softmax invariant under translation, translate to around 0 to reduce float errors
+        # u+= 50
+        normalise_avgToZero(u, masks)
         # TODO - what to translate by? why does 50 work here?
-        u[~masks] = float("-inf")
-        ubar = u.exp()  # nans become 0
-        # Mask ubar (n,7)
-        mask = mask.reshape([n, 7])
-        ubar = ubar * mask
+        ubar = u.exp()  # 'nans' become 1
+        ubar[~masks] = 0  # reset nans to 0
         # Normalise ubar (n,7)
         ubarsum = smartsum(ubar, 1)  # (n_i) sums over candidates
         ubarsum = ubarsum.reshape([n, 1])  # (n_i,1) sum
-        ubarsumnans = ubarsum != ubarsum
-        ubarsum[ubarsumnans] = 1
-        print("ubar", ubar, "sum", ubarsum)
+        ubarsumnans = ubarsum != ubarsum  # index tensor of where ubarsums is nan
+        ubarsum[ubarsumnans] = 1  # set to 1 to prevent division errors
         ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
-        print("after div", ubar)
-        ubar[~masks] = float("nan")
-        ubar[ubarsumnans.reshape([n])] *= float("nan")
+        if SETTINGS.allow_nans:
+            ubar[~masks] = float("nan")
+            ubar[ubarsumnans.reshape([n])] = float("nan")
         return ubar
 
     def forward(self, document: Document):

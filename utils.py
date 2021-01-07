@@ -137,4 +137,54 @@ def smartsum(tensor, dim=-1):
     tensor_[tensor == tensor] = nan  # where tensor is number, make tensor_ nan
     tensor_ = tensor_.sum(dim)  # nan if row contained atleast 1 numeral, 0 otherwise
     sumTensor[tensor_ == tensor_] = nan  # nan where tensor row contained no numerals
-    return sumTensor  # If summing nans a default of 0 will have to do
+    return sumTensor
+
+
+'''
+normalise in-place a tensor (with a masks which should be False for all nan/exclude values) such that the average of non-masked values is translated to zero
+mask should be shape broadcastable across tensor
+final tensor has non-masked values normalised to have average 0
+masked values in final tensor are all 0
+'''
+
+
+def normalise_avgToZero(tensor, broadcastable_mask):
+    mask = broadcastMask(tensor, broadcastable_mask)
+    tensor[~mask] = 0  # set tensor to 0 where masked out
+    tensor_copy = tensor.clone()
+    tensor_copy[mask] = 1  # set copy to 1 where not masked out
+    nonMaskedCount = tensor_copy.sum()
+    numericalTotal = tensor.sum()
+    avg = numericalTotal / nonMaskedCount
+    tensor -= avg  # subtract average to make new average 0
+    tensor[~mask] = 0  # reset masked values to 0
+    # done
+
+
+'''
+IN-PLACE
+Sets the value of tensor to the maskedValue when the broadcastable mask is true
+(when broadcasted to make shapes match)
+TODO - we assume similar shape (same dims) does broadcasting properly assume this? (terminology check)
+'''
+
+
+def setMaskBroadcastable(tensor, broadcastable_mask, maskedValue):
+    mask = broadcastMask(tensor, broadcastable_mask)
+    tensor[mask] = maskedValue  # set tensor to value when mask
+
+
+'''
+Calculte the broadcasted mask and return it
+TODO - terminology (as above)
+'''
+
+
+def broadcastMask(tensor, broadcastable_mask):
+    # torch.Size -> torch.tensor
+    masksize = torch.tensor(broadcastable_mask.shape)
+    tensorsize = torch.tensor(tensor.shape)
+    # integer division, should be whole so // is fine
+    # torch.tensor->python list
+    repeatsize = (tensorsize // masksize).tolist()
+    return broadcastable_mask.repeat(repeatsize)
