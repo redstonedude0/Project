@@ -395,3 +395,51 @@ class TestNeural(unittest.TestCase):
         maxError = utils.maxError(ubar, ubar_)
         print(f"MaxError: {maxError}")
         self.assertTrue(maxError < 0.01)
+
+    def test_lbp_accuracy_minimal(self):
+        # Test LBP compared to original papers implementation
+        mentions = self.testingDoc.mentions
+        n = len(mentions)
+        embeddings, masks = self.network.embeddings(mentions, n)
+        fmcs = self.network.perform_fmcs(mentions)
+        ass = self.network.ass(fmcs)
+        phis = self.network.phissss(n, embeddings, ass)
+        psiss = self.network.psiss(n, embeddings, fmcs)
+        lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
+        lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
+
+        SETTINGS.LBP_loops = 0  # no loops
+        ubar = self.network.lbp_total(n, masks, psiss, lbp_inputs)
+        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([1, n, 1, 7]), 0)
+        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([n, 1, 7, 1]), 0)
+        input_sum = lbp_inputs.sum()
+        self.assertTrue(input_sum == input_sum)  # to ensure no nans
+
+        # CODE FROM MULRELNEL ORIGINAL PAPER (*modified)
+        # NOT ORIGINAL CODE
+        prev_msgs = torch.zeros(n, 7, n)
+        import torch.nn.functional as F
+        for _ in range(SETTINGS.LBP_loops):
+            mask = 1 - torch.eye(n)
+            SCOREPART = lbp_inputs.permute(0, 2, 1, 3)
+            ent_ent_votes = SCOREPART + \
+                            torch.sum(prev_msgs.view(1, n, 7, n) *
+                                      mask.view(n, 1, 1, n), dim=3) \
+                                .view(n, 1, n, 7)
+            msgs, _ = torch.max(ent_ent_votes, dim=3)
+            msgs = (F.softmax(msgs, dim=1).mul(SETTINGS.dropout_rate) +
+                    prev_msgs.exp().mul(1 - SETTINGS.dropout_rate)).log()
+            prev_msgs = msgs
+
+        # compute marginal belief
+        mask = torch.eye(n)
+        ent_scores = psiss * 1 + torch.sum(prev_msgs * mask.view(n, 1, n), dim=2)
+        ent_scores = F.softmax(ent_scores, dim=1)
+        ubar_ = ent_scores
+        # ORIGINAL CODE RESUME
+
+        print("ubar", ubar)
+        print("ubar_", ubar_)
+        maxError = utils.maxError(ubar, ubar_)
+        print(f"MaxError: {maxError}")
+        self.assertTrue(maxError < 0.01)
