@@ -479,7 +479,7 @@ class TestNeural(unittest.TestCase):
             mbarsum = utils.smartsum(mbarsum, 1).transpose(0, 1)
 
             # lbp_inputs is phi+psi values, add to the mbar sums to get the values in the max brackets
-            values = lbp_inputs + mbarsum.reshape(
+            values = SCOREPART.permute(0, 2, 1, 3) + mbarsum.reshape(
                 [n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
             mvals = utils.smartmax(values, dim=2)  # (n_i,n_j,7_j) tensor of max values
             # print("mbar",maxValue)
@@ -496,8 +496,6 @@ class TestNeural(unittest.TestCase):
                                       mask.view(n, 1, 1, n), dim=3) \
                                 .view(n, 1, n, 7)
             msgs, _ = torch.max(ent_ent_votes, dim=3)
-            msgs = (F.softmax(msgs, dim=1).mul(SETTINGS.dropout_rate) +
-                    prev_msgs.exp().mul(1 - SETTINGS.dropout_rate)).log()
             mvals_ = msgs.permute(0, 2, 1)
         # ORIGINAL CODE RESUME
 
@@ -505,6 +503,7 @@ class TestNeural(unittest.TestCase):
         print("mvals_", mvals_)
         print("mvals", mvals.shape)
         print("mvals_", mvals_.shape)
+        print("DIFF", mvals - mvals_)
         maxError = utils.maxError(mvals, mvals_)
         print(f"MaxError: {maxError}")
         self.assertTrue(maxError < 0.01)
