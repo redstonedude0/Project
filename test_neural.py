@@ -456,7 +456,8 @@ class TestNeural(unittest.TestCase):
         lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
         lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
 
-        mbar = torch.zeros([n, n, 7])  # initial mbar
+        prev_msgs = torch.zeros(n, 7, n)
+        mbar = prev_msgs.permute(0, 2, 1).clone()
         utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([1, n, 1, 7]), 0)
         utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([n, 1, 7, 1]), 0)
         SCOREPART = lbp_inputs.permute(0, 2, 1, 3)
@@ -465,13 +466,12 @@ class TestNeural(unittest.TestCase):
         ####MY CODE COPY ACROSS
         if True:
             # mbar is a 3D (n_i,n_j,7_j) tensor
-            mbarsum = mbar  # start by reading mbar as k->i beliefs
             # (n_k,n_i,7_i)
             # foreach j we will have a different sum, introduce j dimension
-            mbarsum = mbarsum.repeat([n, 1, 1, 1])
+            mbarsum = mbar.repeat([n, 1, 1, 1])
             # (n_j,n_k,n_i,7_i)
             # 0 out where j=k (do not want j->i(e'), set to 0 for all i,e')
-            cancel = 1 - torch.eye(n, n)  # (n_j,n_k) anti-identity
+            cancel = 1 - torch.eye(n)  # (n_j,n_k) anti-identity
             cancel = cancel.reshape([n, n, 1, 1])  # add extra dimensions
             mbarsum = mbarsum * cancel  # broadcast (n,n,1,1) to (n,n,n,7), setting (n,7) dim to 0 where j=k
             # (n_j,n_k,n_i,7_i)
@@ -479,8 +479,10 @@ class TestNeural(unittest.TestCase):
             mbarsum = utils.smartsum(mbarsum, 1).transpose(0, 1)
 
             # lbp_inputs is phi+psi values, add to the mbar sums to get the values in the max brackets
-            values = SCOREPART.permute(0, 2, 1, 3) + mbarsum.reshape(
-                [n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
+            values = SCOREPART + mbarsum.permute(0, 2, 1).reshape(
+                [n, 1, n, 7])  # broadcast (from (n_i,7_i,n_j,1) to (n_i,7_i,n_j,7_j) tensor)
+            # TODO CHANGE1 - broadcast across all i candidates, not j candidates
+            values = values.permute(0, 2, 1, 3)
             mvals = utils.smartmax(values, dim=2)  # (n_i,n_j,7_j) tensor of max values
             # print("mbar",maxValue)
         ###END MY CODE COPY ACROSS
@@ -488,12 +490,10 @@ class TestNeural(unittest.TestCase):
         # CODE FROM MULRELNEL ORIGINAL PAPER (*modified)
         # NOT ORIGINAL CODE
         if True:
-            prev_msgs = torch.zeros(n, 7, n)
-            import torch.nn.functional as F
-            mask = 1 - torch.eye(n)
+            cancel_ = 1 - torch.eye(n)
             ent_ent_votes = SCOREPART + \
                             torch.sum(prev_msgs.view(1, n, 7, n) *
-                                      mask.view(n, 1, 1, n), dim=3) \
+                                      cancel_.view(n, 1, 1, n), dim=3) \
                                 .view(n, 1, n, 7)
             msgs, _ = torch.max(ent_ent_votes, dim=3)
             mvals_ = msgs.permute(0, 2, 1)
