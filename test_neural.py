@@ -408,7 +408,7 @@ class TestNeural(unittest.TestCase):
         lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
         lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
 
-        SETTINGS.LBP_loops = 0  # no loops
+        SETTINGS.LBP_loops = 1  # no loops
         ubar = self.network.lbp_total(n, masks, psiss, lbp_inputs)
         utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([1, n, 1, 7]), 0)
         utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([n, 1, 7, 1]), 0)
@@ -441,5 +441,70 @@ class TestNeural(unittest.TestCase):
         print("ubar", ubar)
         print("ubar_", ubar_)
         maxError = utils.maxError(ubar, ubar_)
+        print(f"MaxError: {maxError}")
+        self.assertTrue(maxError < 0.01)
+
+    def test_lbp_accuracy_mvals(self):
+        # Test LBP compared to original papers implementation
+        mentions = self.testingDoc.mentions
+        n = len(mentions)
+        embeddings, masks = self.network.embeddings(mentions, n)
+        fmcs = self.network.perform_fmcs(mentions)
+        ass = self.network.ass(fmcs)
+        phis = self.network.phissss(n, embeddings, ass)
+        psiss = self.network.psiss(n, embeddings, fmcs)
+        lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
+        lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
+
+        mbar = torch.zeros([n, n, 7])  # initial mbar
+        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([1, n, 1, 7]), 0)
+        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([n, 1, 7, 1]), 0)
+        SCOREPART = lbp_inputs.permute(0, 2, 1, 3)
+        input_sum = lbp_inputs.sum()
+        self.assertTrue(input_sum == input_sum)  # to ensure no nans
+        ####MY CODE COPY ACROSS
+        if True:
+            # mbar is a 3D (n_i,n_j,7_j) tensor
+            mbarsum = mbar  # start by reading mbar as k->i beliefs
+            # (n_k,n_i,7_i)
+            # foreach j we will have a different sum, introduce j dimension
+            mbarsum = mbarsum.repeat([n, 1, 1, 1])
+            # (n_j,n_k,n_i,7_i)
+            # 0 out where j=k (do not want j->i(e'), set to 0 for all i,e')
+            cancel = 1 - torch.eye(n, n)  # (n_j,n_k) anti-identity
+            cancel = cancel.reshape([n, n, 1, 1])  # add extra dimensions
+            mbarsum = mbarsum * cancel  # broadcast (n,n,1,1) to (n,n,n,7), setting (n,7) dim to 0 where j=k
+            # (n_j,n_k,n_i,7_i)
+            # sum to a (n_i,n_j,7_i) tensor of sums(over k) for each j,i,e'
+            mbarsum = utils.smartsum(mbarsum, 1).transpose(0, 1)
+
+            # lbp_inputs is phi+psi values, add to the mbar sums to get the values in the max brackets
+            values = lbp_inputs + mbarsum.reshape(
+                [n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
+            mvals = utils.smartmax(values, dim=2)  # (n_i,n_j,7_j) tensor of max values
+            # print("mbar",maxValue)
+        ###END MY CODE COPY ACROSS
+
+        # CODE FROM MULRELNEL ORIGINAL PAPER (*modified)
+        # NOT ORIGINAL CODE
+        if True:
+            prev_msgs = torch.zeros(n, 7, n)
+            import torch.nn.functional as F
+            mask = 1 - torch.eye(n)
+            ent_ent_votes = SCOREPART + \
+                            torch.sum(prev_msgs.view(1, n, 7, n) *
+                                      mask.view(n, 1, 1, n), dim=3) \
+                                .view(n, 1, n, 7)
+            msgs, _ = torch.max(ent_ent_votes, dim=3)
+            msgs = (F.softmax(msgs, dim=1).mul(SETTINGS.dropout_rate) +
+                    prev_msgs.exp().mul(1 - SETTINGS.dropout_rate)).log()
+            mvals_ = msgs.permute(0, 2, 1)
+        # ORIGINAL CODE RESUME
+
+        print("mvals", mvals)
+        print("mvals_", mvals_)
+        print("mvals", mvals.shape)
+        print("mvals_", mvals_.shape)
+        maxError = utils.maxError(mvals, mvals_)
         print(f"MaxError: {maxError}")
         self.assertTrue(maxError < 0.01)
