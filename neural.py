@@ -293,6 +293,7 @@ class NeuralNet(nn.Module):
     '''
 
     def lbp_iteration_mvaluesss(self, mbar, n, lbp_inputs):
+        # TODO - is the initial mbar and the cancellation eye learned? MRN 235/238 mulrel_ranker.py
         # mbar intuition: mbar[m_i][m_j][e_j] is how much m_i votes for e_j to be the candidate for m_j (at each timestep)
         # mbar is a 3D (n_i,n_j,7_j) tensor
         mbarsum = mbar  # start by reading mbar as k->i beliefs
@@ -312,30 +313,40 @@ class NeuralNet(nn.Module):
         values = lbp_inputs + mbarsum.reshape(
             [n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
         maxValue = smartmax(values, dim=2)  # (n_i,n_j,7_j) tensor of max values
+        #print("mbar",maxValue)
         return maxValue
 
     '''
     Compute an iteration of LBP
     mbar: mbar message values (n,n,7) 3D tensor
+    masks 2D (n,7) boolean tensor mask
     n: len(mentions)
     lbp_inputs: 4D tensor (n_i,n_j,7_i,7_j) psi+phi values per i,j per candidates (e',e)
     RETURNS:
     3D tensor (n,n,7_j) next mbar
     '''
 
-    def lbp_iteration_complete(self, mbar, n, lbp_inputs):
+    def lbp_iteration_complete(self, mbar, masks, n, lbp_inputs):
         # (n,n,7_j) tensor
         mvalues = self.lbp_iteration_mvaluesss(mbar, n, lbp_inputs)
         expmvals = mvalues.exp()
+        setMaskBroadcastable(expmvals, ~masks.reshape([1, n, 7]), 0)  # nans are 0
         softmaxdenoms = smartsum(expmvals, dim=2)  # Eq 11 softmax denominator from LBP paper
 
         # Do Eq 11 (old mbars + mvalues to new mbars)
         dampingFactor = 0.5  # delta in the paper
         newmbar = mbar.exp()
         newmbar *= (1 - dampingFactor)
+        #        print("X1 ([0.25-]0.5)",newmbar)
+        #        print("expm",expmvals)
         otherbit = dampingFactor * (expmvals / softmaxdenoms.reshape([n, n, 1]))  # broadcast (n,n) to (n,n,7)
+        #        print("X2 (0-0.5)",otherbit)
         newmbar += otherbit
+        #        print("X3 ([0.25-]0.5-1.0)",newmbar)
+        setMaskBroadcastable(newmbar, ~masks.reshape([1, n, 7]),
+                             1)  # 'nan's become 0 after log (broadcast (1,n,7) to (n,n,7))
         newmbar = newmbar.log()
+        #        print("X4 (-0.69 - 0)",newmbar)
         return newmbar
 
     '''
@@ -350,7 +361,7 @@ class NeuralNet(nn.Module):
     '''
 
     def lbp_total(self, n, masks, psiss, lbp_inputs):
-        # Note: Should be i*j*arb but arb dependent so i*j*7 but unused cells will be 0 and trimmed
+        # Note: Should be i*j*arb but arb dependent so i*j*7 but unused cells will be 0/nan and ignored later
         debug("Computing initial mbar for LBP")
         mbar = torch.zeros(n, n, 7)
         # should be nan if no candidate there (n_i,n_j,7_j)
@@ -362,7 +373,7 @@ class NeuralNet(nn.Module):
         debug("Now doing LBP Loops")
         for loopno in range(0, SETTINGS.LBP_loops):
             print(f"Doing loop {loopno + 1}/{SETTINGS.LBP_loops}")
-            newmbar = self.lbp_iteration_complete(mbar, n, lbp_inputs)
+            newmbar = self.lbp_iteration_complete(mbar, masks, n, lbp_inputs)
             mbar = newmbar
         # Now compute ubar
         debug("Computing final ubar out the back of LBP")
@@ -379,6 +390,7 @@ class NeuralNet(nn.Module):
         normalise_avgToZero(u, masks)
         # TODO - what to translate by? why does 50 work here?
         ubar = u.exp()  # 'nans' become 1
+        ubar = ubar.clone()  # deepclone because performing in-place modification after exp
         ubar[~masks] = 0  # reset nans to 0
         # Normalise ubar (n,7)
         ubarsum = smartsum(ubar, 1)  # (n_i) sums over candidates
