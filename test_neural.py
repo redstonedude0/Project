@@ -457,10 +457,16 @@ class TestNeural(unittest.TestCase):
         lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
 
         prev_msgs = torch.zeros(n, 7, n)
-        mbar = prev_msgs.permute(0, 2, 1).clone()
+        # prev_msgs is [n_j][7_j][n_i]
+        mbar = prev_msgs.permute(2, 0, 1).clone()
+        # mbar is [n_i][n_j][7_j]
         utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([1, n, 1, 7]), 0)
         utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([n, 1, 7, 1]), 0)
-        SCOREPART = lbp_inputs.permute(0, 2, 1, 3)
+        # lbp[i][j][e_i][e_j]
+        #        SCOREPART = lbp_inputs.permute(0, 2, 1, 3)
+        # [i][e_i][j][e_j]
+        SCOREPART = lbp_inputs.permute(1, 3, 0, 2)
+        # ACTIVE[j][e_j][i][e_i]
         input_sum = lbp_inputs.sum()
         self.assertTrue(input_sum == input_sum)  # to ensure no nans
         ####MY CODE COPY ACROSS
@@ -479,11 +485,11 @@ class TestNeural(unittest.TestCase):
             mbarsum = utils.smartsum(mbarsum, 1).transpose(0, 1)
 
             # lbp_inputs is phi+psi values, add to the mbar sums to get the values in the max brackets
-            values = SCOREPART + mbarsum.permute(0, 2, 1).reshape(
-                [n, 1, n, 7])  # broadcast (from (n_i,7_i,n_j,1) to (n_i,7_i,n_j,7_j) tensor)
+            values = SCOREPART.permute(1, 3, 0, 2)  # broadcast (from (n_i,7_i,n_j,1) to (n_i,7_i,n_j,7_j) tensor)
             # TODO CHANGE1 - broadcast across all i candidates, not j candidates
-            values = values.permute(0, 2, 1, 3)
-            mvals = utils.smartmax(values, dim=2)  # (n_i,n_j,7_j) tensor of max values
+            values = values
+            mvals = utils.smartmax(values, dim=1)  # (n_i,n_j,7_j) tensor of max values
+            mvals = mvals.permute(2, 1, 0)
             # print("mbar",maxValue)
         ###END MY CODE COPY ACROSS
 
@@ -491,13 +497,14 @@ class TestNeural(unittest.TestCase):
         # NOT ORIGINAL CODE
         if True:
             cancel_ = 1 - torch.eye(n)
-            ent_ent_votes = SCOREPART + \
-                            torch.sum(prev_msgs.view(1, n, 7, n) *
-                                      cancel_.view(n, 1, 1, n), dim=3) \
-                                .view(n, 1, n, 7)
-            msgs, _ = torch.max(ent_ent_votes, dim=3)
-            mvals_ = msgs.permute(0, 2, 1)
+            ent_ent_votes = SCOREPART
+            msgs, _ = torch.max(ent_ent_votes,
+                                dim=3)  # TODO - appears the paper has an error? summing over wrong dimension?
+            mvals_ = msgs
+        #            msgs, _ = torch.max(ent_ent_votes, dim=3)
+        #            mvals_ = msgs.permute(0, 2, 1)
         # ORIGINAL CODE RESUME
+        mvals_ = mvals_.permute(2, 0, 1)
 
         print("mvals", mvals)
         print("mvals_", mvals_)
