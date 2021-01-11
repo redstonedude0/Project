@@ -530,7 +530,7 @@ class TestNeural(unittest.TestCase):
         lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
         lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
 
-        mbar = torch.zeros(n, n, 7)
+        mbar = torch.randn(n, n, 7)
         prev_msgs = mbar.permute(1, 2, 0).clone()
         # prev_msgs is [n_j][7_j][n_i]
         # mbar is [n_i][n_j][7_j]
