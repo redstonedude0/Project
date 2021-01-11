@@ -17,17 +17,30 @@ class TestNeural(unittest.TestCase):
         super(TestNeural, self).setUp()
         self.network = NeuralNet()
         processeddata.loadEmbeddings()
+
+        # Trimmed cands
         self.testingDoc = testdata.getTestData()
         # at most 7 cands per mention in doc
         for m in self.testingDoc.mentions:
             m.candidates = m.candidates[0:7]
-        self.testingDoc2 = testdata.getTestData()
+
         # Rand candidates
+        self.testingDoc2 = testdata.getTestData()
         torch.manual_seed(0)
         n = len(self.testingDoc2.mentions)
         rands = torch.rand(n) * 7
         for m, n in zip(self.testingDoc2.mentions, rands):
             m.candidates = m.candidates[0:math.floor(n)]
+
+        # 7 cands (pad with unks)
+        self.testingDoc3 = testdata.getTestData()
+        extracand = Candidate(-1, 0.5, "#UNK#")
+        for m in self.testingDoc3.mentions:
+            if len(m.candidates) != 7:
+                cands = m.candidates[0:7]  # Trim if needed
+                extracands = [extracand for i in range(0, 7 - len(cands))]  # Expand if needed
+                m.candidates = cands + extracands
+
     def tearDown(self) -> None:
         pass
 
@@ -575,14 +588,7 @@ class TestNeural(unittest.TestCase):
 
     def test_lbp_accuracy_mvals_fixed2(self):
         # Test LBP compared to original papers implementation
-        mentions = self.testingDoc.mentions
-        # Enforce 7 cands (add extra UNK cands - MRN code relies on exactly 7 cands existing
-        for m in mentions:
-            if len(m.candidates) != 7:
-                cands = m.candidates
-                extracand = Candidate(-1, 0.5, "#UNK#")
-                extracands = [extracand for i in range(0, 7 - len(cands))]
-                m.candidates = cands + extracands
+        mentions = self.testingDoc3.mentions
         n = len(mentions)
         embeddings, masks = self.network.embeddings(mentions, n)
         fmcs = self.network.perform_fmcs(mentions)
