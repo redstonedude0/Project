@@ -43,6 +43,14 @@ def maxError(tensor1, tensor2):
     return relError[inverseMask].max()
 
 
+def sumError(tensor1, tensor2):
+    # Error relative to tensor 1
+    relError = abs((tensor1 - tensor2))
+    inverseMask = relError.eq(relError)
+    # TODO - if there are no non-nan values this will error
+    return relError[inverseMask].sum()
+
+
 def maxErrorMasked(tensor1, tensor2, mask):
     # Error relative to tensor 1
     relError = abs((tensor1 - tensor2) / tensor1)

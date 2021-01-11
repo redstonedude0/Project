@@ -543,7 +543,7 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(input_sum == input_sum)  # to ensure no nans
         ####MY CODE COPY ACROSS
         if True:
-            mvals = self.network.lbp_iteration_mvaluesss(mbar, n, lbp_inputs)
+            mvals = self.network.lbp_iteration_complete(mbar, masks, n, lbp_inputs)
 
         ###END MY CODE COPY ACROSS
 
@@ -556,8 +556,8 @@ class TestNeural(unittest.TestCase):
                                       mask.view(n, 1, 1, n), dim=3) \
                                 .view(n, 1, n, 7)
             msgs, _ = torch.max(ent_ent_votes, dim=3)
-            msgs2 = (torch.nn.functional.softmax(msgs, dim=1).mul(SETTINGS.dropout_rate) +
-                     prev_msgs.exp().mul(1 - SETTINGS.dropout_rate)).log()
+            msgs = (torch.nn.functional.softmax(msgs, dim=1).mul(SETTINGS.dropout_rate) +
+                    prev_msgs.exp().mul(1 - SETTINGS.dropout_rate)).log()
             prev_msgs = msgs
             # msgs is [j][e_j][i]
             mvals_ = msgs.permute(2, 0, 1)  # to i,j,ej
@@ -571,3 +571,84 @@ class TestNeural(unittest.TestCase):
         maxError = utils.maxError(mvals, mvals_)
         print(f"MaxError: {maxError}")
         self.assertTrue(maxError < 0.01)
+
+    def test_lbp_accuracy_mvals_fixed2(self):
+        # Test LBP compared to original papers implementation
+        mentions = self.testingDoc.mentions
+        n = len(mentions)
+        embeddings, masks = self.network.embeddings(mentions, n)
+        fmcs = self.network.perform_fmcs(mentions)
+        ass = self.network.ass(fmcs)
+        phis = self.network.phissss(n, embeddings, ass)
+        psiss = self.network.psiss(n, embeddings, fmcs)
+        lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
+        lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
+
+        mbar = torch.randn(n, n, 7)
+        prev_msgs = mbar.permute(1, 2, 0).clone()
+        # prev_msgs is [n_j][7_j][n_i]
+        # mbar is [n_i][n_j][7_j]
+        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([1, n, 1, 7]), 0)
+        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([n, 1, 7, 1]), 0)
+        # lbp[i][j][e_i][e_j]
+        SCOREPART = lbp_inputs.permute(1, 3, 0, 2)
+        # ACTIVE[j][e_j][i][e_i] (summing over e_i)
+        input_sum = lbp_inputs.sum()
+        self.assertTrue(input_sum == input_sum)  # to ensure no nans
+        mvals = self.network.lbp_iteration_mvaluesss(mbar, n, lbp_inputs)
+        ####MY CODE COPY ACROSS
+        if True:
+            expmvals = mvals.exp()
+            utils.setMaskBroadcastable(expmvals, ~masks.reshape([1, n, 7]), 0)  # nans are 0
+            softmaxdenoms = utils.smartsum(expmvals, dim=2)  # Eq 11 softmax denominator from LBP paper
+
+            # Do Eq 11 (old mbars + mvalues to new mbars)
+            dampingFactor = SETTINGS.dropout_rate  # delta in the paper
+            newmbar = mbar.exp()
+            newmbar *= (1 - dampingFactor)
+            #        print("X1 ([0.25-]0.5)",newmbar)
+            #        print("expm",expmvals)
+            otherbit = dampingFactor * (expmvals / softmaxdenoms.reshape([n, n, 1]))  # broadcast (n,n) to (n,n,7)
+
+            print("mine", (expmvals / softmaxdenoms.reshape([n, n, 1])))
+            print("answer", torch.nn.functional.softmax(mvals, dim=2))
+
+            #        print("X2 (0-0.5)",otherbit)
+            newmbar2 = newmbar + otherbit
+            #        print("X3 ([0.25-]0.5-1.0)",newmbar)
+            utils.setMaskBroadcastable(newmbar2, ~masks.reshape([1, n, 7]),
+                                       1)  # 'nan's become 0 after log (broadcast (1,n,7) to (n,n,7))
+            mbarvals = newmbar2.log()
+            #        print("X4 (-0.69 - 0)",newmbar)
+            # newmbar
+
+        ###END MY CODE COPY ACROSS
+
+        # CODE FROM MULRELNEL ORIGINAL PAPER (*modified)
+        # NOT ORIGINAL CODE
+        if True:
+            msgs = mvals.permute(1, 2, 0)  # i,j,ej->j,ej,i
+            msgs = (torch.nn.functional.softmax(msgs, dim=1).mul(SETTINGS.dropout_rate) +
+                    prev_msgs.exp().mul(1 - SETTINGS.dropout_rate)).log()
+            #            prelogtheirs = torch.nn.functional.softmax(mvals.permute(1,2,0), dim=1).mul(SETTINGS.dropout_rate)
+            #            prelogours = otherbit
+            #            print("at",torch.nn.functional.softmax(mvals.permute(1,2,0), dim=1).permute(2,0,1))
+            #            print("ao",(expmvals / softmaxdenoms.reshape([n, n, 1])))
+            #            print("ao2",torch.nn.functional.softmax(mvals,dim=2))
+            prev_msgs = msgs
+            # msgs is [j][e_j][i]
+            mvals_ = msgs.permute(2, 0, 1)  # to i,j,ej
+        # ORIGINAL CODE RESUME
+
+        print("mbarvals", mbarvals)
+        print("mvals_", mvals_)
+        print("mbarvals", mbarvals.shape)
+        print("mvals_", mvals_.shape)
+        print("DIFF", mbarvals - mvals_)
+        diff = mbarvals - mvals_
+        print("diff", (diff != 0).nonzero())
+        print("diff", diff[diff != 0])
+        print("example", mbarvals[0][11][0], mvals_[0][11][0])
+        sumError = utils.sumError(mbarvals, mvals_)
+        print(f"MaxError: {sumError}")
+        self.assertTrue(sumError < 0.01)

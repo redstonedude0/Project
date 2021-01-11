@@ -335,7 +335,7 @@ class NeuralNet(nn.Module):
         softmaxdenoms = smartsum(expmvals, dim=2)  # Eq 11 softmax denominator from LBP paper
 
         # Do Eq 11 (old mbars + mvalues to new mbars)
-        dampingFactor = 0.5  # delta in the paper
+        dampingFactor = 0.5  # delta in the paper #TODO - I believe this is dropout_rate in the MRN code then?
         newmbar = mbar.exp()
         newmbar *= (1 - dampingFactor)
         #        print("X1 ([0.25-]0.5)",newmbar)
