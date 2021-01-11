@@ -421,7 +421,10 @@ class TestNeural(unittest.TestCase):
         import torch.nn.functional as F
         for _ in range(SETTINGS.LBP_loops):
             mask = 1 - torch.eye(n)
+            # lbp_inputs is [n_i][n_j][7_i][7_j]
             SCOREPART = lbp_inputs.permute(0, 2, 1, 3)
+            SCOREPART = lbp_inputs.permute(1, 3, 0, 2)
+            # SCOREPARY is [j][7_J][i][7_i]
             ent_ent_votes = SCOREPART + \
                             torch.sum(prev_msgs.view(1, n, 7, n) *
                                       mask.view(n, 1, 1, n), dim=3) \
@@ -505,6 +508,80 @@ class TestNeural(unittest.TestCase):
         #            mvals_ = msgs.permute(0, 2, 1)
         # ORIGINAL CODE RESUME
         mvals_ = mvals_.permute(2, 0, 1)
+
+        print("mvals", mvals)
+        print("mvals_", mvals_)
+        print("mvals", mvals.shape)
+        print("mvals_", mvals_.shape)
+        print("DIFF", mvals - mvals_)
+        maxError = utils.maxError(mvals, mvals_)
+        print(f"MaxError: {maxError}")
+        self.assertTrue(maxError < 0.01)
+
+    def test_lbp_accuracy_mvals_fixed(self):
+        # Test LBP compared to original papers implementation
+        mentions = self.testingDoc.mentions
+        n = len(mentions)
+        embeddings, masks = self.network.embeddings(mentions, n)
+        fmcs = self.network.perform_fmcs(mentions)
+        ass = self.network.ass(fmcs)
+        phis = self.network.phissss(n, embeddings, ass)
+        psiss = self.network.psiss(n, embeddings, fmcs)
+        lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
+        lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
+
+        mbar = torch.zeros(n, n, 7)
+        prev_msgs = mbar.permute(1, 2, 0).clone()
+        # prev_msgs is [n_j][7_j][n_i]
+        # mbar is [n_i][n_j][7_j]
+        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([1, n, 1, 7]), 0)
+        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([n, 1, 7, 1]), 0)
+        # lbp[i][j][e_i][e_j]
+        SCOREPART = lbp_inputs.permute(1, 3, 0, 2)
+        # ACTIVE[j][e_j][i][e_i] (summing over e_i)
+        input_sum = lbp_inputs.sum()
+        self.assertTrue(input_sum == input_sum)  # to ensure no nans
+        ####MY CODE COPY ACROSS
+        if True:
+            # mbar intuition: mbar[m_i][m_j][e_j] is how much m_i votes for e_j to be the candidate for m_j (at each timestep)
+            # mbar is a 3D (n_i,n_j,7_j) tensor
+            mbarsum = mbar  # start by reading mbar as k->i beliefs
+            # (n_k,n_i,7_i)
+            # foreach j we will have a different sum, introduce j dimension
+            mbarsum = mbarsum.repeat([n, 1, 1, 1])
+            # (n_j,n_k,n_i,7_i)
+            # 0 out where j=k (do not want j->i(e'), set to 0 for all i,e')
+            cancel = 1 - torch.eye(n, n)  # (n_j,n_k) anti-identity
+            cancel = cancel.reshape([n, n, 1, 1])  # add extra dimensions
+            mbarsum = mbarsum * cancel  # broadcast (n,n,1,1) to (n,n,n,7), setting (n,7) dim to 0 where j=k
+            # (n_j,n_k,n_i,7_i)
+            # sum to a (n_i,n_j,7_i) tensor of sums(over k) for each j,i,e'
+            mbarsum = utils.smartsum(mbarsum, 1).transpose(0, 1)
+
+            # lbp_inputs is phi+psi values, add to the mbar sums to get the values in the max brackets
+            #        lbp_inputs = lbp_inputs.permute(1,0,3,2)
+            #            lbp_inputs = lbp_inputs.permute(i,j,e_i,e_j)
+            values = lbp_inputs + mbarsum.reshape(
+                [n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
+            mvals = utils.smartmax(values, dim=2)  # (n_i,n_j,7_j) tensor of max values
+
+        ###END MY CODE COPY ACROSS
+
+        # CODE FROM MULRELNEL ORIGINAL PAPER (*modified)
+        # NOT ORIGINAL CODE
+        if True:
+            mask = 1 - torch.eye(n)
+            ent_ent_votes = SCOREPART + \
+                            torch.sum(prev_msgs.view(1, n, 7, n) *
+                                      mask.view(n, 1, 1, n), dim=3) \
+                                .view(n, 1, n, 7)
+            msgs, _ = torch.max(ent_ent_votes, dim=3)
+            msgs2 = (torch.nn.functional.softmax(msgs, dim=1).mul(SETTINGS.dropout_rate) +
+                     prev_msgs.exp().mul(1 - SETTINGS.dropout_rate)).log()
+            prev_msgs = msgs
+            # msgs is [j][e_j][i]
+            mvals_ = msgs.permute(2, 0, 1)  # to i,j,ej
+        # ORIGINAL CODE RESUME
 
         print("mvals", mvals)
         print("mvals_", mvals_)

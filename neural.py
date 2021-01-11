@@ -310,6 +310,7 @@ class NeuralNet(nn.Module):
         mbarsum = smartsum(mbarsum, 1).transpose(0, 1)
 
         # lbp_inputs is phi+psi values, add to the mbar sums to get the values in the max brackets
+        #        lbp_inputs = lbp_inputs.permute(1,0,3,2)
         values = lbp_inputs + mbarsum.reshape(
             [n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
         maxValue = smartmax(values, dim=2)  # (n_i,n_j,7_j) tensor of max values
