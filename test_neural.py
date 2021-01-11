@@ -604,68 +604,20 @@ class TestNeural(unittest.TestCase):
         input_sum = lbp_inputs.sum()
         self.assertTrue(input_sum == input_sum)  # to ensure no nans
         mvals = self.network.lbp_iteration_mvaluesss(mbar, n, lbp_inputs)
-        ####MY CODE COPY ACROSS
-        if True:
-            expmvals = mvals.exp()
-            utils.setMaskBroadcastable(expmvals, ~masks.reshape([1, n, 7]), 0)  # nans are 0
-            softmaxdenoms = utils.smartsum(expmvals, dim=2)  # Eq 11 softmax denominator from LBP paper
 
-            # Do Eq 11 (old mbars + mvalues to new mbars)
-            dampingFactor = SETTINGS.dropout_rate  # delta in the paper
-            newmbar = mbar.exp()
-            newmbar *= (1 - dampingFactor)
-            #        print("X1 ([0.25-]0.5)",newmbar)
-            #        print("expm",expmvals)
-            otherbit = dampingFactor * (expmvals / softmaxdenoms.reshape([n, n, 1]))  # broadcast (n,n) to (n,n,7)
-
-            print("mine", (expmvals / softmaxdenoms.reshape([n, n, 1])))
-            print("answer", torch.nn.functional.softmax(mvals, dim=2))
-
-            #        print("X2 (0-0.5)",otherbit)
-            newmbar2 = newmbar + otherbit
-            #        print("X3 ([0.25-]0.5-1.0)",newmbar)
-            utils.setMaskBroadcastable(newmbar2, ~masks.reshape([1, n, 7]),
-                                       1)  # 'nan's become 0 after log (broadcast (1,n,7) to (n,n,7))
-            mbarvals = newmbar2.log()
-        #            mbarvals = self.network.lbp_iteration_complete(mbar,masks,n,lbp_inputs)
-        #        print("X4 (-0.69 - 0)",newmbar)
-            # newmbar
-
-        ###END MY CODE COPY ACROSS
+        mbarvals = self.network.lbp_iteration_complete(mbar, masks, n, lbp_inputs)
 
         # CODE FROM MULRELNEL ORIGINAL PAPER (*modified)
         # NOT ORIGINAL CODE
         if True:
+            # Only testing the 'barring' bit - use mvals as calculated by me
             msgs = mvals.permute(1, 2, 0)  # i,j,ej->j,ej,i
             msgs = (torch.nn.functional.softmax(msgs, dim=1).mul(SETTINGS.dropout_rate) +
                     prev_msgs.exp().mul(1 - SETTINGS.dropout_rate)).log()
-            #            prelogtheirs = torch.nn.functional.softmax(mvals.permute(1,2,0), dim=1).mul(SETTINGS.dropout_rate)
-            #            prelogours = otherbit
-            #            print("at",torch.nn.functional.softmax(mvals.permute(1,2,0), dim=1).permute(2,0,1))
-            #            print("ao",(expmvals / softmaxdenoms.reshape([n, n, 1])))
-            #            print("ao2",torch.nn.functional.softmax(mvals,dim=2))
-            # prev_msgs = msgs
             # msgs is [j][e_j][i]
             mvals_ = msgs.permute(2, 0, 1)  # to i,j,ej
         # ORIGINAL CODE RESUME
 
-        print("mbarvals", mbarvals)
-        print("mvals_", mvals_)
-        print("mbarvals", mbarvals.shape)
-        print("mvals_", mvals_.shape)
-        print("DIFF", mbarvals - mvals_)
-        diff = mbarvals - mvals_
-        print("diff", (diff != 0).nonzero())
-        print("diff", diff[diff != 0])
-        print("example", mbarvals[0][11], mvals_[0][11])
-        print("src", mvals[0][11], mbar[0][11])
-        print("truth", (mvals[0][11].softmax(0) * 0.3 + 0.7).log())
-        print("truth", (mvals[0][11].softmax(0) * 0.3 + mbar.exp()[0][11] * 0.7).log())
-        #        print("truth", (mvals.softmax(2)*0.3+0.7).log()[0][11])
-        #        print("truth", (mvals.permute(1, 2, 0).softmax(1)*0.3+0.7).log().permute(2,0,1)[0][11])
-        #        print("truth", (torch.nn.functional.softmax(mvals.permute(1, 2, 0), dim=1)*0.3+0.7).log().permute(2,0,1)[0][11])
-        #        print("truth", (torch.nn.functional.softmax(mvals.permute(1, 2, 0), dim=1).mul(SETTINGS.dropout_rate)+0.7).log().permute(2,0,1)[0][11])
-        #        print("truth", (torch.nn.functional.softmax(mvals.permute(1, 2, 0), dim=1).mul(SETTINGS.dropout_rate)+prev_msgs.exp().mul(1 - SETTINGS.dropout_rate)).log().permute(2,0,1)[0][11])
-        sumError = utils.sumError(mbarvals, mvals_)
-        print(f"MaxError: {sumError}")
-        self.assertTrue(sumError < 0.01)
+        maxError = utils.maxError(mbarvals, mvals_)
+        print(f"MaxError: {maxError}")
+        self.assertTrue(maxError < 0.01)
