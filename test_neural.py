@@ -543,27 +543,7 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(input_sum == input_sum)  # to ensure no nans
         ####MY CODE COPY ACROSS
         if True:
-            # mbar intuition: mbar[m_i][m_j][e_j] is how much m_i votes for e_j to be the candidate for m_j (at each timestep)
-            # mbar is a 3D (n_i,n_j,7_j) tensor
-            mbarsum = mbar  # start by reading mbar as k->i beliefs
-            # (n_k,n_i,7_i)
-            # foreach j we will have a different sum, introduce j dimension
-            mbarsum = mbarsum.repeat([n, 1, 1, 1])
-            # (n_j,n_k,n_i,7_i)
-            # 0 out where j=k (do not want j->i(e'), set to 0 for all i,e')
-            cancel = 1 - torch.eye(n, n)  # (n_j,n_k) anti-identity
-            cancel = cancel.reshape([n, n, 1, 1])  # add extra dimensions
-            mbarsum = mbarsum * cancel  # broadcast (n,n,1,1) to (n,n,n,7), setting (n,7) dim to 0 where j=k
-            # (n_j,n_k,n_i,7_i)
-            # sum to a (n_i,n_j,7_i) tensor of sums(over k) for each j,i,e'
-            mbarsum = utils.smartsum(mbarsum, 1).transpose(0, 1)
-
-            # lbp_inputs is phi+psi values, add to the mbar sums to get the values in the max brackets
-            #        lbp_inputs = lbp_inputs.permute(1,0,3,2)
-            #            lbp_inputs = lbp_inputs.permute(i,j,e_i,e_j)
-            values = lbp_inputs + mbarsum.reshape(
-                [n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
-            mvals = utils.smartmax(values, dim=2)  # (n_i,n_j,7_j) tensor of max values
+            mvals = self.network.lbp_iteration_mvaluesss(mbar, n, lbp_inputs)
 
         ###END MY CODE COPY ACROSS
 
