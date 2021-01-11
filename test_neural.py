@@ -7,6 +7,7 @@ from tqdm import tqdm
 import processeddata
 import testdata
 import utils
+from datastructures import Candidate
 from hyperparameters import SETTINGS
 from neural import NeuralNet
 
@@ -575,6 +576,13 @@ class TestNeural(unittest.TestCase):
     def test_lbp_accuracy_mvals_fixed2(self):
         # Test LBP compared to original papers implementation
         mentions = self.testingDoc.mentions
+        # Enforce 7 cands (add extra UNK cands - MRN code relies on exactly 7 cands existing
+        for m in mentions:
+            if len(m.candidates) != 7:
+                cands = m.candidates
+                extracand = Candidate(-1, 0.5, "#UNK#")
+                extracands = [extracand for i in range(0, 7 - len(cands))]
+                m.candidates = cands + extracands
         n = len(mentions)
         embeddings, masks = self.network.embeddings(mentions, n)
         fmcs = self.network.perform_fmcs(mentions)
@@ -619,7 +627,8 @@ class TestNeural(unittest.TestCase):
             utils.setMaskBroadcastable(newmbar2, ~masks.reshape([1, n, 7]),
                                        1)  # 'nan's become 0 after log (broadcast (1,n,7) to (n,n,7))
             mbarvals = newmbar2.log()
-            #        print("X4 (-0.69 - 0)",newmbar)
+        #            mbarvals = self.network.lbp_iteration_complete(mbar,masks,n,lbp_inputs)
+        #        print("X4 (-0.69 - 0)",newmbar)
             # newmbar
 
         ###END MY CODE COPY ACROSS
@@ -635,7 +644,7 @@ class TestNeural(unittest.TestCase):
             #            print("at",torch.nn.functional.softmax(mvals.permute(1,2,0), dim=1).permute(2,0,1))
             #            print("ao",(expmvals / softmaxdenoms.reshape([n, n, 1])))
             #            print("ao2",torch.nn.functional.softmax(mvals,dim=2))
-            prev_msgs = msgs
+            # prev_msgs = msgs
             # msgs is [j][e_j][i]
             mvals_ = msgs.permute(2, 0, 1)  # to i,j,ej
         # ORIGINAL CODE RESUME
@@ -648,7 +657,15 @@ class TestNeural(unittest.TestCase):
         diff = mbarvals - mvals_
         print("diff", (diff != 0).nonzero())
         print("diff", diff[diff != 0])
-        print("example", mbarvals[0][11][0], mvals_[0][11][0])
+        print("example", mbarvals[0][11], mvals_[0][11])
+        print("src", mvals[0][11], mbar[0][11])
+        print("truth", (mvals[0][11].softmax(0) * 0.3 + 0.7).log())
+        print("truth", (mvals[0][11].softmax(0) * 0.3 + mbar.exp()[0][11] * 0.7).log())
+        #        print("truth", (mvals.softmax(2)*0.3+0.7).log()[0][11])
+        #        print("truth", (mvals.permute(1, 2, 0).softmax(1)*0.3+0.7).log().permute(2,0,1)[0][11])
+        #        print("truth", (torch.nn.functional.softmax(mvals.permute(1, 2, 0), dim=1)*0.3+0.7).log().permute(2,0,1)[0][11])
+        #        print("truth", (torch.nn.functional.softmax(mvals.permute(1, 2, 0), dim=1).mul(SETTINGS.dropout_rate)+0.7).log().permute(2,0,1)[0][11])
+        #        print("truth", (torch.nn.functional.softmax(mvals.permute(1, 2, 0), dim=1).mul(SETTINGS.dropout_rate)+prev_msgs.exp().mul(1 - SETTINGS.dropout_rate)).log().permute(2,0,1)[0][11])
         sumError = utils.sumError(mbarvals, mvals_)
         print(f"MaxError: {sumError}")
         self.assertTrue(sumError < 0.01)
