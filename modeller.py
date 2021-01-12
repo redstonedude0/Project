@@ -53,9 +53,7 @@ def candidateSelection():
 
 def trainToCompletion():  # TODO - add params
     # TODO - checkpoint along the way
-    # DEBUG - select only 1 document to train on
-    SETTINGS.dataset.documents = [SETTINGS.dataset.documents[0]]
-    print("testing doc", SETTINGS.dataset.documents)
+    print(f"Training on {len(SETTINGS.dataset.documents)} documents")
     utils.reportedRun("Candidate Selection", candidateSelection)
     model = Model()
     # Make the NN
@@ -65,6 +63,8 @@ def trainToCompletion():  # TODO - add params
     print("Params")
     print(model_nn)
     model.neuralNet = model_nn
-    neural.train(model)
+    SETTINGS.DEBUG = False  # Prevent the model from spamming messages
+    eval = neural.train(model)
+    eval.print()
     # TODO - return EvaluationMetric object as well as final model?
     return model, None

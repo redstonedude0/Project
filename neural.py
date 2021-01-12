@@ -2,13 +2,16 @@
 
 """Evaluate the F1 score (and other metrics) of a neural model"""
 
+import sys
+
 import numpy as np
 import torch
 from torch import nn
+from tqdm import tqdm
 
 import hyperparameters
 import processeddata
-from datastructures import Model, Document
+from datastructures import Model, Document, EvaluationMetrics
 from hyperparameters import SETTINGS
 from utils import debug, map_2D, map_1D, smartsum, smartmax, normalise_avgToZero, setMaskBroadcastable
 
@@ -18,42 +21,71 @@ def evaluate():  # TODO - params
     pass
 
 
-'''Do 1 round of training on a specific dataset and neural model'''
+'''Do 1 round of training on a specific dataset and neural model, takes a learning rate'''
 
 
-def train(model: Model):  # TODO - add params
-    model.neuralNet: NeuralNet
-    model.neuralNet.train()  # Set training flag
-    # True for debugging to detect gradient anomolies
-    torch.autograd.set_detect_anomaly(True)
-    print("Model output:")
-    print("Selecting 1 document to train on")
-    out = model.neuralNet(SETTINGS.dataset.documents[0])
-    lr = SETTINGS.learning_rate_initial
+def train(model: Model, lr=SETTINGS.learning_rate_initial):
+    # Prepare for training
+    if SETTINGS.allow_nans:
+        raise Exception("Fatal error - cannot learn with allow_nans enabled")
+    model.neuralNet.train()  # Set training flag #TODO - why?
+    torch.autograd.set_detect_anomaly(True)  # True for debugging to detect gradient anomolies
+
+    # Initialise optimizer, calculate loss
     optimizer = torch.optim.Adam(model.neuralNet.parameters(), lr=lr)
-    loss = loss_fn(SETTINGS.dataset.documents[0], out, model.neuralNet.R, model.neuralNet.D)
+    loss = loss_regularisation(model.neuralNet.R, model.neuralNet.D)
+    eval_correct = 0
+    eval_wrong = 0
+    for doc_idx, document in enumerate(tqdm(SETTINGS.dataset.documents, unit="documents", file=sys.stdout)):
+        out = model.neuralNet(document)
+        if len(out[out != out]) > 1:
+            # Dump
+            print("Document index", doc_idx)
+            print("Document id", document.id)
+            print("Model output", out)
+            raise Exception("Found nans in model output! Cannot proceed with learning")
+        loss += loss_document(document, out)
+        # Calculate evaluation metric data
+        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions])
+        # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
+        best_cand_indices = out.max(dim=1)[1]  # index of maximum across candidates #1D(n) tensor
+        same_list = truth_indices.eq(best_cand_indices)
+        correct = same_list.sum().item()  # extract value from 0-dim tensor
+        wrong = (~same_list).sum().item()
+        eval_correct += correct
+        eval_wrong += wrong
+
+    # Learn!
     print("loss", loss)
     optimizer.zero_grad()  # zero all gradients to clear buffers
-
     loss.backward()  # compute backwards loss
     optimizer.step()  # step - update parameters backwards as requried
     print("Done.")
-    print(model.neuralNet.parameters())
-    # TODO - train neural network using ADAM
+
+    # Evaluate
+    eval = EvaluationMetrics()
+    eval.loss = loss
+    eval.correctRatio = eval_correct / (eval_correct + eval_wrong)
+    return eval
 
 
-def loss_fn(document: Document, output, R, D):
+def loss_document(document: Document, output):
     n = len(document.mentions)
     # MRN equation 7
     p_i_e = output  # 2D (n,7) tensor of p_i_e values
     truth_indices = [m.goldCandIndex() for m in document.mentions]
-    # truth_indices is 1D (n) tensor of index of truth (0-6)
+    # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
     p_i_eSTAR = p_i_e.transpose(0, 1)[truth_indices].diagonal()
+    # TODO - need to set piestar to 0 where truthindex -1?
     # broadcast (n,1) to (n,7)
     GammaEqn = SETTINGS.gamma - p_i_eSTAR.reshape([n, 1]) + p_i_e
     # Max each element with 0 (repeated to (n,7))
     h = torch.max(GammaEqn, torch.tensor(0.).repeat([n, 7]))
-    L = smartsum(h)  # ignore nans in loss function (outside of candidate rangde)
+    L = smartsum(h)  # ignore nans in loss function (outside of candidate range)
+    return L
+
+
+def loss_regularisation(R, D):
     Regularisation_R = 0
     for i in range(0, SETTINGS.k):
         for j in range(0, i):
@@ -69,7 +101,7 @@ def loss_fn(document: Document, output, R, D):
     Regularisation_R *= SETTINGS.lambda1
     Regularisation_D *= SETTINGS.lambda2
     Regularisation = Regularisation_R + Regularisation_D
-    return L + Regularisation
+    return Regularisation
 
 
 def dist(x, y):
@@ -218,7 +250,7 @@ class NeuralNet(nn.Module):
     '''
 
     def ass(self, fmcs):
-        x = self.exp_bracketssss(fmcs)
+        x = self.exp_bracketssss(fmcs).clone()
         if SETTINGS.normalisation == hyperparameters.NormalisationMethod.RelNorm:
             # X is (ni*nj*k)
             z_ijk = smartsum(x, dim=2)
@@ -428,11 +460,6 @@ class NeuralNet(nn.Module):
         psiss = self.psiss(n, embeddings, f_m_cs)  # 2d (n_i,7_i) tensor
         lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
         lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
-        print("nans found? ", len(embeddings[embeddings != embeddings]) > 5)
-        print("nans found? ", len(ass[ass != ass]) > 5)
-        print("nans found? ", len(phis[phis != phis]) > 5)
-        print("nans found? ", len(psiss[psiss != psiss]) > 5)
-        print("nans found? ", len(lbp_inputs[lbp_inputs != lbp_inputs]) > 5)
 
         debug("Calculating ubar(lbp) values")
         ubar = self.lbp_total(n, masks, psiss, lbp_inputs)

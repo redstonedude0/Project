@@ -113,6 +113,10 @@ class Model:
 
 
 class EvaluationMetrics:
-    precision: float = 0
-    recall: float = 0
-    f1: float = 0
+    loss: float = 0
+    correctRatio: float = 0
+
+    def print(self):
+        print("Evaluation:")
+        print(f"Loss | {self.loss}")
+        print(f"Ratio| {self.correctRatio}")
