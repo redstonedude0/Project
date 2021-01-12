@@ -422,7 +422,7 @@ class TestNeural(unittest.TestCase):
         lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
         lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
 
-        SETTINGS.LBP_loops = 1  # no loops
+        SETTINGS.LBP_loops = 2  # no loops
         ubar = self.network.lbp_total(n, masks, psiss, lbp_inputs)
         utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([1, n, 1, 7]), 0)
         utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([n, 1, 7, 1]), 0)
@@ -448,7 +448,7 @@ class TestNeural(unittest.TestCase):
             prev_msgs = msgs
 
         # compute marginal belief
-        mask = torch.eye(n)
+        mask = 1 - torch.eye(n)
         ent_scores = psiss * 1 + torch.sum(prev_msgs * mask.view(n, 1, n), dim=2)
         ent_scores = F.softmax(ent_scores, dim=1)
         ubar_ = ent_scores
@@ -459,8 +459,6 @@ class TestNeural(unittest.TestCase):
         print("ubar", ubar.shape)
         print("ubar_", ubar_.shape)
         maxError = utils.maxError(ubar, ubar_)
-        maxError = utils.maxError(msgs.permute(2, 0, 1),
-                                  self.network.lbp_iteration_complete(torch.zeros(n, n, 7), masks, n, lbp_inputs))
         print(f"MaxError: {maxError}")
         self.assertTrue(maxError < 0.01)
 
