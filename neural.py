@@ -149,7 +149,9 @@ class NeuralNet(nn.Module):
 
     def embeddings(self, mentions, n):
         embeddings = torch.zeros([n, 7, SETTINGS.d])  # 3D (n,7,d) tensor of embeddings
-        nan = float("nan")
+        nan = 0  # use 0 as our nan-like value
+        if SETTINGS.allow_nans:
+            nan = float("nan")
         embeddings *= nan  # Actually a (n,7,d) tensor of nans to begin with
         masks = torch.zeros([n, 7], dtype=torch.bool)  # 2D (n,7) bool tensor of masks
         for m_idx, m in enumerate(mentions):
@@ -331,13 +333,14 @@ class NeuralNet(nn.Module):
         # (n,n,7_j) tensor
         mvalues = self.lbp_iteration_mvaluesss(mbar, n, lbp_inputs)
         expmvals = mvalues.exp()
+        expmvals = expmvals.clone()
         setMaskBroadcastable(expmvals, ~masks.reshape([1, n, 7]), 0)  # nans are 0
         softmaxdenoms = smartsum(expmvals, dim=2)  # Eq 11 softmax denominator from LBP paper
 
         # Do Eq 11 (old mbars + mvalues to new mbars)
         dampingFactor = SETTINGS.dropout_rate  # delta in the paper #TODO - I believe this is dropout_rate in the MRN code then?
         newmbar = mbar.exp()
-        newmbar *= (1 - dampingFactor)
+        newmbar = newmbar.mul(1 - dampingFactor)  #dont use inplace after exp to prevent autograd error
         #        print("X1 ([0.25-]0.5)",newmbar)
         #        print("expm",expmvals)
         otherbit = dampingFactor * (expmvals / softmaxdenoms.reshape([n, n, 1]))  # broadcast (n,n) to (n,n,7)
@@ -425,6 +428,11 @@ class NeuralNet(nn.Module):
         psiss = self.psiss(n, embeddings, f_m_cs)  # 2d (n_i,7_i) tensor
         lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
         lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
+        print("nans found? ", len(embeddings[embeddings != embeddings]) > 5)
+        print("nans found? ", len(ass[ass != ass]) > 5)
+        print("nans found? ", len(phis[phis != phis]) > 5)
+        print("nans found? ", len(psiss[psiss != psiss]) > 5)
+        print("nans found? ", len(lbp_inputs[lbp_inputs != lbp_inputs]) > 5)
 
         debug("Calculating ubar(lbp) values")
         ubar = self.lbp_total(n, masks, psiss, lbp_inputs)
@@ -440,7 +448,10 @@ class NeuralNet(nn.Module):
         inputs = torch.cat([ubar, p_e_m], dim=1)
         inputs[~masks.reshape(n * 7)] = 0
         p = self.g(inputs)
-        p[~masks.reshape(n * 7)] = float("nan")
+        if SETTINGS.allow_nans:
+            p[~masks.reshape(n * 7)] = float("nan")
+        else:
+            p[~masks.reshape(n * 7)] = 0  # no chance
         p = p.reshape(n, 7)  # back to original dims
         return p
 

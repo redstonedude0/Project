@@ -413,3 +413,17 @@ class TestNeural(unittest.TestCase):
         maxError = utils.maxError(ubar, ubar_)
         print(f"MaxError: {maxError}")
         self.assertTrue(maxError < 0.01)
+
+    def test_fwd_nan_consistency(self):
+        SETTINGS.allow_nans = True
+        results = self.network.forward(self.testingDoc)
+        SETTINGS.allow_nans = False
+        results_ = self.network.forward(self.testingDoc)
+
+        print("results", results)
+        print("results_", results_)
+        maxError = utils.maxError(results, results_)
+        print(f"MaxError: {maxError}")
+        self.assertTrue(maxError < 0.01)
+        # where results is nan - results_ is 0
+        self.assertTrue((results != results).equal(results_ == 0))

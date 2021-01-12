@@ -32,7 +32,7 @@ class Hyperparameters:
     DEBUG: bool = True
     lambda1: float = -1E-7
     lambda2: float = -1E-7
-    allow_nans = True  # True if nans should be used to represent undefined values, false if not
+    allow_nans = False  # True if nans should be used to represent undefined values, false if not
 
 
 SETTINGS = Hyperparameters()
