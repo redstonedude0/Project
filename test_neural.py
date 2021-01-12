@@ -427,3 +427,16 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(maxError < 0.01)
         # where results is nan - results_ is 0
         self.assertTrue((results != results).equal(results_ == 0))
+
+    def test_TEMP_investigatedoc(self):
+        import datasets
+        import modeller
+        SETTINGS.dataset = datasets.loadDataset("aida_train.csv")
+        modeller.candidateSelection()
+        offender = SETTINGS.dataset.documents[9]
+        out = self.network.forward(offender)
+        if len(out[out != out]) > 1:
+            print("Document contains nans")
+        print(out[5])
+        for m in offender.mentions:
+            print(m.candidates[5])
