@@ -375,251 +375,41 @@ class TestNeural(unittest.TestCase):
         psiss = self.network.psiss(n, embeddings, fmcs)
         lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
         lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
-        ubar = self.network.lbp_total(n, masks, psiss, lbp_inputs)
-        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([1, n, 1, 7]), 0)
-        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([n, 1, 7, 1]), 0)
-        input_sum = lbp_inputs.sum()
-        self.assertTrue(input_sum == input_sum)  # to ensure no nans
-
-        # CODE FROM MULRELNEL ORIGINAL PAPER (*modified)
-        # NOT ORIGINAL CODE
-        prev_msgs = torch.zeros(n, 7, n)
-        import torch.nn.functional as F
-        for _ in range(10):
-            mask = 1 - torch.eye(n)
-            SCOREPART = lbp_inputs.permute(0, 2, 1, 3)
-            ent_ent_votes = SCOREPART + \
-                            torch.sum(prev_msgs.view(1, n, 7, n) *
-                                      mask.view(n, 1, 1, n), dim=3) \
-                                .view(n, 1, n, 7)
-            msgs, _ = torch.max(ent_ent_votes, dim=3)
-            msgs = (F.softmax(msgs, dim=1).mul(SETTINGS.dropout_rate) +
-                    prev_msgs.exp().mul(1 - SETTINGS.dropout_rate)).log()
-            prev_msgs = msgs
-
-        # compute marginal belief
-        mask = torch.eye(n)
-        ent_scores = psiss * 1 + torch.sum(prev_msgs * mask.view(n, 1, n), dim=2)
-        ent_scores = F.softmax(ent_scores, dim=1)
-        ubar_ = ent_scores
-        # ORIGINAL CODE RESUME
-
-        print("ubar", ubar)
-        print("ubar_", ubar_)
-        maxError = utils.maxError(ubar, ubar_)
-        print(f"MaxError: {maxError}")
-        self.assertTrue(maxError < 0.01)
-
-    def test_lbp_accuracy_minimal(self):
-        # Test LBP compared to original papers implementation
-        mentions = self.testingDoc3.mentions
-        n = len(mentions)
-        embeddings, masks = self.network.embeddings(mentions, n)
-        fmcs = self.network.perform_fmcs(mentions)
-        ass = self.network.ass(fmcs)
-        phis = self.network.phissss(n, embeddings, ass)
-        psiss = self.network.psiss(n, embeddings, fmcs)
-        lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
-        lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
-
-        SETTINGS.LBP_loops = 2  # no loops
-        ubar = self.network.lbp_total(n, masks, psiss, lbp_inputs)
-        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([1, n, 1, 7]), 0)
-        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([n, 1, 7, 1]), 0)
-        input_sum = lbp_inputs.sum()
-        self.assertTrue(input_sum == input_sum)  # to ensure no nans
-
-        # CODE FROM MULRELNEL ORIGINAL PAPER (*modified)
-        # NOT ORIGINAL CODE
-        prev_msgs = torch.zeros(n, 7, n)
-        import torch.nn.functional as F
-        for _ in range(SETTINGS.LBP_loops):
-            mask = 1 - torch.eye(n)
-            # lbp_inputs is [n_i][n_j][7_i][7_j]
-            SCOREPART = lbp_inputs.permute(1, 3, 0, 2)
-            # SCOREPART is [j][7_J][i][7_i]
-            ent_ent_votes = SCOREPART + \
-                            torch.sum(prev_msgs.view(1, n, 7, n) *
-                                      mask.view(n, 1, 1, n), dim=3) \
-                                .view(n, 1, n, 7)
-            msgs, _ = torch.max(ent_ent_votes, dim=3)
-            msgs = (F.softmax(msgs, dim=1).mul(SETTINGS.dropout_rate) +
-                    prev_msgs.exp().mul(1 - SETTINGS.dropout_rate)).log()
-            prev_msgs = msgs
-
-        # compute marginal belief
-        mask = 1 - torch.eye(n)
-        ent_scores = psiss * 1 + torch.sum(prev_msgs * mask.view(n, 1, n), dim=2)
-        ent_scores = F.softmax(ent_scores, dim=1)
-        ubar_ = ent_scores
-        # ORIGINAL CODE RESUME
-
-        print("ubar", ubar)
-        print("ubar_", ubar_)
-        print("ubar", ubar.shape)
-        print("ubar_", ubar_.shape)
-        maxError = utils.maxError(ubar, ubar_)
-        print(f"MaxError: {maxError}")
-        self.assertTrue(maxError < 0.01)
-
-    def test_lbp_accuracy_minimal_fixed(self):
-        # Test LBP compared to original papers implementation
-        mentions = self.testingDoc3.mentions
-        n = len(mentions)
-        embeddings, masks = self.network.embeddings(mentions, n)
-        fmcs = self.network.perform_fmcs(mentions)
-        ass = self.network.ass(fmcs)
-        phis = self.network.phissss(n, embeddings, ass)
-        psiss = self.network.psiss(n, embeddings, fmcs)
-        lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
-        lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
-
-        mbar_orig = self.network.lbp_iteration_complete(torch.zeros(n, n, 7), masks, n, lbp_inputs)
-        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([1, n, 1, 7]), 0)
-        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([n, 1, 7, 1]), 0)
-        input_sum = lbp_inputs.sum()
-        self.assertTrue(input_sum == input_sum)  # to ensure no nans
-
         # MY CODE
         if True:
-            # Now compute ubar
-            antieye = 1 - torch.eye(n)
-            # read mbar as (n_k,n_i,e_i)
-            antieye = antieye.reshape([n, n, 1])  # reshape for broadcast
-            mbar = mbar_orig * antieye  # remove where k=i
-            # make mbar 0 where masked out
-            utils.setMaskBroadcastable(mbar, ~masks.reshape([1, n, 7]), 0)
-            mbar = utils.smartsum(mbar, 0)  # (n_i,e_i) sums
-            u = psiss + mbar
-            # softmax invariant under translation, translate to around 0 to reduce float errors
-            # u+= 50
-            utils.normalise_avgToZero(u, masks)
-            # TODO - what to translate by? why does 50 work here?
-            ubar = u.exp()  # 'nans' become 1
-            ubar = ubar.clone()  # deepclone because performing in-place modification after exp
-            ubar[~masks] = 0  # reset nans to 0
-            # Normalise ubar (n,7)
-            ubarsum = utils.smartsum(ubar, 1)  # (n_i) sums over candidates
-            ubarsum = ubarsum.reshape([n, 1])  # (n_i,1) sum
-            ubarsumnans = ubarsum != ubarsum  # index tensor of where ubarsums is nan
-            ubarsum[ubarsumnans] = 1  # set to 1 to prevent division errors
-            ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
-            if SETTINGS.allow_nans:
-                ubar[~masks] = float("nan")
-                ubar[ubarsumnans.reshape([n])] = float("nan")
+            ubar = self.network.lbp_total(n, masks, psiss, lbp_inputs)
+        #
+        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([1, n, 1, 7]), 0)
+        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([n, 1, 7, 1]), 0)
+        input_sum = lbp_inputs.sum()
+        self.assertTrue(input_sum == input_sum)  # to ensure no nans
 
         # CODE FROM MULRELNEL ORIGINAL PAPER (*modified)
         # NOT ORIGINAL CODE
-        prev_msgs = mbar_orig.permute(1, 2, 0)
-        # compute marginal belief
-        mask = 1 - torch.eye(n)
-        print(prev_msgs.shape)
-        ent_scores = torch.sum(prev_msgs * mask.view(n, 1, n), dim=2)
-        ent_scores += psiss
-        ent_scores = torch.nn.functional.softmax(ent_scores, dim=1)
-        ubar_ = ent_scores
+        if True:
+            prev_msgs = torch.zeros(n, 7, n)
+            import torch.nn.functional as F
+            for _ in range(10):
+                mask = 1 - torch.eye(n)
+                SCOREPART = lbp_inputs.permute(1, 3, 0, 2)
+                ent_ent_votes = SCOREPART + \
+                                torch.sum(prev_msgs.view(1, n, 7, n) *
+                                          mask.view(n, 1, 1, n), dim=3) \
+                                    .view(n, 1, n, 7)
+                msgs, _ = torch.max(ent_ent_votes, dim=3)
+                msgs = (F.softmax(msgs, dim=1).mul(SETTINGS.dropout_rate) +
+                        prev_msgs.exp().mul(1 - SETTINGS.dropout_rate)).log()
+                prev_msgs = msgs
+
+            # compute marginal belief
+            mask = 1 - torch.eye(n)
+            ent_scores = psiss * 1 + torch.sum(prev_msgs * mask.view(n, 1, n), dim=2)
+            ent_scores = F.softmax(ent_scores, dim=1)
+            ubar_ = ent_scores
         # ORIGINAL CODE RESUME
 
         print("ubar", ubar)
         print("ubar_", ubar_)
-        print("ubar", ubar.shape)
-        print("ubar_", ubar_.shape)
         maxError = utils.maxError(ubar, ubar_)
-        print(f"MaxError: {maxError}")
-        self.assertTrue(maxError < 0.01)
-
-    def test_lbp_accuracy_mvals(self):
-        # Test LBP compared to original papers implementation
-        mentions = self.testingDoc3.mentions
-        n = len(mentions)
-        embeddings, masks = self.network.embeddings(mentions, n)
-        fmcs = self.network.perform_fmcs(mentions)
-        ass = self.network.ass(fmcs)
-        phis = self.network.phissss(n, embeddings, ass)
-        psiss = self.network.psiss(n, embeddings, fmcs)
-        lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
-        lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
-
-        mbar = torch.randn(n, n, 7)
-        prev_msgs = mbar.permute(1, 2, 0).clone()
-        # prev_msgs is [n_j][7_j][n_i]
-        # mbar is [n_i][n_j][7_j]
-        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([1, n, 1, 7]), 0)
-        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([n, 1, 7, 1]), 0)
-        # lbp[i][j][e_i][e_j]
-        SCOREPART = lbp_inputs.permute(1, 3, 0, 2)
-        # ACTIVE[j][e_j][i][e_i] (summing over e_i)
-        input_sum = lbp_inputs.sum()
-        self.assertTrue(input_sum == input_sum)  # to ensure no nans
-        ####MY CODE COPY ACROSS
-        if True:
-            mvals = self.network.lbp_iteration_complete(mbar, masks, n, lbp_inputs)
-
-        ###END MY CODE COPY ACROSS
-
-        # CODE FROM MULRELNEL ORIGINAL PAPER (*modified)
-        # NOT ORIGINAL CODE
-        if True:
-            mask = 1 - torch.eye(n)
-            ent_ent_votes = SCOREPART + \
-                            torch.sum(prev_msgs.view(1, n, 7, n) *
-                                      mask.view(n, 1, 1, n), dim=3) \
-                                .view(n, 1, n, 7)
-            msgs, _ = torch.max(ent_ent_votes, dim=3)
-            msgs = (torch.nn.functional.softmax(msgs, dim=1).mul(SETTINGS.dropout_rate) +
-                    prev_msgs.exp().mul(1 - SETTINGS.dropout_rate)).log()
-            prev_msgs = msgs
-            # msgs is [j][e_j][i]
-            mvals_ = msgs.permute(2, 0, 1)  # to i,j,ej
-        # ORIGINAL CODE RESUME
-
-        print("mvals", mvals)
-        print("mvals_", mvals_)
-        print("mvals", mvals.shape)
-        print("mvals_", mvals_.shape)
-        print("DIFF", mvals - mvals_)
-        maxError = utils.maxError(mvals, mvals_)
-        print(f"MaxError: {maxError}")
-        self.assertTrue(maxError < 0.01)
-
-    def test_lbp_accuracy_mbarvals(self):
-        # Test LBP compared to original papers implementation
-        mentions = self.testingDoc3.mentions
-        n = len(mentions)
-        embeddings, masks = self.network.embeddings(mentions, n)
-        fmcs = self.network.perform_fmcs(mentions)
-        ass = self.network.ass(fmcs)
-        phis = self.network.phissss(n, embeddings, ass)
-        psiss = self.network.psiss(n, embeddings, fmcs)
-        lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
-        lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
-
-        mbar = torch.randn(n, n, 7)
-        prev_msgs = mbar.permute(1, 2, 0).clone()
-        # prev_msgs is [n_j][7_j][n_i]
-        # mbar is [n_i][n_j][7_j]
-        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([1, n, 1, 7]), 0)
-        utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([n, 1, 7, 1]), 0)
-        # lbp[i][j][e_i][e_j]
-        SCOREPART = lbp_inputs.permute(1, 3, 0, 2)
-        # ACTIVE[j][e_j][i][e_i] (summing over e_i)
-        input_sum = lbp_inputs.sum()
-        self.assertTrue(input_sum == input_sum)  # to ensure no nans
-        mvals = self.network.lbp_iteration_mvaluesss(mbar, n, lbp_inputs)
-
-        mbarvals = self.network.lbp_iteration_complete(mbar, masks, n, lbp_inputs)
-
-        # CODE FROM MULRELNEL ORIGINAL PAPER (*modified)
-        # NOT ORIGINAL CODE
-        if True:
-            # Only testing the 'barring' bit - use mvals as calculated by me
-            msgs = mvals.permute(1, 2, 0)  # i,j,ej->j,ej,i
-            msgs = (torch.nn.functional.softmax(msgs, dim=1).mul(SETTINGS.dropout_rate) +
-                    prev_msgs.exp().mul(1 - SETTINGS.dropout_rate)).log()
-            # msgs is [j][e_j][i]
-            mvals_ = msgs.permute(2, 0, 1)  # to i,j,ej
-        # ORIGINAL CODE RESUME
-
-        maxError = utils.maxError(mbarvals, mvals_)
         print(f"MaxError: {maxError}")
         self.assertTrue(maxError < 0.01)
