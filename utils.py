@@ -117,6 +117,7 @@ masked values in final tensor are all 0
 '''
 
 
+# TODO - deprecated
 def normalise_avgToZero(tensor, broadcastable_mask):
     mask = broadcastMask(tensor, broadcastable_mask)
     tensor[~mask] = 0  # set tensor to 0 where masked out
@@ -126,6 +127,30 @@ def normalise_avgToZero(tensor, broadcastable_mask):
     numericalTotal = tensor.sum()
     avg = numericalTotal / nonMaskedCount
     tensor -= avg  # subtract average to make new average 0
+    tensor[~mask] = 0  # reset masked values to 0
+    # done
+
+
+'''
+normalise in-place a tensor (with a masks which should be False for all nan/exclude values) such that the average of non-masked values is translated to zero
+mask should be shape broadcastable across tensor
+final tensor has non-masked values normalised to have average 0
+masked values in final tensor are all 0
+normalisation is row-wise with the specific dim the one normalised across
+'''
+
+
+def normalise_avgToZero_rowWise(tensor, broadcastable_mask, dim=0):
+    mask = broadcastMask(tensor, broadcastable_mask)
+    tensor[~mask] = 0  # set tensor to 0 where masked out
+    tensor_copy = tensor.clone()
+    tensor_copy[mask] = 1  # set copy to 1 where not masked out
+    # same dim(broadcastable) count of the non masked and total per row
+    nonMaskedCount = tensor_copy.sum(dim=dim, keepdims=True)
+    numericalTotal = tensor.sum(dim=dim, keepdims=True)
+    # same dim(broadcastable) avg across the row (if nMC is 0 then avg is +- inf, will be reset to 0)
+    avg = numericalTotal / nonMaskedCount
+    tensor -= avg  # subtract average to make new average 0 (broadcasts)
     tensor[~mask] = 0  # reset masked values to 0
     # done
 

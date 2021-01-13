@@ -437,3 +437,4 @@ class TestNeural(unittest.TestCase):
         out = self.network.forward(offender)
         print(out[5])
         print(offender.mentions[5].candidates)
+        # TODO - delete test (investigation done)
