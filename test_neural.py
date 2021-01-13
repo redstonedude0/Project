@@ -435,8 +435,5 @@ class TestNeural(unittest.TestCase):
         modeller.candidateSelection()
         offender = SETTINGS.dataset.documents[9]
         out = self.network.forward(offender)
-        if len(out[out != out]) > 1:
-            print("Document contains nans")
         print(out[5])
-        for m in offender.mentions:
-            print(m.candidates[5])
+        print(offender.mentions[5].candidates)

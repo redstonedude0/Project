@@ -423,20 +423,30 @@ class NeuralNet(nn.Module):
         u = psiss + mbar
         # softmax invariant under translation, translate to around 0 to reduce float errors
         # u+= 50
+        print("u", u[4])  # TODO - not nan
+        print("u", u[5])  # TODO - not nan
+        print("masks", masks[4])  # TODO - see the masks
+        print("masks", masks[5])  # TODO - see the masks
+        # Normalisation works - but it normalises whole tensor, not row-by-row
         normalise_avgToZero(u, masks)
         # TODO - what to translate by? why does 50 work here?
+        print("u", u[4])  # TODO - investigating other nearby numbers
+        print("u", u[5])  # TODO - [0] is 89 (ought to be normalised to 0
         ubar = u.exp()  # 'nans' become 1
         ubar = ubar.clone()  # deepclone because performing in-place modification after exp
         ubar[~masks] = 0  # reset nans to 0
+        print("ubar", ubar[5])  # TODO - [0] is inf because exp(89)
         # Normalise ubar (n,7)
         ubarsum = smartsum(ubar, 1)  # (n_i) sums over candidates
         ubarsum = ubarsum.reshape([n, 1])  # (n_i,1) sum
         ubarsumnans = ubarsum != ubarsum  # index tensor of where ubarsums is nan
         ubarsum[ubarsumnans] = 1  # set to 1 to prevent division errors
+        print("ubarsum", ubarsum[5])  # TODO - not nan
         ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
         if SETTINGS.allow_nans:
             ubar[~masks] = float("nan")
             ubar[ubarsumnans.reshape([n])] = float("nan")
+        print("ubar", ubar[5])  # TODO - ubar[5] is becoming {nan,0,0,0,0} not {1,0,0,0} - item has 1 candidate
         return ubar
 
     def forward(self, document: Document):
