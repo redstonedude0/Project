@@ -34,6 +34,56 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
 
     # Initialise optimizer, calculate loss
     optimizer = torch.optim.Adam(model.neuralNet.parameters(), lr=lr)
+    loss = loss_regularisation(model.neuralNet.R, model.neuralNet.D)
+    eval_correct = 0
+    eval_wrong = 0
+    for doc_idx, document in enumerate(tqdm(SETTINGS.dataset.documents, unit="documents", file=sys.stdout)):
+        out = model.neuralNet(document)
+        if len(out[out != out]) > 1:
+            # Dump
+            print("Document index", doc_idx)
+            print("Document id", document.id)
+            print("Model output", out)
+            raise Exception("Found nans in model output! Cannot proceed with learning")
+        loss += loss_document(document, out)
+        # Calculate evaluation metric data
+        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions])
+        # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
+        best_cand_indices = out.max(dim=1)[1]  # index of maximum across candidates #1D(n) tensor
+        same_list = truth_indices.eq(best_cand_indices)
+        correct = same_list.sum().item()  # extract value from 0-dim tensor
+        wrong = (~same_list).sum().item()
+        eval_correct += correct
+        eval_wrong += wrong
+
+    # Learn!
+    print("loss", loss)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()  # step - update parameters backwards as requried
+    print("Done.")
+
+    # Evaluate
+    eval = EvaluationMetrics()
+    eval.loss = loss
+    eval.correctRatio = eval_correct / (eval_correct + eval_wrong)
+    return eval
+
+
+'''
+Attempted low memory version of train
+'''
+
+
+def train_lowmem(model: Model, lr=SETTINGS.learning_rate_initial):
+    # Prepare for training
+    if SETTINGS.allow_nans:
+        raise Exception("Fatal error - cannot learn with allow_nans enabled")
+    model.neuralNet.train()  # Set training flag #TODO - why?
+    torch.autograd.set_detect_anomaly(True)  # True for debugging to detect gradient anomolies
+
+    # Initialise optimizer, calculate loss
+    optimizer = torch.optim.Adam(model.neuralNet.parameters(), lr=lr)
     optimizer.zero_grad()  # zero all gradients to clear buffers
     loss = loss_regularisation(model.neuralNet.R, model.neuralNet.D)
     loss.backward()
