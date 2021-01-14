@@ -2,7 +2,6 @@
 
 """Evaluate the F1 score (and other metrics) of a neural model"""
 import sys
-import time
 
 import numpy as np
 import torch
@@ -91,7 +90,18 @@ def train_lowmem(model: Model, lr=SETTINGS.learning_rate_initial):
     eval_correct = 0
     eval_wrong = 0
     for doc_idx, document in enumerate(tqdm(SETTINGS.dataset.documents, unit="documents", file=sys.stdout)):
-        out = model.neuralNet(document)
+        if len(document.mentions) > 200:
+            print(
+                f"Unable to learn on document {doc_idx} ({len(document.mentions)} mentions would exceed memory limits)")
+            continue
+        try:
+            out = model.neuralNet(document)
+        except RuntimeError as err:
+            if "can't allocate memory" in err.__str__():
+                print(f"Memory allocation error on {doc_idx} - {len(document.mentions)} mentions exceeds memory limits")
+                continue  # next iteration of loop
+            else:
+                raise err
         if len(out[out != out]) > 1:
             # Dump
             print("Document index", doc_idx)
@@ -99,6 +109,8 @@ def train_lowmem(model: Model, lr=SETTINGS.learning_rate_initial):
             print("Model output", out)
             raise Exception("Found nans in model output! Cannot proceed with learning")
         loss += loss_document(document, out)
+        loss.backward()
+        loss = 0
         # Calculate evaluation metric data
         truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions])
         # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
@@ -108,16 +120,6 @@ def train_lowmem(model: Model, lr=SETTINGS.learning_rate_initial):
         wrong = (~same_list).sum().item()
         eval_correct += correct
         eval_wrong += wrong
-        loss.backward()
-        del loss
-        del out
-        if doc_idx == 45:
-            print("FORTY FIVE")
-            time.sleep(5)
-            import code
-            code.interact(local=locals())
-            print("RESUME")
-        loss = 0
 
     # Learn!
     print("loss", loss)
