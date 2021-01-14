@@ -140,6 +140,8 @@ normalisation is row-wise with the specific dim the one normalised across
 '''
 
 
+# TODO - is mask polarity inverted? (do other functions use opposite mask polarity?)
+
 def normalise_avgToZero_rowWise(tensor, broadcastable_mask, dim=0):
     mask = broadcastMask(tensor, broadcastable_mask)
     tensor[~mask] = 0  # set tensor to 0 where masked out

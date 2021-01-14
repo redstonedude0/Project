@@ -1,8 +1,8 @@
 # This file is for setting up and interfacing directly with the neural model
 
 """Evaluate the F1 score (and other metrics) of a neural model"""
-
 import sys
+import time
 
 import numpy as np
 import torch
@@ -34,7 +34,10 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
 
     # Initialise optimizer, calculate loss
     optimizer = torch.optim.Adam(model.neuralNet.parameters(), lr=lr)
+    optimizer.zero_grad()  # zero all gradients to clear buffers
     loss = loss_regularisation(model.neuralNet.R, model.neuralNet.D)
+    loss.backward()
+    loss = 0
     eval_correct = 0
     eval_wrong = 0
     for doc_idx, document in enumerate(tqdm(SETTINGS.dataset.documents, unit="documents", file=sys.stdout)):
@@ -55,11 +58,19 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
         wrong = (~same_list).sum().item()
         eval_correct += correct
         eval_wrong += wrong
+        loss.backward()
+        del loss
+        del out
+        if doc_idx == 45:
+            print("FORTY FIVE")
+            time.sleep(5)
+            import code
+            code.interact(local=locals())
+            print("RESUME")
+        loss = 0
 
     # Learn!
     print("loss", loss)
-    optimizer.zero_grad()  # zero all gradients to clear buffers
-    loss.backward()  # compute backwards loss
     optimizer.step()  # step - update parameters backwards as requried
     print("Done.")
 
@@ -365,15 +376,20 @@ class NeuralNet(nn.Module):
     def lbp_iteration_complete(self, mbar, masks, n, lbp_inputs):
         # (n,n,7_j) tensor
         mvalues = self.lbp_iteration_mvaluesss(mbar, n, lbp_inputs)
+        # softmax invariant under translation, translate to around 0 to reduce float errors
+        # u+= 50
+        # Normalise for each n across the row
+        normalise_avgToZero_rowWise(mvalues, masks.reshape([1, n, 7]), dim=2)
         expmvals = mvalues.exp()
-        expmvals = expmvals.clone()
+        expmvals = expmvals.clone()  # clone to prevent autograd errors (in-place modification next)
+
         setMaskBroadcastable(expmvals, ~masks.reshape([1, n, 7]), 0)  # nans are 0
         softmaxdenoms = smartsum(expmvals, dim=2)  # Eq 11 softmax denominator from LBP paper
 
         # Do Eq 11 (old mbars + mvalues to new mbars)
         dampingFactor = SETTINGS.dropout_rate  # delta in the paper #TODO - I believe this is dropout_rate in the MRN code then?
         newmbar = mbar.exp()
-        newmbar = newmbar.mul(1 - dampingFactor)  #dont use inplace after exp to prevent autograd error
+        newmbar = newmbar.mul(1 - dampingFactor)  # dont use inplace after exp to prevent autograd error
         #        print("X1 ([0.25-]0.5)",newmbar)
         #        print("expm",expmvals)
         otherbit = dampingFactor * (expmvals / softmaxdenoms.reshape([n, n, 1]))  # broadcast (n,n) to (n,n,7)
@@ -409,7 +425,7 @@ class NeuralNet(nn.Module):
         mbar *= mbar_mask
         debug("Now doing LBP Loops")
         for loopno in range(0, SETTINGS.LBP_loops):
-            print(f"Doing loop {loopno + 1}/{SETTINGS.LBP_loops}")
+            debug(f"Doing loop {loopno + 1}/{SETTINGS.LBP_loops}")
             newmbar = self.lbp_iteration_complete(mbar, masks, n, lbp_inputs)
             mbar = newmbar
         # Now compute ubar
