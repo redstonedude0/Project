@@ -1,5 +1,8 @@
 # Main pipeline to run the paper, but for HPC usage
 
+import datastructures
+
+datastructures.SETTINGS  # reference to prevent optimise
 from hyperparameters import SETTINGS
 
 SETTINGS.dataDir = "/rds/user/hrjh2/hpc-work/"
