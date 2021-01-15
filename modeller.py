@@ -59,12 +59,16 @@ def trainToCompletion():  # TODO - add params
     # Make the NN
     model_nn: neural.NeuralNet
     model_nn = neural.NeuralNet()
-    print("Neural net made")
-    print("Params")
-    print(model_nn)
     model.neuralNet = model_nn
+    print("Neural net made, doing learning...")
     SETTINGS.DEBUG = False  # Prevent the model from spamming messages
-    eval = neural.train(model)
-    eval.print()
+    maxLoops = 5
+    for loop in range(0, maxLoops):
+        print(f"Doing loop {loop + 1}...")
+        eval = neural.train(model)
+        print(f"Evaluating loop {loop + 1}:")
+        eval.print()
+        print(f"Loop {loop + 1} Done.")
+        model.save(f"save_{loop + 1}")
     # TODO - return EvaluationMetric object as well as final model?
-    return model, None
+    return model, eval  # return final eval obj.

@@ -15,6 +15,7 @@ class Hyperparameters:
     dataDir = "../data/"
     dataDir_csv = "../data/generated/test_train_data/"
     dataDir_embeddings = "../data/generated/embeddings/word_ent_embs/"
+    dataDir_checkpoints = "../data/checkpoints/"
     training: bool = True
     dataset: Dataset = None
     normalisation = NormalisationMethod.RelNorm  # TODO change back to mentnorm once it's implemented
@@ -33,6 +34,7 @@ class Hyperparameters:
     lambda1: float = -1E-7
     lambda2: float = -1E-7
     allow_nans = False  # True if nans should be used to represent undefined values, false if not
+    lowmem = True  # True if need to use lowmem settings
 
 
 SETTINGS = Hyperparameters()

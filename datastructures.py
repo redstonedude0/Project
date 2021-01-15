@@ -101,12 +101,17 @@ class Dataset:
     documents: List[Document] = None
 
 
+from hyperparameters import SETTINGS
 """Represents a model (nn parameters, etc)"""
 
 
 class Model:
     neuralNet = None
-    pass
+
+    def save(self, name):
+        print(f"Saving checkpoint '{name}'...")
+        torch.save(self.neuralNet, SETTINGS.dataDir_checkpoints + name + ".pt")
+        print("Saved.")
 
 
 """Represents the evaluation of a model on a dataset (F1, etc)"""
