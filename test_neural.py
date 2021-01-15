@@ -4,6 +4,7 @@ import unittest
 import torch
 from tqdm import tqdm
 
+import neural
 import processeddata
 import testdata
 import utils
@@ -438,3 +439,47 @@ class TestNeural(unittest.TestCase):
         print(out[5])
         print(offender.mentions[5].candidates)
         # TODO - delete test (investigation done)
+
+    def test_loss_consistency(self):
+        import datasets
+        import modeller
+        SETTINGS.dataset = datasets.loadDataset("aida_train.csv")
+        modeller.candidateSelection()
+        doc1 = SETTINGS.dataset.documents[0]
+        doc2 = SETTINGS.dataset.documents[1]
+        net1 = NeuralNet()
+        net2 = NeuralNet()
+
+        # Do on net1 sum loss
+        opt1 = torch.optim.Adam(net1.parameters(), lr=SETTINGS.learning_rate_initial)
+        opt1.zero_grad()
+        loss = neural.loss_regularisation(net1.R, net1.D)
+        out1 = net1.forward(doc1)
+        losspart = neural.loss_document(doc1, out1)
+        print("LP1", losspart)
+        loss += losspart
+        out2 = net2.forward(doc2)
+        losspart = neural.loss_document(doc2, out2)
+        loss += losspart
+        loss.backward()
+        opt1.step()
+
+        # Do on net2 individual loss
+        opt2 = torch.optim.Adam(net2.parameters(), lr=SETTINGS.learning_rate_initial)
+        opt2.zero_grad()
+        loss = neural.loss_regularisation(net2.R, net2.D)
+        loss.backward()
+        out1 = net2.forward(doc1)
+        loss = neural.loss_document(doc1, out1)
+        print("LP1", loss)
+        loss.backward()
+        out2 = net2.forward(doc2)
+        loss = neural.loss_document(doc2, out2)
+        loss.backward()
+        opt2.step()
+
+        for (n1, param1), (n2, param2) in zip(net1.named_parameters(), net2.named_parameters()):
+            print(f"Assessing {n1}|{n2}")
+            print(f"DATA {param1}")
+            sumError = utils.sumError(param1, param2)
+            print(f"Error: {sumError}")

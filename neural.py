@@ -24,7 +24,7 @@ def evaluate():  # TODO - params
 '''Do 1 round of training on a specific dataset and neural model, takes a learning rate'''
 
 
-def train(model: Model, lr=SETTINGS.learning_rate_initial):
+def train2(model: Model, lr=SETTINGS.learning_rate_initial):
     # Prepare for training
     if SETTINGS.allow_nans:
         raise Exception("Fatal error - cannot learn with allow_nans enabled")
@@ -74,7 +74,7 @@ Attempted low memory version of train
 '''
 
 
-def train_lowmem(model: Model, lr=SETTINGS.learning_rate_initial):
+def train(model: Model, lr=SETTINGS.learning_rate_initial):
     # Prepare for training
     if SETTINGS.allow_nans:
         raise Exception("Fatal error - cannot learn with allow_nans enabled")
@@ -90,10 +90,10 @@ def train_lowmem(model: Model, lr=SETTINGS.learning_rate_initial):
     eval_correct = 0
     eval_wrong = 0
     for doc_idx, document in enumerate(tqdm(SETTINGS.dataset.documents, unit="documents", file=sys.stdout)):
-        if len(document.mentions) > 200:
-            print(
-                f"Unable to learn on document {doc_idx} ({len(document.mentions)} mentions would exceed memory limits)")
-            continue
+        # if len(document.mentions) > 200:
+        #    print(
+        #        f"Unable to learn on document {doc_idx} ({len(document.mentions)} mentions would exceed memory limits)")
+        #    continue
         try:
             out = model.neuralNet(document)
         except RuntimeError as err:
