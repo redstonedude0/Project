@@ -449,37 +449,52 @@ class TestNeural(unittest.TestCase):
         doc2 = SETTINGS.dataset.documents[1]
         net1 = NeuralNet()
         net2 = NeuralNet()
+        net3 = NeuralNet()
 
-        # Do on net1 sum loss
-        opt1 = torch.optim.Adam(net1.parameters(), lr=SETTINGS.learning_rate_initial)
-        opt1.zero_grad()
-        loss = neural.loss_regularisation(net1.R, net1.D)
-        out1 = net1.forward(doc1)
-        losspart = neural.loss_document(doc1, out1)
-        print("LP1", losspart)
-        loss += losspart
-        out2 = net2.forward(doc2)
-        losspart = neural.loss_document(doc2, out2)
-        loss += losspart
-        loss.backward()
-        opt1.step()
+        def method1(net):
+            # Do cumulative loss
+            opt1 = torch.optim.Adam(net.parameters(), lr=SETTINGS.learning_rate_initial)
+            opt1.zero_grad()
+            loss = neural.loss_regularisation(net.R, net.D)
+            out1 = net.forward(doc1)
+            losspart = neural.loss_document(doc1, out1)
+            loss += losspart
+            out2 = net.forward(doc2)
+            losspart = neural.loss_document(doc2, out2)
+            loss += losspart
+            loss.backward()
+            opt1.step()
 
-        # Do on net2 individual loss
-        opt2 = torch.optim.Adam(net2.parameters(), lr=SETTINGS.learning_rate_initial)
-        opt2.zero_grad()
-        loss = neural.loss_regularisation(net2.R, net2.D)
-        loss.backward()
-        out1 = net2.forward(doc1)
-        loss = neural.loss_document(doc1, out1)
-        print("LP1", loss)
-        loss.backward()
-        out2 = net2.forward(doc2)
-        loss = neural.loss_document(doc2, out2)
-        loss.backward()
-        opt2.step()
+        def method2(net):
+            # Do individual loss
+            opt2 = torch.optim.Adam(net.parameters(), lr=SETTINGS.learning_rate_initial)
+            opt2.zero_grad()
+            loss = neural.loss_regularisation(net.R, net.D)
+            loss.backward()
+            out1 = net.forward(doc1)
+            loss = neural.loss_document(doc1, out1)
+            loss.backward()
+            out2 = net.forward(doc2)
+            loss = neural.loss_document(doc2, out2)
+            loss.backward()
+            opt2.step()
 
-        for (n1, param1), (n2, param2) in zip(net1.named_parameters(), net2.named_parameters()):
-            print(f"Assessing {n1}|{n2}")
-            print(f"DATA {param1}")
-            sumError = utils.sumError(param1, param2)
-            print(f"Error: {sumError}")
+        method1(net1)
+        method1(net2)
+        method2(net3)
+
+        print("Parameter dump:")
+        for (n1, param1), (n2, param2), (n3, param3) in zip(net1.named_parameters(), net2.named_parameters(),
+                                                            net3.named_parameters()):
+            if n1 != n2 or n2 != n3:
+                raise Exception("Parameter names didn't match - this should never happen.")
+            print(f" Parameter {n1}:")
+            print(f" Reflexive diff: {param1 - param2}")
+            print(f" Comparative diff: {param1 - param3}")
+        print("Assessing consistency...")
+        for (n1, param1), (n2, param2), (n3, param3) in zip(net1.named_parameters(), net2.named_parameters(),
+                                                            net3.named_parameters()):
+            sumError1 = utils.sumError(param1, param2)
+            sumError2 = utils.sumError(param1, param3)
+            sumError3 = utils.sumError(param2, param3)
+            print(f" Parameter {n1} Errors: SELF[1-2]({sumError1}) OTHER[1-3]({sumError2}) OTHER[2-3]({sumError3})")
