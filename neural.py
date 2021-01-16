@@ -86,10 +86,15 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
     optimizer.zero_grad()  # zero all gradients to clear buffers
     total_loss = 0
     loss = loss_regularisation(model.neuralNet.R, model.neuralNet.D)
+    # TODO - check - does the original paper add this regularisation once per loop?
     loss.backward()
     total_loss += loss.item()
     eval_correct = 0
     eval_wrong = 0
+    true_pos = 0  # guessed right valid index when valid index possible
+    false_pos = 0  # guessed wrong index when valid index possible?
+    false_neg = 0  # guessed wrong index when valid index possible?
+    possibleCorrect = 0
     for doc_idx, document in enumerate(tqdm(SETTINGS.dataset.documents, unit="documents", file=sys.stdout)):
         if SETTINGS.lowmem:
             if len(document.mentions) > 200:
@@ -116,22 +121,37 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
         # Calculate evaluation metric data
         truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions])
         # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
-        best_cand_indices = out.max(dim=1)[1]  # index of maximum across candidates #1D(n) tensor
+        best_cand_indices = out.max(dim=1)[1]  # index of maximum across candidates #1D(n) tensor (not -1)
         same_list = truth_indices.eq(best_cand_indices)
         correct = same_list.sum().item()  # extract value from 0-dim tensor
         wrong = (~same_list).sum().item()
         eval_correct += correct
         eval_wrong += wrong
+        # TODO - paper adds #UNK#/NIL cands to pad - this should not be a tp/fp
+        true_pos += correct  # where the same, we have TP
+        got_wrong = ~same_list  # ones we got wrong
+        possible = truth_indices != -1  # ones possible to get right
+        missed = got_wrong.logical_and(possible)  # ones we got wrong but could've got right
+        # NOTE - we will have no TP for #UNK# (-1 gold) mentions
+        false_neg += missed.sum().item()  # NOTE:sum FP=FN in the micro-averaging case
+        false_pos += missed.sum().item()
+        possibleCorrect += possible.sum().item()
 
     # Learn!
-    print("loss", total_loss)
+    print("Stepping...")
     optimizer.step()  # step - update parameters backwards as requried
     print("Done.")
 
     # Evaluate
+    #    microPrecision = true_pos/(true_pos+false_pos)    #Equal to microF1 in this case
     eval = EvaluationMetrics()
     eval.loss = total_loss
-    eval.correctRatio = eval_correct / (eval_correct + eval_wrong)
+    eval.accuracy = eval_correct / (eval_correct + eval_wrong)
+    eval.accuracy_possible = eval_correct / possibleCorrect
+    #    eval.correctRatio =
+    #    eval.microF1 = microPrecision
+    #    eval.correctRatio_possible = eval_correct / possibleCorrect
+    #    eval.microF1_possible = true_pos/possibleCorrect
     return eval
 
 

@@ -2,7 +2,7 @@
 
 import datastructures
 
-datastructures.SETTINGS  # reference to prevent optimise
+datastructures.SETTINGS  # reference to prevent optimise away
 from hyperparameters import SETTINGS
 
 SETTINGS.dataDir = "/rds/user/hrjh2/hpc-work/"
@@ -13,4 +13,4 @@ SETTINGS.lowmem = False
 import main
 
 print("HPC Results:")
-main.results.print()
+main.model.evals.print()

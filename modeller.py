@@ -2,13 +2,14 @@
 
 """Do all the training on a specific dataset and neural model"""
 import sys
+from datetime import time
 
 from tqdm import tqdm
 
 import neural
 import processeddata
 import utils
-from datastructures import Model, Mention, Candidate
+from datastructures import Model, Mention, Candidate, EvalHistory
 from hyperparameters import SETTINGS
 
 
@@ -54,21 +55,25 @@ def candidateSelection():
 def trainToCompletion():  # TODO - add params
     # TODO - checkpoint along the way
     print(f"Training on {len(SETTINGS.dataset.documents)} documents")
+    startTime = time.time()
     utils.reportedRun("Candidate Selection", candidateSelection)
     model = Model()
     # Make the NN
     model_nn: neural.NeuralNet
     model_nn = neural.NeuralNet()
     model.neuralNet = model_nn
+    model.evals = EvalHistory()
     print("Neural net made, doing learning...")
     SETTINGS.DEBUG = False  # Prevent the model from spamming messages
     maxLoops = 5
     for loop in range(0, maxLoops):
         print(f"Doing loop {loop + 1}...")
         eval = neural.train(model)
-        print(f"Evaluating loop {loop + 1}:")
+        eval.step = loop + 1
+        eval.time = time.time() - startTime
         eval.print()
+        model.evals.metrics.append(eval)
         print(f"Loop {loop + 1} Done.")
         model.save(f"save_{loop + 1}")
     # TODO - return EvaluationMetric object as well as final model?
-    return model, eval  # return final eval obj.
+    return model  # return final model

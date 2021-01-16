@@ -4,7 +4,6 @@ import datasets
 import files
 import modeller
 import processeddata
-from hyperparameters import SETTINGS
 from utils import *
 
 reportedRun("Checking Datadir", files.checkDataDir)
@@ -18,6 +17,6 @@ reportedRun("Loading embeddings", processeddata.loadEmbeddings)
 
 if SETTINGS.training:
     SETTINGS.dataset = datasets.loadDataset("aida_train.csv")
-    model, results = modeller.trainToCompletion()
+    model = modeller.trainToCompletion()
 else:
     pass  # TODO - eval
