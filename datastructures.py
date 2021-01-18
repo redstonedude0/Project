@@ -147,14 +147,15 @@ class EvalHistory:
         for metric in self.metrics:
             metric.print()
 
-    def save(self, fp):
+    def save(self, f):
         def serialise(obj):
             return obj.__dict__
 
-        json.dump(self, fp, default=serialise)
+        with open(f, "w") as fp:
+            json.dump(self, fp, default=serialise)
 
     @classmethod
-    def load(cls, fp) -> 'EvalHistory':
+    def load(cls, f) -> 'EvalHistory':
         def as_evalhistory(dct):
             if "metrics" in dct:
                 evals = EvalHistory()
@@ -170,4 +171,5 @@ class EvalHistory:
                 return evals
             return dct
 
-        return json.load(fp, object_hook=as_evalhistory)
+        with open(f) as fp:
+            return json.load(fp, object_hook=as_evalhistory)
