@@ -10,7 +10,6 @@ datastructures.SETTINGS  # reference to prevent optimise away
 # dataDir_checkpoints = "/rds/user/hrjh2/hpc-work/checkpoints/"
 dataDir_checkpoints = "/home/harrison/Documents/project/mount/rds/user/hrjh2/hpc-work/checkpoints/"
 
-
 def loadAFile():
     while True:
         print("Select a file to load:")
@@ -48,7 +47,7 @@ def XYFromEvals(evals: datastructures.EvalHistory, valx, valy):
     return x, y
 
 
-# Main loop
+#Main loop
 while True:
     # 1) Load 1st file
     file1Name = loadAFile()
