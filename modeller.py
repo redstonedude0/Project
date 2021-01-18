@@ -2,7 +2,7 @@
 
 """Do all the training on a specific dataset and neural model"""
 import sys
-from datetime import time
+import time
 
 from tqdm import tqdm
 
