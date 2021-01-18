@@ -1,5 +1,6 @@
 # ORIGINAL FILE FROM https://github.com/lephong/mulrel-nel/
 # THIS VERSION MAY CONTAIN MODIFICATIONS
+import time
 from pprint import pprint
 from random import shuffle
 
@@ -13,6 +14,8 @@ from nel.abstract_word_entity import load as load_model
 from nel.mulrel_ranker import MulRelRanker
 from nel.vocabulary import Vocabulary
 from torch.autograd import Variable
+
+import datastructures
 
 ModelClass = MulRelRanker
 wiki_prefix = 'en.wikipedia.org/wiki/'
@@ -257,6 +260,7 @@ class EDRanker:
         return self.prerank(data, predict)
 
     def train(self, org_train_dataset, org_dev_datasets, config):
+        startTime = time.time()
         print('extracting training data')
         train_dataset = self.get_data_items(org_train_dataset, predict=False)
         print('#train docs', len(train_dataset))
@@ -272,7 +276,7 @@ class EDRanker:
         not_better_count = 0
         is_counting = False
         eval_after_n_epochs = self.args.eval_after_n_epochs
-
+        evals = datastructures.EvalHistory()
         for e in range(config['n_epochs']):
             shuffle(train_dataset)
 
@@ -327,7 +331,8 @@ class EDRanker:
 
             print('epoch', e, 'total loss', total_loss, total_loss / len(train_dataset))
 
-            if (e + 1) % eval_after_n_epochs == 0:
+            if (e + 1) % eval_after_n_epochs == 0 or True:  # Always eval
+                eval = datastructures.EvaluationMetrics()
                 dev_f1 = 0
                 for di, (dname, data) in enumerate(dev_datasets):
                     predictions = self.predict(data)
@@ -336,6 +341,7 @@ class EDRanker:
 
                     if dname == 'aida-A':
                         dev_f1 = f1
+                        eval.accuracy_possible = D.eval_MAX(org_dev_datasets[di][1], predictions)
 
                 if config['lr'] == 1e-4 and dev_f1 >= self.args.dev_f1_change_lr:
                     eval_after_n_epochs = 2
@@ -364,6 +370,13 @@ class EDRanker:
                     break
 
                 self.model.print_weight_norm()
+                eval.step = e + 1
+                eval.accuracy = dev_f1
+                # eval.accuracy_possible = 0 #already computed
+                eval.time = time.time() - startTime
+                eval.loss = total_loss
+                evals.metrics.append(eval)
+                evals.save(f"/rds/user/hrjh2/hpc-work/checkpoints/mulrelnel_{e + 1}.evals")
 
     def predict(self, data):
         predictions = {items[0]['doc_name']: [] for items in data}

@@ -206,6 +206,25 @@ def eval(testset, system_pred):
     return f1
 
 
+def eval_MAX(testset, system_pred):
+    gold = []
+    pred = []
+
+    for doc_name, content in testset.items():
+        gold += [c['gold'][0] for c in content]
+        pred += [c['pred'][0] for c in system_pred[doc_name]]
+
+    true_pos_MAX = 0
+    for g, p in zip(gold, pred):
+        if p != 'NIL':
+            true_pos_MAX += 1
+
+    precision_MAX = true_pos_MAX / len([p for p in pred if p != 'NIL'])
+    recall_MAX = true_pos_MAX / len(gold)
+    f1_MAX = 2 * precision_MAX * recall_MAX / (precision_MAX + recall_MAX)
+    return f1_MAX
+
+
 class CoNLLDataset:
     """
     reading dataset from CoNLL dataset, extracted by https://github.com/dalab/deep-ed/
