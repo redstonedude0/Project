@@ -17,6 +17,8 @@ reportedRun("Loading embeddings", processeddata.loadEmbeddings)
 
 if SETTINGS.training:
     SETTINGS.dataset = datasets.loadDataset("aida_train.csv")
+    print(f"Size of training dataset: {len(SETTINGS.dataset.documents)}")
+    # For debug SETTINGS.dataset.documents = SETTINGS.dataset.documents[0:10]
     model = modeller.trainToCompletion()
 else:
     pass  # TODO - eval

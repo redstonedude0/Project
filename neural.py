@@ -87,7 +87,7 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
     total_loss = 0
     loss = loss_regularisation(model.neuralNet.R, model.neuralNet.D)
     # TODO - check - does the original paper add this regularisation once per loop?
-    loss.backward()
+    #    loss.backward()
     total_loss += loss.item()
     eval_correct = 0
     eval_wrong = 0
@@ -95,6 +95,7 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
     false_pos = 0  # guessed wrong index when valid index possible?
     false_neg = 0  # guessed wrong index when valid index possible?
     possibleCorrect = 0
+    total = 0
     for doc_idx, document in enumerate(tqdm(SETTINGS.dataset.documents, unit="documents", file=sys.stdout)):
         if SETTINGS.lowmem:
             if len(document.mentions) > 200:
@@ -116,7 +117,10 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
             print("Model output", out)
             raise Exception("Found nans in model output! Cannot proceed with learning")
         loss = loss_document(document, out)
+        loss += loss_regularisation(model.neuralNet.R, model.neuralNet.D)
         loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
         total_loss += loss.item()
         # Calculate evaluation metric data
         truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions])
@@ -136,10 +140,11 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
         false_neg += missed.sum().item()  # NOTE:sum FP=FN in the micro-averaging case
         false_pos += missed.sum().item()
         possibleCorrect += possible.sum().item()
+        total += len(same_list)
 
     # Learn!
     print("Stepping...")
-    optimizer.step()  # step - update parameters backwards as requried
+    #    optimizer.step()  # step - update parameters backwards as requried
     print("Done.")
 
     # Evaluate
@@ -147,7 +152,7 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
     eval = EvaluationMetrics()
     eval.loss = total_loss
     eval.accuracy = eval_correct / (eval_correct + eval_wrong)
-    eval.accuracy_possible = eval_correct / possibleCorrect
+    eval.accuracy_possible = possibleCorrect / total
     #    eval.correctRatio =
     #    eval.microF1 = microPrecision
     #    eval.correctRatio_possible = eval_correct / possibleCorrect
