@@ -85,10 +85,10 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
     optimizer = torch.optim.Adam(model.neuralNet.parameters(), lr=lr)
     optimizer.zero_grad()  # zero all gradients to clear buffers
     total_loss = 0
-    loss = loss_regularisation(model.neuralNet.R, model.neuralNet.D)
+    # loss = loss_regularisation(model.neuralNet.R, model.neuralNet.D)
     # TODO - check - does the original paper add this regularisation once per loop?
     #    loss.backward()
-    total_loss += loss.item()
+    #total_loss += loss.item()
     eval_correct = 0
     eval_wrong = 0
     true_pos = 0  # guessed right valid index when valid index possible
@@ -110,12 +110,13 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
                 continue  # next iteration of loop
             else:
                 raise err
-        if len(out[out != out]) > 1:
+        if len(out[out != out]) >= 1:
             # Dump
             print("Document index", doc_idx)
             print("Document id", document.id)
             print("Model output", out)
-            raise Exception("Found nans in model output! Cannot proceed with learning")
+            print("Found nans in model output! Cannot proceed with learning", file=sys.stderr)
+            continue  #next loop of document
         loss = loss_document(document, out)
         loss += loss_regularisation(model.neuralNet.R, model.neuralNet.D)
         loss.backward()

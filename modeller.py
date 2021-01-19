@@ -4,6 +4,7 @@
 import sys
 import time
 
+import torch
 from tqdm import tqdm
 
 import neural
@@ -55,6 +56,8 @@ def candidateSelection():
 def trainToCompletion():  # TODO - add params
     # TODO - checkpoint along the way
     print(f"Training on {len(SETTINGS.dataset.documents)} documents")
+    print(f"Cuda? {torch.cuda.is_available()}")
+
     startTime = time.time()
     utils.reportedRun("Candidate Selection", candidateSelection)
     model = Model()
