@@ -5,6 +5,7 @@ from pprint import pprint
 from random import shuffle
 
 import nel.dataset as D
+import nel.datastructures_nel as datastructures
 import nel.ntee as ntee
 import nel.utils as utils
 import numpy as np
@@ -14,8 +15,6 @@ from nel.abstract_word_entity import load as load_model
 from nel.mulrel_ranker import MulRelRanker
 from nel.vocabulary import Vocabulary
 from torch.autograd import Variable
-
-import datastructures
 
 ModelClass = MulRelRanker
 wiki_prefix = 'en.wikipedia.org/wiki/'
