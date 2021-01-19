@@ -142,6 +142,9 @@ class EvaluationMetrics:
 class EvalHistory:
     metrics: List[EvaluationMetrics] = []
 
+    def __init__(self):
+        self.metrics = []  # new array
+
     def print(self):
         print("EvalHistory:")
         for metric in self.metrics:

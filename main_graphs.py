@@ -29,7 +29,7 @@ def loadAFile():
         for idx, short in enumerate(fileShortnameMap.keys()):
             print(f"{idx}) {short}")
         selection = input()
-        short, file = fileShortnameMap.items()[int(selection)]
+        short, file = list(fileShortnameMap.items())[int(selection)]
         print(f"Loading {short}({file})...")
         return file
 
@@ -56,6 +56,7 @@ while True:
     # 3) load as evals
     evals1 = datastructures.EvalHistory.load(dataDir_checkpoints + file1Name)
     evals2 = datastructures.EvalHistory.load(dataDir_checkpoints + file2Name)
+    print("e1", evals1)
     # 4) Present comparison options
     print("Select comparison option:")
     print("0) Step-based | ratio")
