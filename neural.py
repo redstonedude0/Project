@@ -386,7 +386,7 @@ class NeuralNet(nn.Module):
         tensors = [leftTensor, midTensor, rightTensor]
         input_ = torch.cat(tensors, dim=1).type(torch.Tensor)  # make default tensor type for network
         torch.manual_seed(0)
-        f = self.f_m_c(input_)
+        f = self.f_m_c.to(SETTINGS.device)(input_)
         return f
 
     '''
