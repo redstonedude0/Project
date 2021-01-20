@@ -115,6 +115,14 @@ class Model:
         self.evals.save(SETTINGS.dataDir_checkpoints + name + ".evals")
         print("Saved.")
 
+    @classmethod
+    def load(cls, name):
+        inst = cls()
+        inst.neuralNet = torch.load(SETTINGS.dataDir_checkpoints + name + ".pt")
+        inst.evals = EvalHistory.load(SETTINGS.dataDir_checkpoints + name + ".evals")
+        print("Loaded.")
+        return inst
+
 
 """Represents the evaluation of a model on a dataset (F1, etc)"""
 
