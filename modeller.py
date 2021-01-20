@@ -56,7 +56,15 @@ def candidateSelection():
 def trainToCompletion():  # TODO - add params
     # TODO - checkpoint along the way
     print(f"Training on {len(SETTINGS.dataset.documents)} documents")
-    print(f"Cuda? {torch.cuda.is_available()}")
+    cudaAvail = torch.cuda.is_available()
+    print(f"Cuda? {cudaAvail}")
+    if cudaAvail:
+        dev = "cuda:0"
+    else:
+        dev = "cpu"
+    device = torch.device(dev)
+    print(f"Using device {dev}")
+    SETTINGS.device = device
 
     startTime = time.time()
     utils.reportedRun("Candidate Selection", candidateSelection)

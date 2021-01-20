@@ -78,6 +78,7 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
     # Prepare for training
     if SETTINGS.allow_nans:
         raise Exception("Fatal error - cannot learn with allow_nans enabled")
+    model.neuralNet.to(SETTINGS.device)  # Move to correct device
     model.neuralNet.train()  # Set training flag #TODO - why?
     torch.autograd.set_detect_anomaly(True)  # True for debugging to detect gradient anomolies
 

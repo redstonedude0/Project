@@ -35,6 +35,7 @@ class Hyperparameters:
     lambda2: float = -1E-7
     allow_nans = False  # True if nans should be used to represent undefined values, false if not
     lowmem = True  # True if need to use lowmem settings
+    device = None  # Used to store the device for training
 
 
 SETTINGS = Hyperparameters()
