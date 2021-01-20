@@ -379,9 +379,9 @@ class NeuralNet(nn.Module):
         midEmbeddingSums = map_1D(sumFunc, midEmbeddingss)
         rightEmbeddingSums = map_1D(sumFunc, rightEmbeddingss)
         # 2D i*d tensor of sum embedding for each mention
-        leftTensor = torch.from_numpy(np.array(leftEmbeddingSums))
-        midTensor = torch.from_numpy(np.array(midEmbeddingSums))
-        rightTensor = torch.from_numpy(np.array(rightEmbeddingSums))
+        leftTensor = torch.from_numpy(np.array(leftEmbeddingSums)).to(SETTINGS.device)
+        midTensor = torch.from_numpy(np.array(midEmbeddingSums)).to(SETTINGS.device)
+        rightTensor = torch.from_numpy(np.array(rightEmbeddingSums)).to(SETTINGS.device)
         #
         tensors = [leftTensor, midTensor, rightTensor]
         input_ = torch.cat(tensors, dim=1).type(torch.Tensor)  # make default tensor type for network
