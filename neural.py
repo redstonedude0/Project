@@ -579,7 +579,7 @@ class NeuralNet(nn.Module):
         else:
             p[~masks.reshape(n * 7)] = 0  # no chance
         p = p.reshape(n, 7)  # back to original dims
-        p.to(torch.device("cpu"))
+        p
         return p
 
 #TODO perhaps? pdf page 4 - investigate if Rij=diag{...} actually gives poor performance
