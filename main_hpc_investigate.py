@@ -29,7 +29,7 @@ x = nn.Sequential(
     nn.Linear(900, 300).float(),  # TODO what dimensions?
     nn.Tanh(),
     nn.Dropout(p=SETTINGS.dropout_rate),
-).float().to(torch.device("gpu:0"))
+).float().to(torch.device("cuda:0"))
 test = torch.randn(900)
 test.requires_grad = True
 y = x(test)
