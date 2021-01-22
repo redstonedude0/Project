@@ -386,7 +386,7 @@ class NeuralNet(nn.Module):
         tensors = [leftTensor, midTensor, rightTensor]
         input_ = torch.cat(tensors, dim=1).type(torch.Tensor)  # make default tensor type for network
         torch.manual_seed(0)
-        f = self.f_m_c.to(SETTINGS.device)(input_)
+        f = self.f_m_c(input_)
         return f
 
     '''
@@ -579,6 +579,7 @@ class NeuralNet(nn.Module):
         else:
             p[~masks.reshape(n * 7)] = 0  # no chance
         p = p.reshape(n, 7)  # back to original dims
+        p.to(torch.device("cpu"))
         return p
 
 #TODO perhaps? pdf page 4 - investigate if Rij=diag{...} actually gives poor performance
