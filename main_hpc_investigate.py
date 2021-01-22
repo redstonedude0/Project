@@ -25,12 +25,13 @@ reportedRun("Loading embeddings", processeddata.loadEmbeddings)
 # TODO - perform action (obtain dataset, use/make neural network as required, save results as specified)
 import torch.nn as nn
 
+gpu = torch.device("cuda:0")
 x = nn.Sequential(
     nn.Linear(900, 300).float(),  # TODO what dimensions?
     nn.Tanh(),
     nn.Dropout(p=SETTINGS.dropout_rate),
-).float().to(torch.device("cuda:0"))
-test = torch.randn(900)
+).float().to(gpu)
+test = torch.randn(900).to(gpu)
 test.requires_grad = True
 y = x(test)
 y.backward()
