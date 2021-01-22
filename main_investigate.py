@@ -1,7 +1,5 @@
 # Main pipeline to run the paper
 
-import torch
-
 import datasets
 import datastructures
 import files
@@ -25,6 +23,14 @@ SETTINGS.dataDir_checkpoints = "/home/harrison/Documents/project/mount/rds/user/
 if SETTINGS.training:
     SETTINGS.dataset = datasets.loadDataset("aida_train.csv")
     print(f"Size of training dataset: {len(SETTINGS.dataset.documents)}")
+    nextNum = 1
+    for d in SETTINGS.dataset.documents:
+        did = int(d.id.split(" ")[0])
+        if did != nextNum:
+            print(f"Expected {nextNum} but found {d.id}")
+        nextNum = did + 1
+    print(f"Last doc was {nextNum - 1}")
+    quit(0)
     # For debug SETTINGS.dataset.documents = SETTINGS.dataset.documents[0:10]
     modeller.candidateSelection()
     # load model

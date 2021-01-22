@@ -77,6 +77,7 @@ def loadDataset(csvPath: str):
             if len(goldDataParts) != 1:  # otherwise -1 anyway
                 mention.gold_id = goldDataParts[1]  # the ID of the candidate
             doc.mentions.append(mention)
+        dataset.documents.append(doc)  # Append last document
     return dataset
 
 # Removed - datasets can be loaded as necessary

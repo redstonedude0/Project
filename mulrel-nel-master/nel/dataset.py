@@ -233,6 +233,7 @@ class CoNLLDataset:
     def __init__(self, path, person_path, conll_path):
         print('load csv')
         self.train = read_csv_file(path + '/aida_train.csv')
+        print("TRAIN1", len(self.train))
         self.testA = read_csv_file(path + '/aida_testA.csv')
         self.testB = read_csv_file(path + '/aida_testB.csv')
         self.ace2004 = read_csv_file(path + '/wned-ace2004.csv')
@@ -245,6 +246,7 @@ class CoNLLDataset:
         print('process coref')
         person_names = load_person_names(person_path)
         with_coref(self.train, person_names)
+        print("TRAIN2", len(self.train))
         with_coref(self.testA, person_names)
         with_coref(self.testB, person_names)
         with_coref(self.ace2004, person_names)
@@ -255,6 +257,7 @@ class CoNLLDataset:
 
         print('load conll')
         read_conll_file(self.train, conll_path + '/AIDA/aida_train.txt')
+        print("TRAIN3", len(self.train))
         read_conll_file(self.testA, conll_path + '/AIDA/testa_testb_aggregate_original')
         read_conll_file(self.testB, conll_path + '/AIDA/testa_testb_aggregate_original')
         read_conll_file(self.ace2004, conll_path + '/wned-datasets/ace2004/ace2004.conll')
