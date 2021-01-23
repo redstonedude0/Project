@@ -538,6 +538,7 @@ class NeuralNet(nn.Module):
         print("INPUT DEV",input_.device.__repr__())
         input_ = input_.type(torch.Tensor)  # make default tensor type for network
         torch.manual_seed(0)
+        input_ = input_.to(SETTINGS.device)
         print("INPUT DEV",input_.device.__repr__())
         input_.to(SETTINGS.device)
         print("INPUT DEV",input_.device.__repr__())
