@@ -532,6 +532,8 @@ class NeuralNet(nn.Module):
         tensors = [leftTensor, midTensor, rightTensor]
         input_ = torch.cat(tensors, dim=1).type(torch.Tensor)  # make default tensor type for network
         torch.manual_seed(0)
+        print("INPUT DEV",input_.device.__repr__())
+        print("FMC DEV",self.f_m_c.device.__repr__())
         f = self.f_m_c(input_)
         return f
 
