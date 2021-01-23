@@ -74,7 +74,7 @@ Attempted low memory version of train
 '''
 
 
-def train(model: Model, lr=SETTINGS.learning_rate_initial):
+def trainworking(model: Model, lr=SETTINGS.learning_rate_initial):
     # Prepare for training
     if SETTINGS.allow_nans:
         raise Exception("Fatal error - cannot learn with allow_nans enabled")
@@ -159,6 +159,152 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
     #    eval.microF1 = microPrecision
     #    eval.correctRatio_possible = eval_correct / possibleCorrect
     #    eval.microF1_possible = true_pos/possibleCorrect
+    return eval
+
+
+def train(model: Model, lr=SETTINGS.learning_rate_initial):
+    # Attempt to raise error as quick as possible
+    if SETTINGS.allow_nans:
+        raise Exception("Fatal error - cannot learn with allow_nans enabled")
+    model.neuralNet.to(SETTINGS.device)  # Move to correct device
+    model.neuralNet.train()  # Set training flag #TODO - why?
+    torch.autograd.set_detect_anomaly(True)  # True for debugging to detect gradient anomolies
+
+    # Initialise optimizer, calculate loss
+    optimizer = torch.optim.Adam(model.neuralNet.parameters(), lr=lr)
+    optimizer.zero_grad()  # zero all gradients to clear buffers
+    total_loss = 0
+    # loss = loss_regularisation(model.neuralNet.R, model.neuralNet.D)
+    # TODO - check - does the original paper add this regularisation once per loop?
+    #    loss.backward()
+    #total_loss += loss.item()
+    eval_correct = 0
+    eval_wrong = 0
+    true_pos = 0  # guessed right valid index when valid index possible
+    false_pos = 0  # guessed wrong index when valid index possible?
+    false_neg = 0  # guessed wrong index when valid index possible?
+    possibleCorrect = 0
+    total = 0
+    for doc_idx, document in enumerate(tqdm(SETTINGS.dataset.documents[0:1], unit="documents", file=sys.stdout)):
+        if SETTINGS.lowmem:
+            if len(document.mentions) > 200:
+                print(
+                    f"Unable to learn on document {doc_idx} ({len(document.mentions)} mentions would exceed memory limits)")
+                continue
+        try:
+            out = model.neuralNet(document)
+        except RuntimeError as err:
+            if "can't allocate memory" in err.__str__():
+                print(f"Memory allocation error on {doc_idx} - {len(document.mentions)} mentions exceeds memory limits")
+                continue  # next iteration of loop
+            else:
+                raise err
+        if len(out[out != out]) >= 1:
+            # Dump
+            print("Document index", doc_idx)
+            print("Document id", document.id)
+            print("Model output", out)
+            print("Found nans in model output! Cannot proceed with learning", file=sys.stderr)
+            continue  #next loop of document
+        loss = loss_document(document, out)
+        loss += loss_regularisation(model.neuralNet.R, model.neuralNet.D)
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+        total_loss += loss.item()
+        # Calculate evaluation metric data
+        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions])
+        # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
+        best_cand_indices = out.max(dim=1)[1]  # index of maximum across candidates #1D(n) tensor (not -1)
+        same_list = truth_indices.eq(best_cand_indices)
+        correct = same_list.sum().item()  # extract value from 0-dim tensor
+        wrong = (~same_list).sum().item()
+        eval_correct += correct
+        eval_wrong += wrong
+        # TODO - paper adds #UNK#/NIL cands to pad - this should not be a tp/fp
+        true_pos += correct  # where the same, we have TP
+        got_wrong = ~same_list  # ones we got wrong
+        possible = truth_indices != -1  # ones possible to get right
+        missed = got_wrong.logical_and(possible)  # ones we got wrong but could've got right
+        # NOTE - we will have no TP for #UNK# (-1 gold) mentions
+        false_neg += missed.sum().item()  # NOTE:sum FP=FN in the micro-averaging case
+        false_pos += missed.sum().item()
+        possibleCorrect += possible.sum().item()
+        total += len(same_list)
+
+    print("halfway point")
+    if SETTINGS.allow_nans:
+        raise Exception("Fatal error - cannot learn with allow_nans enabled")
+    model.neuralNet.to(SETTINGS.device)  # Move to correct device
+    model.neuralNet.train()  # Set training flag #TODO - why?
+    torch.autograd.set_detect_anomaly(True)  # True for debugging to detect gradient anomolies
+
+    # Initialise optimizer, calculate loss
+    optimizer = torch.optim.Adam(model.neuralNet.parameters(), lr=lr)
+    optimizer.zero_grad()  # zero all gradients to clear buffers
+    total_loss = 0
+    # loss = loss_regularisation(model.neuralNet.R, model.neuralNet.D)
+    # TODO - check - does the original paper add this regularisation once per loop?
+    #    loss.backward()
+    #total_loss += loss.item()
+    eval_correct = 0
+    eval_wrong = 0
+    true_pos = 0  # guessed right valid index when valid index possible
+    false_pos = 0  # guessed wrong index when valid index possible?
+    false_neg = 0  # guessed wrong index when valid index possible?
+    possibleCorrect = 0
+    total = 0
+    for doc_idx, document in enumerate(tqdm(SETTINGS.dataset.documents[0:1], unit="documents", file=sys.stdout)):
+        if SETTINGS.lowmem:
+            if len(document.mentions) > 200:
+                print(
+                    f"Unable to learn on document {doc_idx} ({len(document.mentions)} mentions would exceed memory limits)")
+                continue
+        try:
+            out = model.neuralNet(document)
+        except RuntimeError as err:
+            if "can't allocate memory" in err.__str__():
+                print(f"Memory allocation error on {doc_idx} - {len(document.mentions)} mentions exceeds memory limits")
+                continue  # next iteration of loop
+            else:
+                raise err
+        if len(out[out != out]) >= 1:
+            # Dump
+            print("Document index", doc_idx)
+            print("Document id", document.id)
+            print("Model output", out)
+            print("Found nans in model output! Cannot proceed with learning", file=sys.stderr)
+            continue  #next loop of document
+        loss = loss_document(document, out)
+        loss += loss_regularisation(model.neuralNet.R, model.neuralNet.D)
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+        total_loss += loss.item()
+        # Calculate evaluation metric data
+        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions])
+        # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
+        best_cand_indices = out.max(dim=1)[1]  # index of maximum across candidates #1D(n) tensor (not -1)
+        same_list = truth_indices.eq(best_cand_indices)
+        correct = same_list.sum().item()  # extract value from 0-dim tensor
+        wrong = (~same_list).sum().item()
+        eval_correct += correct
+        eval_wrong += wrong
+        # TODO - paper adds #UNK#/NIL cands to pad - this should not be a tp/fp
+        true_pos += correct  # where the same, we have TP
+        got_wrong = ~same_list  # ones we got wrong
+        possible = truth_indices != -1  # ones possible to get right
+        missed = got_wrong.logical_and(possible)  # ones we got wrong but could've got right
+        # NOTE - we will have no TP for #UNK# (-1 gold) mentions
+        false_neg += missed.sum().item()  # NOTE:sum FP=FN in the micro-averaging case
+        false_pos += missed.sum().item()
+        possibleCorrect += possible.sum().item()
+        total += len(same_list)
+
+    eval = EvaluationMetrics()
+    eval.loss = 0
+    eval.accuracy = 0
+    eval.accuracy_possible = 0
     return eval
 
 
