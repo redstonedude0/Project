@@ -533,7 +533,7 @@ class NeuralNet(nn.Module):
         input_ = torch.cat(tensors, dim=1).type(torch.Tensor)  # make default tensor type for network
         torch.manual_seed(0)
         print("INPUT DEV",input_.device.__repr__())
-        print("FMC DEV",self.f_m_c.device.__repr__())
+        print("FMC DEV",next(self.f_m_c.parameters()).is_cuda)
         f = self.f_m_c(input_)
         return f
 
