@@ -32,7 +32,7 @@ class Candidate:
 
     def entEmbeddingTorch(self) -> torch.Tensor:
         # TODO what happens if an ent isn't seen before?
-        return torch.from_numpy(self.entEmbedding()).type(
+        return torch.from_numpy(self.entEmbedding()).to(SETTINGS.device).type(
             torch.Tensor)
 
 """Represents a mention in a document"""

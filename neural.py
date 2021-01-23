@@ -46,7 +46,7 @@ def train_OLD(model: Model, lr=SETTINGS.learning_rate_initial):
             raise Exception("Found nans in model output! Cannot proceed with learning")
         loss += loss_document(document, out)
         # Calculate evaluation metric data
-        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions])
+        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions]).to(SETTINGS.device)
         # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
         best_cand_indices = out.max(dim=1)[1]  # index of maximum across candidates #1D(n) tensor
         same_list = truth_indices.eq(best_cand_indices)
@@ -173,7 +173,7 @@ def loss_document(document: Document, output):
     # broadcast (n,1) to (n,7)
     GammaEqn = SETTINGS.gamma - p_i_eSTAR.reshape([n, 1]) + p_i_e
     # Max each element with 0 (repeated to (n,7))
-    h = torch.max(GammaEqn, torch.tensor(0.).repeat([n, 7]))
+    h = torch.max(GammaEqn, torch.tensor(0.).to(SETTINGS.device).repeat([n, 7]))
     L = smartsum(h)  # ignore nans in loss function (outside of candidate range)
     return L
 
@@ -229,11 +229,11 @@ class NeuralNet(nn.Module):
             # TODO - this is the 2-layer nn 'g' referred to in the paper, called score_combine in mulrel_ranker.py
         )
         # TODO - set default parameter values properly
-        self.register_parameter("B", torch.nn.Parameter(torch.diag(torch.ones(300))))
+        self.register_parameter("B", torch.nn.Parameter(torch.diag(torch.ones(300).to(SETTINGS.device))))
         self.register_parameter("R", torch.nn.Parameter(torch.stack(
-            [torch.diag(torch.ones(300)), torch.diag(torch.ones(300)), torch.diag(torch.ones(300))])))  # todo k elem
+            [torch.diag(torch.ones(300).to(SETTINGS.device)), torch.diag(torch.ones(300).to(SETTINGS.device)), torch.diag(torch.ones(300).to(SETTINGS.device))])))  # todo k elem
         self.register_parameter("D", torch.nn.Parameter(
-            torch.stack([torch.diag(torch.ones(300)), torch.diag(torch.ones(300)), torch.diag(torch.ones(300))])))
+            torch.stack([torch.diag(torch.ones(300).to(SETTINGS.device)), torch.diag(torch.ones(300).to(SETTINGS.device)), torch.diag(torch.ones(300).to(SETTINGS.device))])))
 
     # local and pairwise score functions (equation 3+section 3.1)
 
@@ -273,15 +273,15 @@ class NeuralNet(nn.Module):
     '''
 
     def embeddings(self, mentions, n):
-        embeddings = torch.zeros([n, 7, SETTINGS.d])  # 3D (n,7,d) tensor of embeddings
+        embeddings = torch.zeros([n, 7, SETTINGS.d]).to(SETTINGS.device)  # 3D (n,7,d) tensor of embeddings
         nan = 0  # use 0 as our nan-like value
         if SETTINGS.allow_nans:
             nan = float("nan")
         embeddings *= nan  # Actually a (n,7,d) tensor of nans to begin with
-        masks = torch.zeros([n, 7], dtype=torch.bool)  # 2D (n,7) bool tensor of masks
+        masks = torch.zeros([n, 7], dtype=torch.bool).to(SETTINGS.device)  # 2D (n,7) bool tensor of masks
         for m_idx, m in enumerate(mentions):
             if len(m.candidates) > 0:
-                valss = torch.stack([e_i.entEmbeddingTorch() for e_i in m.candidates])
+                valss = torch.stack([e_i.entEmbeddingTorch().to(SETTINGS.device) for e_i in m.candidates])
                 embeddings[m_idx][0:len(valss)] = valss
                 masks[m_idx][0:len(valss)] = True
         return embeddings, masks
@@ -497,7 +497,7 @@ class NeuralNet(nn.Module):
     def lbp_total(self, n, masks, psiss, lbp_inputs):
         # Note: Should be i*j*arb but arb dependent so i*j*7 but unused cells will be 0/nan and ignored later
         debug("Computing initial mbar for LBP")
-        mbar = torch.zeros(n, n, 7)
+        mbar = torch.zeros(n, n, 7).to(SETTINGS.device)
         # should be nan if no candidate there (n_i,n_j,7_j)
         mbar_mask = masks.repeat([n, 1, 1]).type(torch.Tensor)  # 1 where keep,0 where nan-out
         if SETTINGS.allow_nans:
@@ -564,7 +564,7 @@ class NeuralNet(nn.Module):
         ubar = self.lbp_total(n, masks, psiss, lbp_inputs)
 
         debug("Starting mention calculations")
-        p_e_m = torch.zeros([n, 7])
+        p_e_m = torch.zeros([n, 7]).to(SETTINGS.device)
         for m_idx, m in enumerate(mentions):  # all mentions
             for e_idx, e in enumerate(m.candidates):  # candidate entities
                 p_e_m[m_idx][e_idx] = e.initial_prob  # input from data
