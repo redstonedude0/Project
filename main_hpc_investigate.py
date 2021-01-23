@@ -34,5 +34,6 @@ x = nn.Sequential(
 test = torch.randn(900).to(gpu)
 test.requires_grad = True
 y = x(test)
-y.backward()
+z = y.sum()
+z.backward()
 print("Test complete.")
