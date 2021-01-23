@@ -529,9 +529,17 @@ class NeuralNet(nn.Module):
         midTensor = torch.from_numpy(np.array(midEmbeddingSums)).to(SETTINGS.device)
         rightTensor = torch.from_numpy(np.array(rightEmbeddingSums)).to(SETTINGS.device)
         #
+        print("TARGET DEV",SETTINGS.device.__repr__())
+        print("L DEV",leftTensor.device.__repr__())
+        print("M DEV",midTensor.device.__repr__())
+        print("R DEV",rightTensor.device.__repr__())
         tensors = [leftTensor, midTensor, rightTensor]
-        input_ = torch.cat(tensors, dim=1).type(torch.Tensor)  # make default tensor type for network
+        input_ = torch.cat(tensors, dim=1)
+        print("INPUT DEV",input_.device.__repr__())
+        input_ = input_.type(torch.Tensor)  # make default tensor type for network
         torch.manual_seed(0)
+        print("INPUT DEV",input_.device.__repr__())
+        input_.to(SETTINGS.device)
         print("INPUT DEV",input_.device.__repr__())
         print("FMC DEV",next(self.f_m_c.parameters()).is_cuda)
         f = self.f_m_c(input_)
