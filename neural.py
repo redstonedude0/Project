@@ -536,9 +536,8 @@ class NeuralNet(nn.Module):
         tensors = [leftTensor, midTensor, rightTensor]
         input_ = torch.cat(tensors, dim=1)
         print("INPUT DEV",input_.device.__repr__())
-        input_ = input_.type(torch.Tensor)  # make default tensor type for network
+        input_ = input_.to(torch.float)  # make default tensor type for network
         torch.manual_seed(0)
-        input_ = input_.to(SETTINGS.device)
         print("INPUT DEV",input_.device.__repr__())
         input_.to(SETTINGS.device)
         print("INPUT DEV",input_.device.__repr__())
@@ -656,7 +655,7 @@ class NeuralNet(nn.Module):
         debug("Computing initial mbar for LBP")
         mbar = torch.zeros(n, n, 7).to(SETTINGS.device)
         # should be nan if no candidate there (n_i,n_j,7_j)
-        mbar_mask = masks.repeat([n, 1, 1]).type(torch.Tensor)  # 1 where keep,0 where nan-out
+        mbar_mask = masks.repeat([n, 1, 1]).to(torch.float)  # 1 where keep,0 where nan-out
         if SETTINGS.allow_nans:
             nan = float("nan")
             mbar_mask[mbar_mask == 0] = nan  # make nan not 0
@@ -702,7 +701,7 @@ class NeuralNet(nn.Module):
         debug("Calculating embeddings")
         embeddings, masks = self.embeddings(mentions, n)
 
-        maskCoverage = (masks.type(torch.Tensor).sum() / (n * 7)) * 100
+        maskCoverage = (masks.to(torch.float).sum() / (n * 7)) * 100
         debug(f"Mask coverage {maskCoverage}%")
 
         debug("Calculating f_m_c values")

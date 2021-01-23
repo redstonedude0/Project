@@ -219,7 +219,7 @@ class TestNeural(unittest.TestCase):
                 horizontalMask = torch.zeros([7])
                 horizontalMask[0:arb_j] = 1
                 expectedMask[0:arb_i] = horizontalMask
-                expectedMask = expectedMask.type(torch.BoolTensor)
+                expectedMask = expectedMask.to(torch.bool)
                 self.assertTrue(mask.equal(expectedMask))
 
                 # print(f"Max(Sub)Error: {maxError}")
@@ -252,7 +252,7 @@ class TestNeural(unittest.TestCase):
                 horizontalMask = torch.zeros([7])
                 horizontalMask[0:arb_j] = 1
                 expectedMask[0:arb_i] = horizontalMask
-                expectedMask = expectedMask.type(torch.BoolTensor)
+                expectedMask = expectedMask.to(torch.bool)
                 self.assertTrue(mask.equal(expectedMask))
 
                 # print(f"Max(Sub)Error: {maxError}")
