@@ -74,7 +74,7 @@ Attempted low memory version of train
 '''
 
 
-def trainworking(model: Model, lr=SETTINGS.learning_rate_initial):
+def train(model: Model, lr=SETTINGS.learning_rate_initial):
     # Prepare for training
     if SETTINGS.allow_nans:
         raise Exception("Fatal error - cannot learn with allow_nans enabled")
@@ -125,7 +125,7 @@ def trainworking(model: Model, lr=SETTINGS.learning_rate_initial):
         optimizer.zero_grad()
         total_loss += loss.item()
         # Calculate evaluation metric data
-        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions])
+        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions]).to(SETTINGS.device)
         # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
         best_cand_indices = out.max(dim=1)[1]  # index of maximum across candidates #1D(n) tensor (not -1)
         same_list = truth_indices.eq(best_cand_indices)
@@ -162,7 +162,7 @@ def trainworking(model: Model, lr=SETTINGS.learning_rate_initial):
     return eval
 
 
-def train(model: Model, lr=SETTINGS.learning_rate_initial):
+def trainfake(model: Model, lr=SETTINGS.learning_rate_initial):
     # Attempt to raise error as quick as possible
     if SETTINGS.allow_nans:
         raise Exception("Fatal error - cannot learn with allow_nans enabled")
@@ -213,7 +213,7 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
         optimizer.zero_grad()
         total_loss += loss.item()
         # Calculate evaluation metric data
-        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions])
+        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions]).to(SETTINGS.device)
         # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
         best_cand_indices = out.max(dim=1)[1]  # index of maximum across candidates #1D(n) tensor (not -1)
         same_list = truth_indices.eq(best_cand_indices)
@@ -282,7 +282,7 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
         optimizer.zero_grad()
         total_loss += loss.item()
         # Calculate evaluation metric data
-        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions])
+        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions]).to(SETTINGS.device)
         # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
         best_cand_indices = out.max(dim=1)[1]  # index of maximum across candidates #1D(n) tensor (not -1)
         same_list = truth_indices.eq(best_cand_indices)
@@ -585,7 +585,7 @@ class NeuralNet(nn.Module):
         mbarsum = mbarsum.repeat([n, 1, 1, 1])
         # (n_j,n_k,n_i,7_i)
         # 0 out where j=k (do not want j->i(e'), set to 0 for all i,e')
-        cancel = 1 - torch.eye(n, n)  # (n_j,n_k) anti-identity
+        cancel = 1 - torch.eye(n, n).to(SETTINGS.device)  # (n_j,n_k) anti-identity
         cancel = cancel.reshape([n, n, 1, 1])  # add extra dimensions
         mbarsum = mbarsum * cancel  # broadcast (n,n,1,1) to (n,n,n,7), setting (n,7) dim to 0 where j=k
         # (n_j,n_k,n_i,7_i)
@@ -667,7 +667,7 @@ class NeuralNet(nn.Module):
             mbar = newmbar
         # Now compute ubar
         debug("Computing final ubar out the back of LBP")
-        antieye = 1 - torch.eye(n)
+        antieye = 1 - torch.eye(n).to(SETTINGS.device)
         # read mbar as (n_k,n_i,e_i)
         antieye = antieye.reshape([n, n, 1])  # reshape for broadcast
         mbar = mbar * antieye  # remove where k=i
