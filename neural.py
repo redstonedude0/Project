@@ -539,6 +539,9 @@ class NeuralNet(nn.Module):
         ubarsumnans = ubarsum != ubarsum  # index tensor of where ubarsums is nan
         ubarsum[ubarsumnans] = 1  # set to 1 to prevent division errors
         nantest(ubarsum, "ubarsum")
+        if (ubarsum<0).sum() > 0:
+            print("Found negative values in ubarusm",file=sys.stderr)
+        ubarsum[ubarsum==0]=1#Set 0 to 1 to prevent division error
         ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
         nantest(ubar, "ubar (post div)")
         if SETTINGS.allow_nans:
