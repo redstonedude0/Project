@@ -13,7 +13,7 @@ import processeddata
 from datastructures import Model, Document, EvaluationMetrics
 from hyperparameters import SETTINGS
 from utils import debug, map_2D, map_1D, smartsum, smartmax, setMaskBroadcastable, \
-    normalise_avgToZero_rowWise
+    normalise_avgToZero_rowWise,nantest
 
 
 def evaluate():  # TODO - params
@@ -160,153 +160,6 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
     #    eval.correctRatio_possible = eval_correct / possibleCorrect
     #    eval.microF1_possible = true_pos/possibleCorrect
     return eval
-
-
-def trainfake(model: Model, lr=SETTINGS.learning_rate_initial):
-    # Attempt to raise error as quick as possible
-    if SETTINGS.allow_nans:
-        raise Exception("Fatal error - cannot learn with allow_nans enabled")
-    model.neuralNet.to(SETTINGS.device)  # Move to correct device
-    model.neuralNet.train()  # Set training flag #TODO - why?
-    torch.autograd.set_detect_anomaly(True)  # True for debugging to detect gradient anomolies
-
-    # Initialise optimizer, calculate loss
-    optimizer = torch.optim.Adam(model.neuralNet.parameters(), lr=lr)
-    optimizer.zero_grad()  # zero all gradients to clear buffers
-    total_loss = 0
-    # loss = loss_regularisation(model.neuralNet.R, model.neuralNet.D)
-    # TODO - check - does the original paper add this regularisation once per loop?
-    #    loss.backward()
-    #total_loss += loss.item()
-    eval_correct = 0
-    eval_wrong = 0
-    true_pos = 0  # guessed right valid index when valid index possible
-    false_pos = 0  # guessed wrong index when valid index possible?
-    false_neg = 0  # guessed wrong index when valid index possible?
-    possibleCorrect = 0
-    total = 0
-    for doc_idx, document in enumerate(tqdm(SETTINGS.dataset.documents[0:1], unit="documents", file=sys.stdout)):
-        if SETTINGS.lowmem:
-            if len(document.mentions) > 200:
-                print(
-                    f"Unable to learn on document {doc_idx} ({len(document.mentions)} mentions would exceed memory limits)")
-                continue
-        try:
-            out = model.neuralNet(document)
-        except RuntimeError as err:
-            if "can't allocate memory" in err.__str__():
-                print(f"Memory allocation error on {doc_idx} - {len(document.mentions)} mentions exceeds memory limits")
-                continue  # next iteration of loop
-            else:
-                raise err
-        if len(out[out != out]) >= 1:
-            # Dump
-            print("Document index", doc_idx)
-            print("Document id", document.id)
-            print("Model output", out)
-            print("Found nans in model output! Cannot proceed with learning", file=sys.stderr)
-            continue  #next loop of document
-        loss = loss_document(document, out)
-        loss += loss_regularisation(model.neuralNet.R, model.neuralNet.D)
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-        total_loss += loss.item()
-        # Calculate evaluation metric data
-        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions]).to(SETTINGS.device)
-        # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
-        best_cand_indices = out.max(dim=1)[1]  # index of maximum across candidates #1D(n) tensor (not -1)
-        same_list = truth_indices.eq(best_cand_indices)
-        correct = same_list.sum().item()  # extract value from 0-dim tensor
-        wrong = (~same_list).sum().item()
-        eval_correct += correct
-        eval_wrong += wrong
-        # TODO - paper adds #UNK#/NIL cands to pad - this should not be a tp/fp
-        true_pos += correct  # where the same, we have TP
-        got_wrong = ~same_list  # ones we got wrong
-        possible = truth_indices != -1  # ones possible to get right
-        missed = got_wrong.logical_and(possible)  # ones we got wrong but could've got right
-        # NOTE - we will have no TP for #UNK# (-1 gold) mentions
-        false_neg += missed.sum().item()  # NOTE:sum FP=FN in the micro-averaging case
-        false_pos += missed.sum().item()
-        possibleCorrect += possible.sum().item()
-        total += len(same_list)
-
-    print("halfway point")
-    if SETTINGS.allow_nans:
-        raise Exception("Fatal error - cannot learn with allow_nans enabled")
-    model.neuralNet.to(SETTINGS.device)  # Move to correct device
-    model.neuralNet.train()  # Set training flag #TODO - why?
-    torch.autograd.set_detect_anomaly(True)  # True for debugging to detect gradient anomolies
-
-    # Initialise optimizer, calculate loss
-    optimizer = torch.optim.Adam(model.neuralNet.parameters(), lr=lr)
-    optimizer.zero_grad()  # zero all gradients to clear buffers
-    total_loss = 0
-    # loss = loss_regularisation(model.neuralNet.R, model.neuralNet.D)
-    # TODO - check - does the original paper add this regularisation once per loop?
-    #    loss.backward()
-    #total_loss += loss.item()
-    eval_correct = 0
-    eval_wrong = 0
-    true_pos = 0  # guessed right valid index when valid index possible
-    false_pos = 0  # guessed wrong index when valid index possible?
-    false_neg = 0  # guessed wrong index when valid index possible?
-    possibleCorrect = 0
-    total = 0
-    for doc_idx, document in enumerate(tqdm(SETTINGS.dataset.documents[0:1], unit="documents", file=sys.stdout)):
-        if SETTINGS.lowmem:
-            if len(document.mentions) > 200:
-                print(
-                    f"Unable to learn on document {doc_idx} ({len(document.mentions)} mentions would exceed memory limits)")
-                continue
-        try:
-            out = model.neuralNet(document)
-        except RuntimeError as err:
-            if "can't allocate memory" in err.__str__():
-                print(f"Memory allocation error on {doc_idx} - {len(document.mentions)} mentions exceeds memory limits")
-                continue  # next iteration of loop
-            else:
-                raise err
-        if len(out[out != out]) >= 1:
-            # Dump
-            print("Document index", doc_idx)
-            print("Document id", document.id)
-            print("Model output", out)
-            print("Found nans in model output! Cannot proceed with learning", file=sys.stderr)
-            continue  #next loop of document
-        loss = loss_document(document, out)
-        loss += loss_regularisation(model.neuralNet.R, model.neuralNet.D)
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-        total_loss += loss.item()
-        # Calculate evaluation metric data
-        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions]).to(SETTINGS.device)
-        # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
-        best_cand_indices = out.max(dim=1)[1]  # index of maximum across candidates #1D(n) tensor (not -1)
-        same_list = truth_indices.eq(best_cand_indices)
-        correct = same_list.sum().item()  # extract value from 0-dim tensor
-        wrong = (~same_list).sum().item()
-        eval_correct += correct
-        eval_wrong += wrong
-        # TODO - paper adds #UNK#/NIL cands to pad - this should not be a tp/fp
-        true_pos += correct  # where the same, we have TP
-        got_wrong = ~same_list  # ones we got wrong
-        possible = truth_indices != -1  # ones possible to get right
-        missed = got_wrong.logical_and(possible)  # ones we got wrong but could've got right
-        # NOTE - we will have no TP for #UNK# (-1 gold) mentions
-        false_neg += missed.sum().item()  # NOTE:sum FP=FN in the micro-averaging case
-        false_pos += missed.sum().item()
-        possibleCorrect += possible.sum().item()
-        total += len(same_list)
-
-    eval = EvaluationMetrics()
-    eval.loss = 0
-    eval.accuracy = 0
-    eval.accuracy_possible = 0
-    return eval
-
 
 def loss_document(document: Document, output):
     n = len(document.mentions)
@@ -529,19 +382,10 @@ class NeuralNet(nn.Module):
         midTensor = torch.from_numpy(np.array(midEmbeddingSums)).to(SETTINGS.device)
         rightTensor = torch.from_numpy(np.array(rightEmbeddingSums)).to(SETTINGS.device)
         #
-        print("TARGET DEV",SETTINGS.device.__repr__())
-        print("L DEV",leftTensor.device.__repr__())
-        print("M DEV",midTensor.device.__repr__())
-        print("R DEV",rightTensor.device.__repr__())
         tensors = [leftTensor, midTensor, rightTensor]
         input_ = torch.cat(tensors, dim=1)
-        print("INPUT DEV",input_.device.__repr__())
         input_ = input_.to(torch.float)  # make default tensor type for network
         torch.manual_seed(0)
-        print("INPUT DEV",input_.device.__repr__())
-        input_.to(SETTINGS.device)
-        print("INPUT DEV",input_.device.__repr__())
-        print("FMC DEV",next(self.f_m_c.parameters()).is_cuda)
         f = self.f_m_c(input_)
         return f
 
@@ -591,7 +435,7 @@ class NeuralNet(nn.Module):
         # (n_j,n_k,n_i,7_i)
         # sum to a (n_i,n_j,7_i) tensor of sums(over k) for each j,i,e'
         mbarsum = smartsum(mbarsum, 1).transpose(0, 1)
-
+        nantest(mbarsum, "mbarsum")
         # lbp_inputs is phi+psi values, add to the mbar sums to get the values in the max brackets
         #        lbp_inputs = lbp_inputs.permute(1,0,3,2)
         values = lbp_inputs + mbarsum.reshape(
@@ -613,6 +457,7 @@ class NeuralNet(nn.Module):
     def lbp_iteration_complete(self, mbar, masks, n, lbp_inputs):
         # (n,n,7_j) tensor
         mvalues = self.lbp_iteration_mvaluesss(mbar, n, lbp_inputs)
+        nantest(mvalues, "mvalues")
         # softmax invariant under translation, translate to around 0 to reduce float errors
         # u+= 50
         # Normalise for each n across the row
@@ -637,6 +482,7 @@ class NeuralNet(nn.Module):
                              1)  # 'nan's become 0 after log (broadcast (1,n,7) to (n,n,7))
         newmbar = newmbar.log()
         #        print("X4 (-0.69 - 0)",newmbar)
+        nantest(newmbar, "newmbar")
         return newmbar
 
     '''
@@ -666,6 +512,7 @@ class NeuralNet(nn.Module):
             newmbar = self.lbp_iteration_complete(mbar, masks, n, lbp_inputs)
             mbar = newmbar
         # Now compute ubar
+        nantest(mbar, "final mbar")
         debug("Computing final ubar out the back of LBP")
         antieye = 1 - torch.eye(n).to(SETTINGS.device)
         # read mbar as (n_k,n_i,e_i)
@@ -700,42 +547,47 @@ class NeuralNet(nn.Module):
 
         debug("Calculating embeddings")
         embeddings, masks = self.embeddings(mentions, n)
-
+        nantest(embeddings, "embeddings")
         maskCoverage = (masks.to(torch.float).sum() / (n * 7)) * 100
         debug(f"Mask coverage {maskCoverage}%")
 
         debug("Calculating f_m_c values")
         f_m_cs = self.perform_fmcs(mentions)
-
+        nantest(f_m_cs, "fmcs")
         debug("Calculating a values")
         ass = self.ass(f_m_cs)
-
+        nantest(ass, "ass")
         debug("Calculating lbp inputs")
         phis = self.phissss(n, embeddings, ass)  # 4d (n_i,n_j,7_i,7_j) tensor
         psiss = self.psiss(n, embeddings, f_m_cs)  # 2d (n_i,7_i) tensor
         lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
         lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
+        nantest(phis, "phis")
+        nantest(psiss, "psiss")
+        nantest(lbp_inputs, "lbp inputs")
 
         debug("Calculating ubar(lbp) values")
         ubar = self.lbp_total(n, masks, psiss, lbp_inputs)
-
+        nantest(ubar, "ubar")
         debug("Starting mention calculations")
         p_e_m = torch.zeros([n, 7]).to(SETTINGS.device)
         for m_idx, m in enumerate(mentions):  # all mentions
             for e_idx, e in enumerate(m.candidates):  # candidate entities
                 p_e_m[m_idx][e_idx] = e.initial_prob  # input from data
         # reshape to a (n*7,2) tensor for use by the nn
+        nantest(p_e_m, "pem")
         ubar = ubar.reshape(n * 7, 1)
         p_e_m = p_e_m.reshape(n * 7, 1)
         inputs = torch.cat([ubar, p_e_m], dim=1)
         inputs[~masks.reshape(n * 7)] = 0
+        nantest(inputs, "g network inputs")
         p = self.g(inputs)
         if SETTINGS.allow_nans:
             p[~masks.reshape(n * 7)] = float("nan")
         else:
             p[~masks.reshape(n * 7)] = 0  # no chance
         p = p.reshape(n, 7)  # back to original dims
-        p
+        nantest(p,"final p tensor")
         return p
 
 #TODO perhaps? pdf page 4 - investigate if Rij=diag{...} actually gives poor performance

@@ -1,4 +1,5 @@
 # File containing utilities
+import sys
 from typing import Callable
 
 import torch
@@ -184,3 +185,10 @@ def broadcastMask(tensor, broadcastable_mask):
     # torch.tensor->python list
     repeatsize = (tensorsize // masksize).tolist()
     return broadcastable_mask.repeat(repeatsize)
+
+def nantest(tensor,title):
+    if len(tensor[tensor != tensor]) >= 1:
+        msg = f"Nans detected at '{title}'"
+        print(msg)
+        print(msg,file=sys.stderr)
+        print("Tensor:",tensor)

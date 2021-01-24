@@ -12,10 +12,10 @@ class NormalisationMethod(Enum):
 
 
 class Hyperparameters:
-    dataDir = "../data/"
-    dataDir_csv = "../data/generated/test_train_data/"
-    dataDir_embeddings = "../data/generated/embeddings/word_ent_embs/"
-    dataDir_checkpoints = "../data/checkpoints/"
+    dataDir = "/home/harrison/Documents/project/data/"
+    dataDir_csv = "/home/harrison/Documents/project/data/generated/test_train_data/"
+    dataDir_embeddings = "/home/harrison/Documents/project/data/generated/embeddings/word_ent_embs/"
+    dataDir_checkpoints = "/home/harrison/Documents/project/data/checkpoints/"
     training: bool = True
     dataset: Dataset = None
     normalisation = NormalisationMethod.RelNorm  # TODO change back to mentnorm once it's implemented

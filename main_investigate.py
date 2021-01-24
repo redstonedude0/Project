@@ -4,6 +4,7 @@ import datasets
 import datastructures
 import files
 import modeller
+import neural
 import processeddata
 from utils import *
 
@@ -12,7 +13,7 @@ print("Cuda?", torch.cuda.is_available())
 reportedRun("Checking Datadir", files.checkDataDir)
 reportedRun("Loading embeddings", processeddata.loadEmbeddings)
 # Hook in via mount to foreign checkpoints
-SETTINGS.dataDir_checkpoints = "/home/harrison/Documents/project/mount/rds/user/hrjh2/hpc-work/checkpoints/"
+#SETTINGS.dataDir_checkpoints = "/home/harrison/Documents/project/mount/rds/user/hrjh2/hpc-work/checkpoints/"
 
 # TODO - Input parameters, specify data & checkpoint locations, etc
 # TODO - should these be params or runtime selections?
@@ -22,6 +23,7 @@ SETTINGS.dataDir_checkpoints = "/home/harrison/Documents/project/mount/rds/user/
 
 if SETTINGS.training:
     SETTINGS.dataset = datasets.loadDataset("aida_train.csv")
+    SETTINGS.dataset.documents = SETTINGS.dataset.documents[0:160]
     print(f"Size of training dataset: {len(SETTINGS.dataset.documents)}")
     nextNum = 1
     for d in SETTINGS.dataset.documents:
@@ -34,9 +36,16 @@ if SETTINGS.training:
     # For debug SETTINGS.dataset.documents = SETTINGS.dataset.documents[0:10]
     modeller.candidateSelection()
     # load model
-    model = datastructures.Model.load("save_4")
-    out = model.neuralNet(SETTINGS.dataset.documents[149])
-    print(f"Nans:{len(out[out != out])}")
+#    model = datastructures.Model.load("save_4")
+#    model = datastructures.Model()
+#    model.neuralNet = neural.NeuralNet()
+#    model.evals = datastructures.EvalHistory()
+#    for doc in SETTINGS.dataset.documents:
+#        for m in doc.mentions:
+#            if m.goldCandIndex() == -1:
+#                print("Fail cand at doc",doc.id)
+#    out = model.neuralNet(SETTINGS.dataset.documents[159])
+#    print(f"Nans:{len(out[out != out])}")
 
 else:
     pass  # TODO - eval
