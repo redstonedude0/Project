@@ -522,20 +522,25 @@ class NeuralNet(nn.Module):
         setMaskBroadcastable(mbar, ~masks.reshape([1, n, 7]), 0)
         mbar = smartsum(mbar, 0)  # (n_i,e_i) sums
         u = psiss + mbar
+        nantest(u, "u")
         # softmax invariant under translation, translate to around 0 to reduce float errors
         # u+= 50
         # Normalise for each n across the row
         normalise_avgToZero_rowWise(u, masks, dim=1)
+        nantest(u, "u (postNorm)")
         # TODO - what to translate by? why does 50 work here?
         ubar = u.exp()  # 'nans' become 1
         ubar = ubar.clone()  # deepclone because performing in-place modification after exp
         ubar[~masks] = 0  # reset nans to 0
         # Normalise ubar (n,7)
+        nantest(ubar, "ubar (in method)")
         ubarsum = smartsum(ubar, 1)  # (n_i) sums over candidates
         ubarsum = ubarsum.reshape([n, 1])  # (n_i,1) sum
         ubarsumnans = ubarsum != ubarsum  # index tensor of where ubarsums is nan
         ubarsum[ubarsumnans] = 1  # set to 1 to prevent division errors
+        nantest(ubarsum, "ubarsum")
         ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
+        nantest(ubar, "ubar (post div)")
         if SETTINGS.allow_nans:
             ubar[~masks] = float("nan")
             ubar[ubarsumnans.reshape([n])] = float("nan")
