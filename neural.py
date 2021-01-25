@@ -552,7 +552,7 @@ class NeuralNet(nn.Module):
         if len(ubarsum[ubarsum == float("-inf")]) > 0:
             print("ubarsum has ninf values")
         ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
-        ubar[ubarsum==float("inf")] = 0#Set to 0 when dividing by inf
+        ubar[ubarsum.repeat([1,7])==float("inf")] = 0#Set to 0 when dividing by inf, repeat 7 times across sum dim
         if SETTINGS.allow_nans:
             ubar[~masks] = float("nan")
             ubar[ubarsumnans.reshape([n])] = float("nan")
