@@ -536,21 +536,18 @@ class NeuralNet(nn.Module):
         nantest(ubar, "ubar (in method)")
         ubarsum = smartsum(ubar, 1)  # (n_i) sums over candidates
         nantest(ubar, "ubar (postsum)")
+        nantest(ubarsum, "ubarsum (postsum)")
         ubarsum = ubarsum.reshape([n, 1])  # (n_i,1) sum
+        if len(ubarsum[ubarsum !=ubarsum]) > 0:
+            print("ubarsum has nan values")
         ubarsumnans = ubarsum != ubarsum  # index tensor of where ubarsums is nan
         ubarsum[ubarsumnans] = 1  # set to 1 to prevent division errors
         nantest(ubarsum, "ubarsum")
         if (ubarsum<0).sum() > 0:
             print("Found negative values in ubarusm",file=sys.stderr)
         ubarsum[ubarsum==0]=1#Set 0 to 1 to prevent division error
-        if len(ubarsum[ubarsum == 0]) > 0:
-            print("ubarsum has zero values")
-        if len(ubarsum[ubarsum!=ubarsum]) > 0:
-            print("ubarsum has nan values")
         if len(ubarsum[ubarsum == float("inf")]) > 0:
             print("ubarsum has inf values")
-        if len(ubarsum[ubarsum == float("-inf")]) > 0:
-            print("ubarsum has ninf values")
         ubar[ubarsum.repeat([1,7])==float("inf")] = 0#Set to 0 when dividing by inf, repeat 7 times across sum dim
         ubarsum[ubarsum==float("inf")] = 1#Set to 1 to leave ubar as 0 when dividing by inf
         ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
