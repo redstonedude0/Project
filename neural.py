@@ -535,6 +535,7 @@ class NeuralNet(nn.Module):
         # Normalise ubar (n,7)
         nantest(ubar, "ubar (in method)")
         ubarsum = smartsum(ubar, 1)  # (n_i) sums over candidates
+        nantest(ubar, "ubar (postsum)")
         ubarsum = ubarsum.reshape([n, 1])  # (n_i,1) sum
         ubarsumnans = ubarsum != ubarsum  # index tensor of where ubarsums is nan
         ubarsum[ubarsumnans] = 1  # set to 1 to prevent division errors
@@ -550,10 +551,8 @@ class NeuralNet(nn.Module):
             print("ubarsum has inf values")
         if len(ubarsum[ubarsum == float("-inf")]) > 0:
             print("ubarsum has ninf values")
-
         ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
-
-        nantest(ubar, "ubar (post div)")
+        ubar[ubarsum==float("inf")] = 0#Set to 0 when dividing by inf
         if SETTINGS.allow_nans:
             ubar[~masks] = float("nan")
             ubar[ubarsumnans.reshape([n])] = float("nan")
