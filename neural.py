@@ -542,7 +542,17 @@ class NeuralNet(nn.Module):
         if (ubarsum<0).sum() > 0:
             print("Found negative values in ubarusm",file=sys.stderr)
         ubarsum[ubarsum==0]=1#Set 0 to 1 to prevent division error
+        if len(ubarsum[ubarsum == 0]) > 0:
+            print("ubarsum has zero values")
+        if len(ubarsum[ubarsum!=ubarsum]) > 0:
+            print("ubarsum has nan values")
+        if len(ubarsum[ubarsum == float("inf")]) > 0:
+            print("ubarsum has inf values")
+        if len(ubarsum[ubarsum == float("-inf")]) > 0:
+            print("ubarsum has ninf values")
+
         ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
+
         nantest(ubar, "ubar (post div)")
         if SETTINGS.allow_nans:
             ubar[~masks] = float("nan")
