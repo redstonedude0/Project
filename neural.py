@@ -529,7 +529,12 @@ class NeuralNet(nn.Module):
         normalise_avgToZero_rowWise(u, masks, dim=1)
         nantest(u, "u (postNorm)")
         # TODO - what to translate by? why does 50 work here?
+        if len(u[u == float("inf")]) > 0:
+            print("u has inf values before exp")
         ubar = u.exp()  # 'nans' become 1
+        if len(ubar[ubar == float("inf")]) > 0:
+            print("ubar has inf values after exp")
+            print("Max value",u.max())
         ubar = ubar.clone()  # deepclone because performing in-place modification after exp
         ubar[~masks] = 0  # reset nans to 0
         # Normalise ubar (n,7)
