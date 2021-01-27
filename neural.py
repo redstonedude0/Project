@@ -413,13 +413,14 @@ class NeuralNet(nn.Module):
     '''
     Perform LBP iteration for all pairs of candidates
     mbar: mbar message values (n,n,7) 3D tensor
+    masks 2D (n,7) boolean tensor mask
     n: len(mentions)
     lbp_inputs: 4D tensor (n_i,n_j,7_i,7_j) psi+phi values per i,j per candidates (e',e)
     RETURNS:
     3D tensor (n,n,7_j) of maximum message values for each i,j and each candidate for j
     '''
 
-    def lbp_iteration_mvaluesss(self, mbar, n, lbp_inputs):
+    def lbp_iteration_mvaluesss(self, mbar,masks, n, lbp_inputs):
         # TODO - is the initial mbar and the cancellation eye learned? MRN 235/238 mulrel_ranker.py
         # mbar intuition: mbar[m_i][m_j][e_j] is how much m_i votes for e_j to be the candidate for m_j (at each timestep)
         # mbar is a 3D (n_i,n_j,7_j) tensor
@@ -440,7 +441,13 @@ class NeuralNet(nn.Module):
         #        lbp_inputs = lbp_inputs.permute(1,0,3,2)
         values = lbp_inputs + mbarsum.reshape(
             [n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
+        minimumValue = values.min()-1
+        #Make brackets minimum value where e or e' don't exist
+        values[~masks.reshape([n,1,7,1]).repeat([1,n,1,7])] = minimumValue
+        values[~masks.reshape([n,1,7,1]).repeat([1,n,1,7])] = minimumValue
         maxValue = smartmax(values, dim=2)  # (n_i,n_j,7_j) tensor of max values
+        #maxValue will be minimumValue if nonsensical, make it zero for now
+        maxValue[maxValue==minimumValue] = 0
         #print("mbar",maxValue)
         return maxValue
 
@@ -456,7 +463,7 @@ class NeuralNet(nn.Module):
 
     def lbp_iteration_complete(self, mbar, masks, n, lbp_inputs):
         # (n,n,7_j) tensor
-        mvalues = self.lbp_iteration_mvaluesss(mbar, n, lbp_inputs)
+        mvalues = self.lbp_iteration_mvaluesss(mbar,masks, n, lbp_inputs)
         nantest(mvalues, "mvalues")
         # softmax invariant under translation, translate to around 0 to reduce float errors
         # u+= 50

@@ -455,27 +455,14 @@ class TestNeural(unittest.TestCase):
         phis = self.network.phissss(n, embeddings, ass)
         psiss = self.network.psiss(n, embeddings, fmcs)
         lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
-        print("phis",phis[11,0,:,0])#phis changes due to clone
-        print("y1",lbp_inputs[11,0,:,0])
         lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
-        print("y2",lbp_inputs[11,0,:,0])
         mbar = torch.zeros(n, n, 7).to(SETTINGS.device)
         mbar_mask = masks.repeat([n, 1, 1]).to(torch.float)  # 1 where keep,0 where nan-out
         if SETTINGS.allow_nans:
             nan = float("nan")
             mbar_mask[mbar_mask == 0] = nan  # make nan not 0
         mbar *= mbar_mask
-        mvals = self.network.lbp_iteration_mvaluesss(mbar,n,lbp_inputs)
-
-        print("psiss",psiss[11,0])
-        print("psiss",psiss.reshape([n,1,7,1])[11,0,:,0])
-        print("phis",phis[11,0,:,0])
-        print("lbps",lbp_inputs[11,0,:,0])
-        print("x1",(phis+psiss.reshape([n, 1, 7, 1]))[11,0,:,0])
-        lbp_inputs = phis
-        print("x2",lbp_inputs[11,0,:,0])
-        lbp_inputs += psiss.reshape([n,1,7,1])
-        print("x3",lbp_inputs[11,0,:,0])
+        mvals = self.network.lbp_iteration_mvaluesss(mbar,masks,n,lbp_inputs)
 
         SETTINGS.allow_nans = False
         embeddings, masks = self.network.embeddings(mentions, n)
@@ -491,17 +478,17 @@ class TestNeural(unittest.TestCase):
             nan = float("nan")
             mbar_mask[mbar_mask == 0] = nan  # make nan not 0
         mbar *= mbar_mask
-        mvals_ = self.network.lbp_iteration_mvaluesss(mbar,n,lbp_inputs)
+        mvals_ = self.network.lbp_iteration_mvaluesss(mbar,masks,n,lbp_inputs)
 
-#        print("ubar", mvals)
-#        print("ubar_", mvals_)
+        print("mvals", mvals)
+        print("mvals_", mvals_)
         maxError = utils.maxError(mvals, mvals_)
         diff = mvals-mvals_
         diff[diff!=diff] = 0#make nans zero
 #        print("Where diff?",diff.nonzero())#index of where to investigate (11,_ here)
-#        print("diff",diff[11,0,:])
-#        print("mvals",mvals[11,0,:])
-#        print("mvals_",mvals_[11,0,:])
+        print("diff",diff[11,0,:])
+        print("mvals",mvals[11,0,:])
+        print("mvals_",mvals_[11,0,:])
 #        print(len(mentions[11].candidates),"candidates")
 #        print(phis[11][0])
 #        print(psiss[11])
