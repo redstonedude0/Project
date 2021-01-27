@@ -378,6 +378,7 @@ class TestNeural(unittest.TestCase):
         lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
         # MY CODE
         if True:
+            SETTINGS.allow_nans = True
             ubar = self.network.lbp_total(n, masks, psiss, lbp_inputs)
         #
         utils.setMaskBroadcastable(lbp_inputs, ~masks.reshape([1, n, 1, 7]), 0)
@@ -408,6 +409,28 @@ class TestNeural(unittest.TestCase):
             ent_scores = F.softmax(ent_scores, dim=1)
             ubar_ = ent_scores
         # ORIGINAL CODE RESUME
+
+        print("ubar", ubar)
+        print("ubar_", ubar_)
+        maxError = utils.maxError(ubar, ubar_)
+        print(f"MaxError: {maxError}")
+        self.assertTrue(maxError < 0.01)
+
+    def test_lbp_nanconsistency(self):
+        mentions = self.testingDoc.mentions
+        n = len(mentions)
+        embeddings, masks = self.network.embeddings(mentions, n)
+        fmcs = self.network.perform_fmcs(mentions)
+        ass = self.network.ass(fmcs)
+        phis = self.network.phissss(n, embeddings, ass)
+        psiss = self.network.psiss(n, embeddings, fmcs)
+        lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
+        lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
+        # MY CODE
+        SETTINGS.allow_nans = True
+        ubar = self.network.lbp_total(n, masks, psiss, lbp_inputs)
+        SETTINGS.allow_nans = False
+        ubar_ = self.network.lbp_total(n, masks, psiss, lbp_inputs)
 
         print("ubar", ubar)
         print("ubar_", ubar_)

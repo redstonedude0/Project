@@ -3,8 +3,6 @@
 """Used to store hyperparameters/settings"""
 from enum import Enum, auto
 
-from datastructures import Dataset
-
 
 class NormalisationMethod(Enum):
     RelNorm = auto()
@@ -17,7 +15,7 @@ class Hyperparameters:
     dataDir_embeddings = "/home/harrison/Documents/project/data/generated/embeddings/word_ent_embs/"
     dataDir_checkpoints = "/home/harrison/Documents/project/data/checkpoints/"
     training: bool = True
-    dataset: Dataset = None
+    dataset: 'Dataset' = None
     normalisation = NormalisationMethod.RelNorm  # TODO change back to mentnorm once it's implemented
     d: int = 300
     gamma: float = 0.01
