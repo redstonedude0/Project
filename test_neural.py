@@ -368,7 +368,7 @@ class TestNeural(unittest.TestCase):
     def test_lbp_accuracy(self):
         # Test LBP compared to original papers implementation
         mentions = self.testingDoc.mentions
-        SETTINGS.allow_nans = True
+        SETTINGS.allow_nans = False
         n = len(mentions)
         embeddings, masks = self.network.embeddings(mentions, n)
         fmcs = self.network.perform_fmcs(mentions)
@@ -388,6 +388,7 @@ class TestNeural(unittest.TestCase):
 
         # CODE FROM MULRELNEL ORIGINAL PAPER (*modified)
         # NOT ORIGINAL CODE
+        #NOTE: MRN code is not designed for non-7 candidates
         if True:
             prev_msgs = torch.zeros(n, 7, n)
             import torch.nn.functional as F
@@ -412,7 +413,7 @@ class TestNeural(unittest.TestCase):
 
         print("ubar", ubar)
         print("ubar_", ubar_)
-        maxError = utils.maxError(ubar, ubar_)
+        maxError = utils.maxError(ubar_, ubar)
         print(f"MaxError: {maxError}")
         self.assertTrue(maxError < 0.01)
 

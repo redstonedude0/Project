@@ -443,6 +443,7 @@ class NeuralNet(nn.Module):
             [n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
         minimumValue = values.min()-1
         #Make brackets minimum value where e or e' don't exist
+        values = values.clone()
         values[~masks.reshape([n,1,7,1]).repeat([1,n,1,7])] = minimumValue
         values[~masks.reshape([n,1,7,1]).repeat([1,n,1,7])] = minimumValue
         maxValue = smartmax(values, dim=2)  # (n_i,n_j,7_j) tensor of max values
