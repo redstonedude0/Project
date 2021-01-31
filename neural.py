@@ -539,6 +539,14 @@ class NeuralNet(nn.Module):
         # TODO - what to translate by? why does 50 work here?
         if len(u[u == float("inf")]) > 0:
             print("u has inf values before exp")
+        if len(u[u >= 88.72]) > 0:
+            print("u has values that will become inf after exp1")
+        u[~masks] = 0#Incase these values get in the way
+        if len(u[u >= 88.72]) > 0:
+            print("u has values that will become inf after exp2")
+        u[u>=88.72] = 0
+        if len(u[u >= 88.72]) > 0:
+            print("u has values that will become inf after exp3")
         ubar = u.exp()  # 'nans' become 1
         if len(ubar[ubar == float("inf")]) > 0:
             print("ubar has inf values after exp")
