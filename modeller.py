@@ -53,6 +53,16 @@ def candidateSelection():
                     keptCands.append(keptEmbeddingCand)
             mention.candidates = keptCands
 
+def candidatePadding():
+    # make sure always 7 candidates
+    paddingCand = Candidate(-1,0,"#UNK#")
+    for doc in tqdm(SETTINGS.dataset.documents, unit="documents", file=sys.stdout):
+        for mention in doc.mentions:
+            cands = mention.candidates
+            if len(cands) < 7:
+                paddingCands = [paddingCand for _ in range(len(cands),7)]
+                mention.candidates += paddingCands
+
 def trainToCompletion():  # TODO - add params
     # TODO - checkpoint along the way
     print(f"Training on {len(SETTINGS.dataset.documents)} documents")

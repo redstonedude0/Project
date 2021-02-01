@@ -23,7 +23,7 @@ reportedRun("Loading embeddings", processeddata.loadEmbeddings)
 
 if SETTINGS.training:
     SETTINGS.dataset = datasets.loadDataset("aida_train.csv")
-    SETTINGS.dataset.documents = SETTINGS.dataset.documents[0:160]
+#    SETTINGS.dataset.documents = SETTINGS.dataset.documents[0:160]
     print(f"Size of training dataset: {len(SETTINGS.dataset.documents)}")
     nextNum = 1
     for d in SETTINGS.dataset.documents:
@@ -32,9 +32,8 @@ if SETTINGS.training:
             print(f"Expected {nextNum} but found {d.id}")
         nextNum = did + 1
     print(f"Last doc was {nextNum - 1}")
-    quit(0)
+#    quit(0)
     # For debug SETTINGS.dataset.documents = SETTINGS.dataset.documents[0:10]
-    modeller.candidateSelection()
     # load model
 #    model = datastructures.Model.load("save_4")
 #    model = datastructures.Model()
@@ -46,6 +45,15 @@ if SETTINGS.training:
 #                print("Fail cand at doc",doc.id)
 #    out = model.neuralNet(SETTINGS.dataset.documents[159])
 #    print(f"Nans:{len(out[out != out])}")
+#    SETTINGS.dataset.documents = SETTINGS.dataset.documents[0:420]
+    print(SETTINGS.dataset.documents[0].id)
+    print(len(SETTINGS.dataset.documents))
+    doc = SETTINGS.dataset.documents[251]
+    print("DOC",len(doc.mentions))
+    modeller.candidateSelection()
+#    modeller.candidatePadding()
+    print(len(doc.mentions[73].candidates))
+    model = modeller.trainToCompletion()
 
 else:
     pass  # TODO - eval

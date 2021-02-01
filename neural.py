@@ -343,6 +343,9 @@ class NeuralNet(nn.Module):
 
     def ass(self, fmcs):
         x = self.exp_bracketssss(fmcs).clone()
+#        if len(x) > 4:
+#            print("F VALS",fmcs[3,:])
+#            print("X VALS",x[3,3,:])
         if SETTINGS.normalisation == hyperparameters.NormalisationMethod.RelNorm:
             # X is (ni*nj*k)
             z_ijk = smartsum(x, dim=2)
@@ -351,6 +354,8 @@ class NeuralNet(nn.Module):
             # x_trans is (k*ni*nj)
             x_trans /= z_ijk
             x = x_trans.transpose(1, 2).transpose(0, 2)
+            if len(x[x != x]) > 0:
+                print("ERROR - fX VALS", x[3,3,:])
             # x is (ni*nj*k)
         else:
             raise Exception("Unimplemented normalisation method")
@@ -406,6 +411,11 @@ class NeuralNet(nn.Module):
         y = torch.matmul(y, fmcs.T).transpose(1, 2)
         # y is a 3D (n,n,k) tensor)
         x = y / np.math.sqrt(SETTINGS.d)
+#        print("MIN",self.D.min())
+#        print("MAX",self.D.max())
+#        #problem value is x[3,3,0]
+#        if len(x) > 4:
+#            print("LX VALS",x[3,3,:])
         return torch.exp(x)
 
     # LBP FROM https://arxiv.org/pdf/1704.04920.pdf
@@ -466,6 +476,36 @@ class NeuralNet(nn.Module):
         # (n,n,7_j) tensor
         mvalues = self.lbp_iteration_mvaluesss(mbar,masks, n, lbp_inputs)
         nantest(mvalues, "mvalues")
+        #LBPEq11 - softmax mvalues
+        # softmax invariant under translation, translate to around 0 to reduce float errors
+        normalise_avgToZero_rowWise(mvalues, masks.reshape([1, n, 7]), dim=2)
+        expmvals = mvalues.exp()
+        expmvals = expmvals.clone()  # clone to prevent autograd errors (in-place modification next)
+        setMaskBroadcastable(expmvals, ~masks.reshape([1, n, 7]), 0)  # nans are 0
+        softmaxdenoms = smartsum(expmvals, dim=2)  # Eq 11 softmax denominator from LBP paper
+        softmaxmvalues = expmvals/softmaxdenoms.reshape([n,n,1])# broadcast (n,n) to (n,n,7)
+
+        # Do Eq 11 (old mbars + mvalues to new mbars)
+        dampingFactor = SETTINGS.dropout_rate  # delta in the paper #TODO - I believe this is dropout_rate in the MRN code then?
+        newmbar = mbar.exp()
+        newmbar = newmbar.mul(1 - dampingFactor)  # dont use inplace after exp to prevent autograd error
+        #        print("X1 ([0.25-]0.5)",newmbar)
+        #        print("expm",expmvals)
+        otherbit = dampingFactor * softmaxmvalues
+        #        print("X2 (0-0.5)",otherbit)
+        newmbar += otherbit
+        #        print("X3 ([0.25-]0.5-1.0)",newmbar)
+        setMaskBroadcastable(newmbar, ~masks.reshape([1, n, 7]),
+                             1)  # 'nan's become 0 after log (broadcast (1,n,7) to (n,n,7))
+        newmbar = newmbar.log()
+        #        print("X4 (-0.69 - 0)",newmbar)
+        nantest(newmbar, "newmbar")
+        return newmbar
+
+    def lbp_iteration_complete_bk(self, mbar, masks, n, lbp_inputs):
+        # (n,n,7_j) tensor
+        mvalues = self.lbp_iteration_mvaluesss(mbar,masks, n, lbp_inputs)
+        nantest(mvalues, "mvalues")
         # softmax invariant under translation, translate to around 0 to reduce float errors
         # u+= 50
         # Normalise for each n across the row
@@ -509,6 +549,186 @@ class NeuralNet(nn.Module):
         debug("Computing initial mbar for LBP")
         mbar = torch.zeros(n, n, 7).to(SETTINGS.device)
         # should be nan if no candidate there (n_i,n_j,7_j)
+        if SETTINGS.allow_nans:
+            mbar_mask = masks.repeat([n, 1, 1]).to(torch.float)  # 1 where keep,0 where nan-out
+            nan = float("nan")
+            mbar_mask[mbar_mask == 0] = nan  # make nan not 0
+            mbar *= mbar_mask
+        debug("Now doing LBP Loops")
+        for loopno in range(0, SETTINGS.LBP_loops):
+            debug(f"Doing loop {loopno + 1}/{SETTINGS.LBP_loops}")
+            newmbar = self.lbp_iteration_complete(mbar, masks, n, lbp_inputs)
+            mbar = newmbar
+        # Now compute ubar
+        nantest(mbar, "final mbar")
+        debug("Computing final ubar out the back of LBP")
+        antieye = 1 - torch.eye(n).to(SETTINGS.device)
+        # read mbar as (n_k,n_i,e_i)
+        antieye = antieye.reshape([n, n, 1])  # reshape for broadcast
+        mbar = mbar * antieye  # remove where k=i
+        # make mbar 0 where masked out
+        setMaskBroadcastable(mbar, ~masks.reshape([1, n, 7]), 0)
+        mbarsum = smartsum(mbar, 0)  # (n_i,e_i) sums
+        u = psiss + mbarsum
+        nantest(u, "u")
+        #mbarsum is sum of values between -inf,0
+        #therefore mbarsum betweeen -inf,0
+        #Note that psiss is unbounded
+
+
+        #To compute softmax could use functional.softmax, however this cannot apply a mask.
+        #Instead using softmax from difference from max (as large values produce inf, while small values produce 0 under exp)
+        #Softmax is invariant under such a transformation (translation) - see https://stackoverflow.com/questions/34968722/how-to-implement-the-softmax-function-in-python
+        u -= u.max(dim=1,keepdim=True)[0]
+#        normalise_avgToZero_rowWise(u, masks, dim=1)
+        nantest(u, "u (postNorm)")
+        # TODO - what to translate by? why does 50 work here?
+        if len(u[u == float("inf")]) > 0:
+            print("u has inf values before exp")
+        if len(u[u >= 88.72]) > 0:
+            print("u has values that will become inf after exp1")
+        u[~masks] = 0#Incase these values get in the way
+        if len(u[u >= 88.72]) > 0:
+            print("u has values that will become inf after exp2")
+            print(u[73,:])#Mention 73, cand 3 has problems
+            print(psiss[73,:])
+            print(mbarsum[73,:])
+            print(mbar[:,73,:])
+            quit(0)
+            #print((u>=88.72).nonzero())
+        u[u>=88.72] = 0
+        if len(u[u >= 88.72]) > 0:
+            print("u has values that will become inf after exp3")
+        ubar = u.exp()  # 'nans' become 1
+        if len(ubar[ubar == float("inf")]) > 0:
+            print("ubar has inf values after exp")
+            print("Max value",u.max())
+        ubar = ubar.clone()  # deepclone because performing in-place modification after exp
+        ubar[~masks] = 0  # reset nans to 0
+        # Normalise ubar (n,7)
+        nantest(ubar, "ubar (in method)")
+        ubarsum = smartsum(ubar, 1)  # (n_i) sums over candidates
+        nantest(ubar, "ubar (postsum)")
+        nantest(ubarsum, "ubarsum (postsum)")
+        ubarsum = ubarsum.reshape([n, 1])  # (n_i,1) sum
+        if len(ubarsum[ubarsum !=ubarsum]) > 0:
+            print("ubarsum has nan values")
+        ubarsumnans = ubarsum != ubarsum  # index tensor of where ubarsums is nan
+        ubarsum[ubarsumnans] = 1  # set to 1 to prevent division errors
+        nantest(ubarsum, "ubarsum")
+        if (ubarsum<0).sum() > 0:
+            print("Found negative values in ubarusm",file=sys.stderr)
+        ubarsum[ubarsum==0]=1#Set 0 to 1 to prevent division error
+        if len(ubarsum[ubarsum == float("inf")]) > 0:
+            print("ubarsum has inf values")
+        ubar[ubarsum.repeat([1,7])==float("inf")] = 0#Set to 0 when dividing by inf, repeat 7 times across sum dim
+        ubarsum[ubarsum==float("inf")] = 1#Set to 1 to leave ubar as 0 when dividing by inf
+        if len(ubarsum[ubarsum<1e20]) > 0:
+            print("ubar has micro values")
+            print(masks[3])
+            print(ubar[3])
+            print(ubarsum[3])
+            print(u[3])
+            print(psiss[3])
+            print(mbarsum[3])
+            quit(0)
+#        ubarsum[ubarsum<1e20] = 1
+#        ubar[ubar<1e20] = 0
+        ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
+        if SETTINGS.allow_nans:
+            ubar[~masks] = float("nan")
+            ubar[ubarsumnans.reshape([n])] = float("nan")
+        return ubar
+
+
+    def lbp_total_bk2(self, n, masks, psiss, lbp_inputs):
+        # Note: Should be i*j*arb but arb dependent so i*j*7 but unused cells will be 0/nan and ignored later
+        debug("Computing initial mbar for LBP")
+        mbar = torch.zeros(n, n, 7).to(SETTINGS.device)
+        # should be nan if no candidate there (n_i,n_j,7_j)
+        if SETTINGS.allow_nans:
+            mbar_mask = masks.repeat([n, 1, 1]).to(torch.float)  # 1 where keep,0 where nan-out
+            nan = float("nan")
+            mbar_mask[mbar_mask == 0] = nan  # make nan not 0
+            mbar *= mbar_mask
+        debug("Now doing LBP Loops")
+        for loopno in range(0, SETTINGS.LBP_loops):
+            debug(f"Doing loop {loopno + 1}/{SETTINGS.LBP_loops}")
+            newmbar = self.lbp_iteration_complete(mbar, masks, n, lbp_inputs)
+            mbar = newmbar
+        # Now compute ubar
+        nantest(mbar, "final mbar")
+        debug("Computing final ubar out the back of LBP")
+        antieye = 1 - torch.eye(n).to(SETTINGS.device)
+        # read mbar as (n_k,n_i,e_i)
+        antieye = antieye.reshape([n, n, 1])  # reshape for broadcast
+        mbar = mbar * antieye  # remove where k=i
+        # make mbar 0 where masked out
+        setMaskBroadcastable(mbar, ~masks.reshape([1, n, 7]), 0)
+        mbarsum = smartsum(mbar, 0)  # (n_i,e_i) sums
+        u = psiss + mbarsum
+        nantest(u, "u")
+        #mbarsum is sum of values between -inf,0
+        #therefore mbarsum betweeen -inf,0
+        #Note that psiss is unbounded
+
+        # softmax invariant under translation, translate to around 0 to reduce float errors
+        # u+= 50
+        # Normalise for each n across the row
+        normalise_avgToZero_rowWise(u, masks, dim=1)
+        nantest(u, "u (postNorm)")
+        # TODO - what to translate by? why does 50 work here?
+        if len(u[u == float("inf")]) > 0:
+            print("u has inf values before exp")
+        if len(u[u >= 88.72]) > 0:
+            print("u has values that will become inf after exp1")
+        u[~masks] = 0#Incase these values get in the way
+        if len(u[u >= 88.72]) > 0:
+            print("u has values that will become inf after exp2")
+            print(u[73,:])#Mention 73, cand 3 has problems
+            print(psiss[73,:])
+            print(mbarsum[73,:])
+            print(mbar[:,73,:])
+            quit(0)
+            #print((u>=88.72).nonzero())
+        u[u>=88.72] = 0
+        if len(u[u >= 88.72]) > 0:
+            print("u has values that will become inf after exp3")
+        ubar = u.exp()  # 'nans' become 1
+        if len(ubar[ubar == float("inf")]) > 0:
+            print("ubar has inf values after exp")
+            print("Max value",u.max())
+        ubar = ubar.clone()  # deepclone because performing in-place modification after exp
+        ubar[~masks] = 0  # reset nans to 0
+        # Normalise ubar (n,7)
+        nantest(ubar, "ubar (in method)")
+        ubarsum = smartsum(ubar, 1)  # (n_i) sums over candidates
+        nantest(ubar, "ubar (postsum)")
+        nantest(ubarsum, "ubarsum (postsum)")
+        ubarsum = ubarsum.reshape([n, 1])  # (n_i,1) sum
+        if len(ubarsum[ubarsum !=ubarsum]) > 0:
+            print("ubarsum has nan values")
+        ubarsumnans = ubarsum != ubarsum  # index tensor of where ubarsums is nan
+        ubarsum[ubarsumnans] = 1  # set to 1 to prevent division errors
+        nantest(ubarsum, "ubarsum")
+        if (ubarsum<0).sum() > 0:
+            print("Found negative values in ubarusm",file=sys.stderr)
+        ubarsum[ubarsum==0]=1#Set 0 to 1 to prevent division error
+        if len(ubarsum[ubarsum == float("inf")]) > 0:
+            print("ubarsum has inf values")
+        ubar[ubarsum.repeat([1,7])==float("inf")] = 0#Set to 0 when dividing by inf, repeat 7 times across sum dim
+        ubarsum[ubarsum==float("inf")] = 1#Set to 1 to leave ubar as 0 when dividing by inf
+        ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
+        if SETTINGS.allow_nans:
+            ubar[~masks] = float("nan")
+            ubar[ubarsumnans.reshape([n])] = float("nan")
+        return ubar
+
+    def lbp_total_bk(self, n, masks, psiss, lbp_inputs):
+        # Note: Should be i*j*arb but arb dependent so i*j*7 but unused cells will be 0/nan and ignored later
+        debug("Computing initial mbar for LBP")
+        mbar = torch.zeros(n, n, 7).to(SETTINGS.device)
+        # should be nan if no candidate there (n_i,n_j,7_j)
         mbar_mask = masks.repeat([n, 1, 1]).to(torch.float)  # 1 where keep,0 where nan-out
         if SETTINGS.allow_nans:
             nan = float("nan")
@@ -528,8 +748,8 @@ class NeuralNet(nn.Module):
         mbar = mbar * antieye  # remove where k=i
         # make mbar 0 where masked out
         setMaskBroadcastable(mbar, ~masks.reshape([1, n, 7]), 0)
-        mbar = smartsum(mbar, 0)  # (n_i,e_i) sums
-        u = psiss + mbar
+        mbarsum = smartsum(mbar, 0)  # (n_i,e_i) sums
+        u = psiss + mbarsum
         nantest(u, "u")
         # softmax invariant under translation, translate to around 0 to reduce float errors
         # u+= 50
@@ -544,6 +764,12 @@ class NeuralNet(nn.Module):
         u[~masks] = 0#Incase these values get in the way
         if len(u[u >= 88.72]) > 0:
             print("u has values that will become inf after exp2")
+            print(u[73,:])#Mention 73, cand 3 has problems
+            print(psiss[73,:])
+            print(mbarsum[73,:])
+            print(mbar[:,73,:])
+            quit(0)
+            #print((u>=88.72).nonzero())
         u[u>=88.72] = 0
         if len(u[u >= 88.72]) > 0:
             print("u has values that will become inf after exp3")
