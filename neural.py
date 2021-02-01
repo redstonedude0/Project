@@ -579,7 +579,11 @@ class NeuralNet(nn.Module):
         #To compute softmax could use functional.softmax, however this cannot apply a mask.
         #Instead using softmax from difference from max (as large values produce inf, while small values produce 0 under exp)
         #Softmax is invariant under such a transformation (translation) - see https://stackoverflow.com/questions/34968722/how-to-implement-the-softmax-function-in-python
-        u -= u.max(dim=1,keepdim=True)[0]
+        u = u.clone()
+        u[~masks]=u.clone().min() #where masked out make min to ignore max
+        u = u.clone()
+        u -= u.clone().max(dim=1,keepdim=True)[0]
+        u[~masks]=0
 #        normalise_avgToZero_rowWise(u, masks, dim=1)
         nantest(u, "u (postNorm)")
         # TODO - what to translate by? why does 50 work here?
@@ -623,8 +627,9 @@ class NeuralNet(nn.Module):
             print("ubarsum has inf values")
         ubar[ubarsum.repeat([1,7])==float("inf")] = 0#Set to 0 when dividing by inf, repeat 7 times across sum dim
         ubarsum[ubarsum==float("inf")] = 1#Set to 1 to leave ubar as 0 when dividing by inf
-        if len(ubarsum[ubarsum<1e20]) > 0:
+        if len(ubarsum[ubarsum<1e-20]) > 0:
             print("ubar has micro values")
+            print(ubarsum)
             print(masks[3])
             print(ubar[3])
             print(ubarsum[3])
@@ -632,8 +637,6 @@ class NeuralNet(nn.Module):
             print(psiss[3])
             print(mbarsum[3])
             quit(0)
-#        ubarsum[ubarsum<1e20] = 1
-#        ubar[ubar<1e20] = 0
         ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
         if SETTINGS.allow_nans:
             ubar[~masks] = float("nan")
