@@ -366,8 +366,8 @@ class NeuralNet(nn.Module):
             antieye = 1-eye#for multiplying
             antieye = antieye.reshape([n,n,1])#make 3d
             brackets *= antieye
-            z_ijk = smartsum(brackets,dim=1).reshape([n,1,7])
-            #Z_ijk is ia (ni,7) sum, then a (ni*1*7) broadcastable tensor
+            z_ijk = smartsum(brackets,dim=1).reshape([n,1,3])
+            #Z_ijk is a (ni,3) sum, then a (ni*1*7) broadcastable tensor
         x /= z_ijk
         return x
 
