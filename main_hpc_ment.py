@@ -10,9 +10,9 @@ SETTINGS.dataDir_csv = "/rds/user/hrjh2/hpc-work/generated/test_train_data/"
 SETTINGS.dataDir_embeddings = "/rds/user/hrjh2/hpc-work/generated/embeddings/word_ent_embs/"
 SETTINGS.dataDir_checkpoints = "/rds/user/hrjh2/hpc-work/checkpoints/"
 SETTINGS.lowmem = False
-#SETTINGS.learning_reduction_threshold_f1 = BUNDLE_mentNorm.learning_reduction_threshold_f1
-#SETTINGS.rel_specialinit = BUNDLE_mentNorm.rel_specialinit
-#SETTINGS.normalisation = BUNDLE_mentNorm.normalisation
+SETTINGS.learning_reduction_threshold_f1 = BUNDLE_mentNorm.learning_reduction_threshold_f1
+SETTINGS.rel_specialinit = BUNDLE_mentNorm.rel_specialinit
+SETTINGS.normalisation = BUNDLE_mentNorm.normalisation
 import main
 
 print("HPC Results:")

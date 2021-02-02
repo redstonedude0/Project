@@ -359,14 +359,17 @@ class NeuralNet(nn.Module):
             z_ijk = smartsum(x, dim=2).reshape([n, n, 1])
             # Z_ijk is (ni*nj) sum, then a (ni*nj*1) broadcastable tensor
         else:
-            brackets = x.clone()
+            #TODO - don't use their method (excluding j=i) it doesn't lead to the specified normalisation (summing to 1)
+            #Instead just normalize by dividing by the sum (as expected, softmaxing)
+            #Using their method we div by 0 if n=1
             #read brackets as (i,j',k)
             #Set diagonal to 0
-            eye = torch.eye(n,n)#n,n
-            antieye = 1-eye#for multiplying
-            antieye = antieye.reshape([n,n,1])#make 3d
-            brackets *= antieye
-            z_ijk = smartsum(brackets,dim=1).reshape([n,1,3])
+            #brackets = x.clone()
+            #eye = torch.eye(n,n)#n,n
+            #antieye = 1-eye#for multiplying
+            #antieye = antieye.reshape([n,n,1])#make 3d
+            #brackets *= antieye
+            z_ijk = smartsum(x,dim=1).reshape([n,1,3])
             #Z_ijk is a (ni,3) sum, then a (ni*1*7) broadcastable tensor
         x /= z_ijk
         return x

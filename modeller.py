@@ -99,7 +99,7 @@ def trainToCompletion():  # TODO - add params
         eval.print()
         model.evals.metrics.append(eval)
         print(f"Loop {loop + 1} Done.")
-        model.save(f"save_{loop + 1}")
+        model.save(f"save_ment_{loop + 1}")
         if eval.accuracy >= SETTINGS.learning_reduction_threshold_f1:
             lr = SETTINGS.learning_rate_final
         if eval.accuracy > maxF1:

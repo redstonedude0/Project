@@ -52,11 +52,11 @@ if SETTINGS.training:
     doc = SETTINGS.dataset.documents[251]
     print("DOC",len(doc.mentions))
     modeller.candidateSelection()
-#    modeller.candidatePadding()
+    modeller.candidatePadding()
     print(len(doc.mentions[73].candidates))
-#    SETTINGS.learning_reduction_threshold_f1 = BUNDLE_mentNorm.learning_reduction_threshold_f1
-#    SETTINGS.rel_specialinit = BUNDLE_mentNorm.rel_specialinit
-#    SETTINGS.normalisation = BUNDLE_mentNorm.normalisation
+    SETTINGS.learning_reduction_threshold_f1 = BUNDLE_mentNorm.learning_reduction_threshold_f1
+    SETTINGS.rel_specialinit = BUNDLE_mentNorm.rel_specialinit
+    SETTINGS.normalisation = BUNDLE_mentNorm.normalisation
     model = modeller.trainToCompletion()
 
 else:
