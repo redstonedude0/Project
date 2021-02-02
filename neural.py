@@ -119,7 +119,7 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
             print("Found nans in model output! Cannot proceed with learning", file=sys.stderr)
             continue  #next loop of document
         loss = loss_document(document, out)
-        loss += loss_regularisation(model.neuralNet.R, model.neuralNet.D)
+        loss += loss_regularisation(model.neuralNet.R_diag, model.neuralNet.D_diag)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -177,7 +177,9 @@ def loss_document(document: Document, output):
     return L
 
 
-def loss_regularisation(R, D):
+def loss_regularisation(R_diag, D_diag):
+    R = R_diag.diag_embed()
+    D = D_diag.diag_embed()
     Regularisation_R = 0
     for i in range(0, SETTINGS.k):
         for j in range(0, i):
@@ -227,12 +229,19 @@ class NeuralNet(nn.Module):
             nn.Linear(g_hid_dims, 1)
             # TODO - this is the 2-layer nn 'g' referred to in the paper, called score_combine in mulrel_ranker.py
         )
-        # TODO - set default parameter values properly
-        self.register_parameter("B", torch.nn.Parameter(torch.diag(torch.ones(300).to(SETTINGS.device))))
-        self.register_parameter("R", torch.nn.Parameter(torch.stack(
-            [torch.diag(torch.ones(300).to(SETTINGS.device)), torch.diag(torch.ones(300).to(SETTINGS.device)), torch.diag(torch.ones(300).to(SETTINGS.device))])))  # todo k elem
-        self.register_parameter("D", torch.nn.Parameter(
-            torch.stack([torch.diag(torch.ones(300).to(SETTINGS.device)), torch.diag(torch.ones(300).to(SETTINGS.device)), torch.diag(torch.ones(300).to(SETTINGS.device))])))
+        B_diag = torch.ones(300).to(SETTINGS.device)
+        #randn~Norm(0,1)
+        R_diag = torch.randn(3,300).to(SETTINGS.device)*0.1# todo k elem
+        D_diag = torch.randn(3,300).to(SETTINGS.device)*0.1# todo also k elems
+
+        if not SETTINGS.rel_specialinit:
+            R_diag += 1
+
+        self.register_parameter("B_diag", torch.nn.Parameter(B_diag))
+        self.register_parameter("R_diag", torch.nn.Parameter(R_diag))
+        self.register_parameter("D_diag", torch.nn.Parameter(D_diag))
+        #TODO - check the distribution of D, paper seems to be different than impl? (0.01ment/0.1rel)
+        #TODO - check for B, paper seems to have 2 matrices to do ctx score? (ctxattrranker.forward)
 
     # local and pairwise score functions (equation 3+section 3.1)
 
@@ -252,8 +261,8 @@ class NeuralNet(nn.Module):
         # f_c = self.f(c_i)#TODO - define f properly (Attention mechanism)
         fcs = fmcs  # TODO - is f_m_c equal to f_c???
         # embeddings is 3D (n,7,d) tensor
-        # B is 2D (d,d) tensor
-        vals = embeddings.matmul(self.B)
+        # B is 2D (d,d) tensor (from (d) B_diag tensor)
+        vals = embeddings.matmul(self.B_diag.diag_embed())
         # vals is 3D (n,7,d) tensor
         # fcs is 2D (n,d) tensor
         # (n,7,d)*(n,d,1) = (n,7,1)
@@ -296,11 +305,11 @@ class NeuralNet(nn.Module):
     def phi_ksssss(self, n, embeddings):
         # embeddings is a 3D (n,7,d) tensor
         # masks is a 2D (n,7) bool tensor
-        # R is a (k,d,d) tensor
+        # R is a (k,d,d) tensor from (k,d) R_diag tensor
         valsss = embeddings.reshape([n, 1, 7, SETTINGS.d])
         # valss is a (n,1,7,d) tensor
         # See image 2
-        valsss = torch.matmul(valsss, self.R)
+        valsss = torch.matmul(valsss, self.R_diag.diag_embed())
         # valss is (n,k,7,d) tensor
         # Have (n,k,7,d) and (n,7,d) want (n,n,7,7,k)
         # (n,1,7,d)*(n,1,7,d,k) should do it?
@@ -337,29 +346,29 @@ class NeuralNet(nn.Module):
     '''
     INPUT:
     fmcs: 2D (n,d) tensor of fmc values for each mention n
+    n: len(mentions)
     RETURNS:
     3D (n,n,k) tensor of a_ijk per each pair of (n) mentions
     '''
 
-    def ass(self, fmcs):
+    def ass(self, fmcs, n):
         x = self.exp_bracketssss(fmcs).clone()
-#        if len(x) > 4:
-#            print("F VALS",fmcs[3,:])
-#            print("X VALS",x[3,3,:])
+        # x is (ni*nj*k)
         if SETTINGS.normalisation == hyperparameters.NormalisationMethod.RelNorm:
             # X is (ni*nj*k)
-            z_ijk = smartsum(x, dim=2)
-            # Z_ijk is (ni*nj) sum
-            x_trans = x.transpose(0, 2).transpose(1, 2)
-            # x_trans is (k*ni*nj)
-            x_trans /= z_ijk
-            x = x_trans.transpose(1, 2).transpose(0, 2)
-            if len(x[x != x]) > 0:
-                print("ERROR - fX VALS", x[3,3,:])
-            # x is (ni*nj*k)
+            z_ijk = smartsum(x, dim=2).reshape([n, n, 1])
+            # Z_ijk is (ni*nj) sum, then a (ni*nj*1) broadcastable tensor
         else:
-            raise Exception("Unimplemented normalisation method")
-            # TODO ment-norm Z
+            brackets = x.clone()
+            #read brackets as (i,j',k)
+            #Set diagonal to 0
+            eye = torch.eye(n,n)#n,n
+            antieye = 1-eye#for multiplying
+            antieye = antieye.reshape([n,n,1])#make 3d
+            brackets *= antieye
+            z_ijk = smartsum(brackets,dim=1).reshape([n,1,7])
+            #Z_ijk is ia (ni,7) sum, then a (ni*1*7) broadcastable tensor
+        x /= z_ijk
         return x
 
     '''
@@ -404,7 +413,7 @@ class NeuralNet(nn.Module):
     def exp_bracketssss(self, fmcs):
         # fmcs = torch.stack(fmcs)
         # each fmc is a 1D (d) tensor, fs is a 2D (n,d) tensor of fmc vals
-        y = torch.matmul(fmcs, self.D)  # mulmul not dot for non-1D dotting
+        y = torch.matmul(fmcs, self.D_diag.diag_embed())  # mulmul not dot for non-1D dotting
         # y is a 3D (k,n,d) tensor
         y = y.transpose(0, 1)
         # y is a 3D (n,k,d) tensor)
@@ -820,7 +829,7 @@ class NeuralNet(nn.Module):
         f_m_cs = self.perform_fmcs(mentions)
         nantest(f_m_cs, "fmcs")
         debug("Calculating a values")
-        ass = self.ass(f_m_cs)
+        ass = self.ass(f_m_cs,n)
         nantest(ass, "ass")
         debug("Calculating lbp inputs")
         phis = self.phissss(n, embeddings, ass)  # 4d (n_i,n_j,7_i,7_j) tensor

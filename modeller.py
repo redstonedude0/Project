@@ -86,15 +86,29 @@ def trainToCompletion():  # TODO - add params
     model.evals = EvalHistory()
     print("Neural net made, doing learning...")
     SETTINGS.DEBUG = False  # Prevent the model from spamming messages
-    maxLoops = 5
+    maxLoops = 50
+    maxNoImprov = 20
+    maxF1 = 0
+    numEpochsNoImprov = 0
+    lr = SETTINGS.learning_rate_initial
     for loop in range(0, maxLoops):
         print(f"Doing loop {loop + 1}...")
-        eval = neural.train(model)
+        eval = neural.train(model,lr=lr)
         eval.step = loop + 1
         eval.time = time.time() - startTime
         eval.print()
         model.evals.metrics.append(eval)
         print(f"Loop {loop + 1} Done.")
         model.save(f"save_{loop + 1}")
+        if eval.accuracy >= SETTINGS.learning_reduction_threshold_f1:
+            lr = SETTINGS.learning_rate_final
+        if eval.accuracy > maxF1:
+            maxF1 = eval.accuracy
+            numEpochsNoImprov = 0
+        else:
+            numEpochsNoImprov += 1
+        if numEpochsNoImprov >= maxNoImprov:
+            print(f"No improvement after {maxNoImprov} loops. exiting")
+            break
     # TODO - return EvaluationMetric object as well as final model?
     return model  # return final model

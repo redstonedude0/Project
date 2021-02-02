@@ -963,7 +963,7 @@ class TestNeural(unittest.TestCase):
         n = len(mentions)
         embeddings, masks = self.network.embeddings(mentions, n)
         fmcs = self.network.perform_fmcs(mentions)
-        ass = self.network.ass(fmcs)
+        ass = self.network.ass(fmcs,n)
         phis = self.network.phissss(n, embeddings, ass)
         psiss = self.network.psiss(n, embeddings, fmcs)
         lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper

@@ -109,7 +109,7 @@ class MulRelRanker(LocalCtxAttRanker):
     def forward(self, token_ids, tok_mask, entity_ids, entity_mask, p_e_m, gold=None):
         n_ments, n_cands = entity_ids.size()
         n_rels = self.n_rels
-
+        print(f"NCANDS:{n_cands}")
         if self.mode == 'ment-norm' and self.first_head_uniform:
             self.ew_embs.data[0] = 0
 

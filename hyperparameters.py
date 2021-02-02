@@ -43,9 +43,15 @@ BUNDLE_mentNormK1 = Hyperparameters()
 BUNDLE_mentNormNoPad = Hyperparameters()
 
 BUNDLE_relNorm.normalisation = NormalisationMethod.RelNorm
-BUNDLE_relNorm.rel_specialinit = False
+BUNDLE_relNorm.rel_specialinit = True
 BUNDLE_relNorm.k = 6
 BUNDLE_relNorm.learning_reduction_threshold_f1 = 0.91
+
+
+BUNDLE_mentNorm.normalisation = NormalisationMethod.MentNorm
+BUNDLE_mentNorm.rel_specialinit = False
+BUNDLE_mentNorm.learning_reduction_threshold_f1 = 0.915
+
 
 BUNDLE_mentNormK1.k = 1
 
