@@ -24,7 +24,7 @@ class Hyperparameters:
     window_size: int = 6
     k: int = 3
     rel_specialinit: bool = True
-    learning_reduction_threshold_f1: float = 0.915
+    learning_reduction_threshold_f1: float = 0.91
     learning_rate_initial: float = 10E-4
     learning_rate_final: float = 10E-5
     learning_stop_threshold_epochs: int = 20
