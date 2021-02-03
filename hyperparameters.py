@@ -35,7 +35,7 @@ class Hyperparameters:
     lowmem = True  # True if need to use lowmem settings
     device = None  # Used to store the device for training
     saveName = "save_default"
-    loss_patched = False #Use loss function from the paper for certainty of comparison
+    loss_patched = False #Use loss&accuracy functions from the paper for certainty of comparison
 
 
 SETTINGS = Hyperparameters()
@@ -65,6 +65,8 @@ def APPLYBUNDLE_hpc(settings:Hyperparameters):
     settings.dataDir_embeddings = "/rds/user/hrjh2/hpc-work/generated/embeddings/word_ent_embs/"
     settings.dataDir_checkpoints = "/rds/user/hrjh2/hpc-work/checkpoints/"
     settings.lowmem = False
-    pass
+
+def APPLYBUNDLE_paper(settings:Hyperparameters):
+    settings.loss_patched = True
 
 # TODO - specify useful hyper-parameter bundles

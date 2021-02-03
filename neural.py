@@ -97,6 +97,9 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
     false_neg = 0  # guessed wrong index when valid index possible?
     possibleCorrect = 0
     total = 0
+
+    theirEval_truepos = 0
+    theirEval_totalnonnilpredictions = 0
     for doc_idx, document in enumerate(tqdm(SETTINGS.dataset.documents, unit="documents", file=sys.stdout)):
         if SETTINGS.lowmem:
             if len(document.mentions) > 200:
@@ -144,6 +147,21 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
         possibleCorrect += possible.sum().item()
         total += len(same_list)
 
+        if SETTINGS.loss_patched:
+            #Do it their way
+            masks = [[True]*len(m.candidates)+[False]*(7-len(m.candidates)) for m in document.mentions]
+            masks = torch.tensor(masks).to(SETTINGS.device)
+            #Where the best candidate isn't real, try guessing 0
+            best_cand_masks = masks.T[best_cand_indices].diagonal()
+            best_cand_indices[~best_cand_masks] = 0
+            #Where the best candidate still isn't real, guess -1
+            best_cand_masks = masks.T[best_cand_indices].diagonal()
+            best_cand_indices[~best_cand_masks] = -1
+            same_list = truth_indices.eq(best_cand_indices)
+            same_list[best_cand_indices==-1]=False#If Nil then not "the same"
+            theirEval_truepos += same_list.sum().item()
+            theirEval_totalnonnilpredictions += (best_cand_indices>=0).sum().item()
+
     # Learn!
     print("Stepping...")
     #    optimizer.step()  # step - update parameters backwards as requried
@@ -154,6 +172,14 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
     eval = EvaluationMetrics()
     eval.loss = total_loss
     eval.accuracy = eval_correct / (eval_correct + eval_wrong)
+    if SETTINGS.loss_patched:
+        precision = theirEval_truepos / theirEval_totalnonnilpredictions
+        recall = theirEval_truepos / total
+        theirAccuracy = 2*precision*recall/(precision+recall)
+        print("precision",precision)
+        print("recall",recall)
+        print(eval.accuracy,"against",theirAccuracy)
+        eval.accuracy = theirAccuracy
     eval.accuracy_possible = possibleCorrect / total
     #    eval.correctRatio =
     #    eval.microF1 = microPrecision

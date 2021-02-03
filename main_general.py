@@ -1,6 +1,7 @@
 # Main pipeline to run the paper, but for HPC usage
 import sys
-from hyperparameters import SETTINGS, APPLYBUNDLE_hpc, APPLYBUNDLE_mentNorm,APPLYBUNDLE_relNorm,APPLYBUNDLE_mentNormK1,APPLYBUNDLE_mentNormNoPad
+from hyperparameters import SETTINGS, APPLYBUNDLE_hpc, APPLYBUNDLE_mentNorm, APPLYBUNDLE_relNorm, \
+    APPLYBUNDLE_mentNormK1, APPLYBUNDLE_mentNormNoPad, APPLYBUNDLE_paper
 import argparse
 #TODO researched Argparse - from the standard lib
 
@@ -43,10 +44,13 @@ for bundleName in args.bundles:
     elif bundleName == "mentNoPad":
         APPLYBUNDLE_mentNormNoPad(SETTINGS)
         normCheck("mentNoPad")
+    elif bundleName == "paper":
+        APPLYBUNDLE_paper(SETTINGS)
     else:
         print(f"Unknown bundle name '{bundleName}'")
         quit(1)
 
+print("SETTINGS:",SETTINGS)
 import main
 print("Results:")
 main.model.evals.print()

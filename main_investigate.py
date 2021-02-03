@@ -6,7 +6,7 @@ import files
 import modeller
 import neural
 import processeddata
-from hyperparameters import APPLYBUNDLE_mentNorm
+from hyperparameters import APPLYBUNDLE_mentNorm, APPLYBUNDLE_paper
 from utils import *
 
 print("Cuda?", torch.cuda.is_available())
@@ -55,7 +55,8 @@ if SETTINGS.training:
     modeller.candidatePadding()
     print(len(doc.mentions[73].candidates))
     APPLYBUNDLE_mentNorm(SETTINGS)
-    SETTINGS.loss_patched = True
+    APPLYBUNDLE_paper(SETTINGS)
+    SETTINGS.dataset.documents = SETTINGS.dataset.documents[0:50]
     model = modeller.trainToCompletion()
 
 else:
