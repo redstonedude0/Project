@@ -34,27 +34,37 @@ class Hyperparameters:
     allow_nans = False  # True if nans should be used to represent undefined values, false if not
     lowmem = True  # True if need to use lowmem settings
     device = None  # Used to store the device for training
+    saveName = "save_default"
+    loss_patched = False #Use loss function from the paper for certainty of comparison
 
 
 SETTINGS = Hyperparameters()
-BUNDLE_relNorm = Hyperparameters()
-BUNDLE_mentNorm = Hyperparameters()
-BUNDLE_mentNormK1 = Hyperparameters()
-BUNDLE_mentNormNoPad = Hyperparameters()
 
-BUNDLE_relNorm.normalisation = NormalisationMethod.RelNorm
-BUNDLE_relNorm.rel_specialinit = True
-BUNDLE_relNorm.k = 6
-BUNDLE_relNorm.learning_reduction_threshold_f1 = 0.91
+def APPLYBUNDLE_relNorm(settings:Hyperparameters):
+    settings.normalisation = NormalisationMethod.RelNorm
+    settings.rel_specialinit = True
+    settings.k = 6
+    settings.learning_reduction_threshold_f1 = 0.91
 
+def APPLYBUNDLE_mentNorm(settings:Hyperparameters):
+    settings.normalisation = NormalisationMethod.MentNorm
+    settings.rel_specialinit = False
+    settings.learning_reduction_threshold_f1 = 0.915
 
-BUNDLE_mentNorm.normalisation = NormalisationMethod.MentNorm
-BUNDLE_mentNorm.rel_specialinit = False
-BUNDLE_mentNorm.learning_reduction_threshold_f1 = 0.915
+def APPLYBUNDLE_mentNormK1(settings:Hyperparameters):
+    APPLYBUNDLE_mentNorm(settings)
+    settings.k = 1
 
+def APPLYBUNDLE_mentNormNoPad(settings:Hyperparameters):
+    # TODO mentNormNoPad needs some parameters set
+    pass
 
-BUNDLE_mentNormK1.k = 1
-
-# TODO mentNormNoPad needs some parameters set
+def APPLYBUNDLE_hpc(settings:Hyperparameters):
+    settings.dataDir = "/rds/user/hrjh2/hpc-work/"
+    settings.dataDir_csv = "/rds/user/hrjh2/hpc-work/generated/test_train_data/"
+    settings.dataDir_embeddings = "/rds/user/hrjh2/hpc-work/generated/embeddings/word_ent_embs/"
+    settings.dataDir_checkpoints = "/rds/user/hrjh2/hpc-work/checkpoints/"
+    settings.lowmem = False
+    pass
 
 # TODO - specify useful hyper-parameter bundles

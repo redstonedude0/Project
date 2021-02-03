@@ -162,19 +162,29 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
     return eval
 
 def loss_document(document: Document, output):
-    n = len(document.mentions)
-    # MRN equation 7
-    p_i_e = output  # 2D (n,7) tensor of p_i_e values
-    truth_indices = [m.goldCandIndex() for m in document.mentions]
-    # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
-    p_i_eSTAR = p_i_e.transpose(0, 1)[truth_indices].diagonal()
-    # TODO - need to set piestar to 0 where truthindex -1?
-    # broadcast (n,1) to (n,7)
-    GammaEqn = SETTINGS.gamma - p_i_eSTAR.reshape([n, 1]) + p_i_e
-    # Max each element with 0 (repeated to (n,7))
-    h = torch.max(GammaEqn, torch.tensor(0.).to(SETTINGS.device).repeat([n, 7]))
-    L = smartsum(h)  # ignore nans in loss function (outside of candidate range)
-    return L
+    if SETTINGS.loss_patched:
+        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions])
+        # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
+        truth_indices[truth_indices==-1] = 0
+        p_i_e = output  # 2D (n,7) tensor of p_i_e values
+        import torch.nn.functional as F
+        loss = F.multi_margin_loss(p_i_e,truth_indices,margin=SETTINGS.gamma)
+        return loss
+
+    else:
+        n = len(document.mentions)
+        # MRN equation 7
+        p_i_e = output  # 2D (n,7) tensor of p_i_e values
+        truth_indices = [m.goldCandIndex() for m in document.mentions]
+        # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
+        p_i_eSTAR = p_i_e.transpose(0, 1)[truth_indices].diagonal()
+        # TODO - need to set piestar to 0 where truthindex -1?
+        # broadcast (n,1) to (n,7)
+        GammaEqn = SETTINGS.gamma - p_i_eSTAR.reshape([n, 1]) + p_i_e
+        # Max each element with 0 (repeated to (n,7))
+        h = torch.max(GammaEqn, torch.tensor(0.).to(SETTINGS.device).repeat([n, 7]))
+        L = smartsum(h)  # ignore nans in loss function (outside of candidate range)
+        return L
 
 
 def loss_regularisation(R_diag, D_diag):

@@ -14,18 +14,21 @@ def loadAFile():
     while True:
         print("Select a file to load:")
         files = [f for f in os.listdir(dataDir_checkpoints) if os.path.isfile(os.path.join(dataDir_checkpoints, f))]
-        fileShortnameMap = {}
+        fileNumMap = {}
         for file in files:
             if file.endswith(".evals"):
                 end = file.split("_")[-1]
                 rest = "_".join(file.split("_")[:-1])
-                end = end[:-6]  # just the number
-                if rest in fileShortnameMap.keys():
-                    if file > fileShortnameMap[rest]:
-                        fileShortnameMap[rest] = file
+                end = int(end[:-6])  # just the number
+                if rest in fileNumMap.keys():
+                    if end > fileNumMap[rest]:
+                        fileNumMap[rest] = end
                     # else less than
                 else:
-                    fileShortnameMap[rest] = file
+                    fileNumMap[rest] = end
+        fileShortnameMap = {}
+        for short, num in fileNumMap.items():
+            fileShortnameMap[short] = short+"_"+str(num)+".evals"
         for idx, short in enumerate(fileShortnameMap.keys()):
             print(f"{idx}) {short}")
         selection = input()
@@ -56,7 +59,7 @@ while True:
     # 3) load as evals
     evals1 = datastructures.EvalHistory.load(dataDir_checkpoints + file1Name)
     evals2 = datastructures.EvalHistory.load(dataDir_checkpoints + file2Name)
-    print("e1", evals1)
+    print("e1", evals1.metrics)
     # 4) Present comparison options
     print("Select comparison option:")
     print("0) Step-based | ratio")

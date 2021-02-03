@@ -4,8 +4,10 @@ import datasets
 import files
 import modeller
 import processeddata
+import torch
 from utils import *
 
+print("Cuda?", torch.cuda.is_available())
 reportedRun("Checking Datadir", files.checkDataDir)
 reportedRun("Loading embeddings", processeddata.loadEmbeddings)
 

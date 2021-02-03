@@ -48,6 +48,5 @@ for bundleName in args.bundles:
         quit(1)
 
 import main
-
-print("HPC Results:")
+print("Results:")
 main.model.evals.print()
