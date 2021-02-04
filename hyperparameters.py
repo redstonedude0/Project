@@ -36,6 +36,14 @@ class Hyperparameters:
     device = None  # Used to store the device for training
     saveName = "save_default"
     loss_patched = False #Use loss&accuracy functions from the paper for certainty of comparison
+    def __repr__(self):
+        s = "Hyperparameters:"
+        keys = dir(self)
+        for key in keys:
+            if not key.startswith("__"):
+                #Not internal
+                s += f"\n  {key}:{getattr(self,key)}"
+        return s
 
 
 SETTINGS = Hyperparameters()
@@ -64,6 +72,13 @@ def APPLYBUNDLE_hpc(settings:Hyperparameters):
     settings.dataDir_csv = "/rds/user/hrjh2/hpc-work/generated/test_train_data/"
     settings.dataDir_embeddings = "/rds/user/hrjh2/hpc-work/generated/embeddings/word_ent_embs/"
     settings.dataDir_checkpoints = "/rds/user/hrjh2/hpc-work/checkpoints/"
+    settings.lowmem = False
+
+def APPLYBUNDLE_colab(settings:Hyperparameters):
+    settings.dataDir = "drive/MyDrive/project/data/"
+    settings.dataDir_csv = "drive/MyDrive/project/data/generated/test_train_data/"
+    settings.dataDir_embeddings = "drive/MyDrive/project/data/generated/embeddings/word_ent_embs/"
+    settings.dataDir_checkpoints = "drive/MyDrive/project/data/checkpoints/"
     settings.lowmem = False
 
 def APPLYBUNDLE_paper(settings:Hyperparameters):

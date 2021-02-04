@@ -189,7 +189,7 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
 
 def loss_document(document: Document, output):
     if SETTINGS.loss_patched:
-        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions])
+        truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions]).to(SETTINGS.device)
         # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
         truth_indices[truth_indices==-1] = 0
         p_i_e = output  # 2D (n,7) tensor of p_i_e values

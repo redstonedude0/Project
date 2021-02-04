@@ -10,6 +10,7 @@ from hyperparameters import APPLYBUNDLE_mentNorm, APPLYBUNDLE_paper
 from utils import *
 
 print("Cuda?", torch.cuda.is_available())
+print("SETTINGS",SETTINGS)
 
 reportedRun("Checking Datadir", files.checkDataDir)
 reportedRun("Loading embeddings", processeddata.loadEmbeddings)
