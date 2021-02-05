@@ -15,7 +15,8 @@ class Hyperparameters:
     dataDir_embeddings = "/home/harrison/Documents/project/data/generated/embeddings/word_ent_embs/"
     dataDir_checkpoints = "/home/harrison/Documents/project/data/checkpoints/"
     training: bool = True
-    dataset: 'Dataset' = None
+    dataset_train: 'Dataset' = None
+    dataset_eval: 'Dataset' = None
     normalisation = NormalisationMethod.RelNorm  # TODO change back to mentnorm once it's implemented
     d: int = 300
     gamma: float = 0.01

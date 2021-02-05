@@ -100,7 +100,8 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
 
     theirEval_truepos = 0
     theirEval_totalnonnilpredictions = 0
-    for doc_idx, document in enumerate(tqdm(SETTINGS.dataset.documents, unit="documents", file=sys.stdout)):
+    theirEval_total = 0
+    for doc_idx, document in enumerate(tqdm(SETTINGS.dataset_train.documents, unit="train_documents", file=sys.stdout)):
         if SETTINGS.lowmem:
             if len(document.mentions) > 200:
                 print(
@@ -147,8 +148,33 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
         possibleCorrect += possible.sum().item()
         total += len(same_list)
 
-        if SETTINGS.loss_patched:
-            #Do it their way
+    if SETTINGS.loss_patched:
+        #Do it their way
+        for doc_idx, document in enumerate(tqdm(SETTINGS.dataset_eval.documents, unit="eval_documents", file=sys.stdout)):
+            if SETTINGS.lowmem:
+                if len(document.mentions) > 200:
+                    print(
+                        f"Unable to eval on document {doc_idx} ({len(document.mentions)} mentions would exceed memory limits)")
+                    continue
+            try:
+                out = model.neuralNet(document)
+            except RuntimeError as err:
+                if "can't allocate memory" in err.__str__():
+                    print(
+                        f"Memory allocation error on {doc_idx} - {len(document.mentions)} mentions exceeds memory limits")
+                    continue  # next iteration of loop
+                else:
+                    raise err
+            if len(out[out != out]) >= 1:
+                # Dump
+                print("Document index", doc_idx)
+                print("Document id", document.id)
+                print("Model output", out)
+                print("Found nans in model output! Cannot proceed with eval", file=sys.stderr)
+                continue  # next loop of document
+            truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions]).to(SETTINGS.device)
+            # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
+            best_cand_indices = out.max(dim=1)[1]  # index of maximum across candidates #1D(n) tensor (not -1)
             masks = [[True]*len(m.candidates)+[False]*(7-len(m.candidates)) for m in document.mentions]
             masks = torch.tensor(masks).to(SETTINGS.device)
             #Where the best candidate isn't real, try guessing 0
@@ -161,6 +187,7 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
             same_list[best_cand_indices==-1]=False#If Nil then not "the same"
             theirEval_truepos += same_list.sum().item()
             theirEval_totalnonnilpredictions += (best_cand_indices>=0).sum().item()
+            theirEval_total += len(same_list)
 
     # Learn!
     print("Stepping...")
@@ -174,7 +201,7 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
     eval.accuracy = eval_correct / (eval_correct + eval_wrong)
     if SETTINGS.loss_patched:
         precision = theirEval_truepos / theirEval_totalnonnilpredictions
-        recall = theirEval_truepos / total
+        recall = theirEval_truepos / theirEval_total
         theirAccuracy = 2*precision*recall/(precision+recall)
         print("precision",precision)
         print("recall",recall)

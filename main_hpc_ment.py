@@ -10,7 +10,7 @@ SETTINGS.dataDir_csv = "/rds/user/hrjh2/hpc-work/generated/test_train_data/"
 SETTINGS.dataDir_embeddings = "/rds/user/hrjh2/hpc-work/generated/embeddings/word_ent_embs/"
 SETTINGS.dataDir_checkpoints = "/rds/user/hrjh2/hpc-work/checkpoints/"
 SETTINGS.lowmem = False
-SETTINGS.saveName = "save_ment"
+SETTINGS.saveName = "save_ment_OLD"
 quit(2)
 import main
 

@@ -24,11 +24,13 @@ reportedRun("Loading embeddings", processeddata.loadEmbeddings)
 # TODO - perform action (obtain dataset, use/make neural network as required, save results as specified)
 
 if SETTINGS.training:
-    SETTINGS.dataset = datasets.loadDataset("aida_train.csv")
+    SETTINGS.dataset_train = datasets.loadDataset("aida_train.csv")
+    SETTINGS.dataset_eval = datasets.loadDataset("aida_testA.csv")
 #    SETTINGS.dataset.documents = SETTINGS.dataset.documents[0:160]
-    print(f"Size of training dataset: {len(SETTINGS.dataset.documents)}")
+    print(f"Size of training dataset: {len(SETTINGS.dataset_train.documents)}")
+    print(f"Size of eval dataset: {len(SETTINGS.dataset_eval.documents)}")
     nextNum = 1
-    for d in SETTINGS.dataset.documents:
+    for d in SETTINGS.dataset_train.documents:
         did = int(d.id.split(" ")[0])
         if did != nextNum:
             print(f"Expected {nextNum} but found {d.id}")
@@ -48,16 +50,16 @@ if SETTINGS.training:
 #    out = model.neuralNet(SETTINGS.dataset.documents[159])
 #    print(f"Nans:{len(out[out != out])}")
 #    SETTINGS.dataset.documents = SETTINGS.dataset.documents[0:420]
-    print(SETTINGS.dataset.documents[0].id)
-    print(len(SETTINGS.dataset.documents))
-    doc = SETTINGS.dataset.documents[251]
+    print(SETTINGS.dataset_train.documents[0].id)
+    print(len(SETTINGS.dataset_train.documents))
+    doc = SETTINGS.dataset_train.documents[251]
     print("DOC",len(doc.mentions))
-    modeller.candidateSelection()
-    modeller.candidatePadding()
+    modeller.candidateSelection_full()
+#    modeller.candidatePadding_full()
     print(len(doc.mentions[73].candidates))
     APPLYBUNDLE_mentNorm(SETTINGS)
     APPLYBUNDLE_paper(SETTINGS)
-    SETTINGS.dataset.documents = SETTINGS.dataset.documents[0:50]
+    SETTINGS.dataset_train.documents = SETTINGS.dataset_train.documents[0:50]
     model = modeller.trainToCompletion()
 
 else:

@@ -3,6 +3,9 @@ import sys
 from hyperparameters import SETTINGS, APPLYBUNDLE_hpc, APPLYBUNDLE_mentNorm,APPLYBUNDLE_relNorm,APPLYBUNDLE_mentNormK1,APPLYBUNDLE_mentNormNoPad
 import argparse
 #TODO researched Argparse - from the standard lib
+print("DEPRECATED")
+quit(0)
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument(

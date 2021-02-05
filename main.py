@@ -18,8 +18,10 @@ reportedRun("Loading embeddings", processeddata.loadEmbeddings)
 # TODO - perform action (obtain dataset, use/make neural network as required, save results as specified)
 
 if SETTINGS.training:
-    SETTINGS.dataset = datasets.loadDataset("aida_train.csv")
-    print(f"Size of training dataset: {len(SETTINGS.dataset.documents)}")
+    SETTINGS.dataset_train = datasets.loadDataset("aida_train.csv")
+    SETTINGS.dataset_eval = datasets.loadDataset("aida_testA.csv")
+    print(f"Size of training dataset: {len(SETTINGS.dataset_train.documents)}")
+    print(f"Size of eval dataset: {len(SETTINGS.dataset_eval.documents)}")
     # For debug SETTINGS.dataset.documents = SETTINGS.dataset.documents[0:10]
     model = modeller.trainToCompletion()
 else:

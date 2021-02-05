@@ -10,7 +10,7 @@ from tqdm import tqdm
 import neural
 import processeddata
 import utils
-from datastructures import Model, Mention, Candidate, EvalHistory
+from datastructures import Model, Mention, Candidate, EvalHistory, Dataset
 from hyperparameters import SETTINGS
 
 
@@ -31,9 +31,9 @@ def _embeddingScore(mention: Mention, candidate: Candidate):
     return 0
 
 
-def candidateSelection():
+def candidateSelection(dataset:Dataset,name="UNK"):
     # keep top 4 using p_e_m and top 3 using entity embeddings w/ context
-    for doc in tqdm(SETTINGS.dataset.documents, unit="documents", file=sys.stdout):
+    for doc in tqdm(dataset.documents, unit=name+"documents", file=sys.stdout):
         for mention in doc.mentions:
             cands = mention.candidates
             # Sort p_e_m high to low
@@ -53,19 +53,28 @@ def candidateSelection():
                     keptCands.append(keptEmbeddingCand)
             mention.candidates = keptCands
 
-def candidatePadding():
+def candidateSelection_full():
+    candidateSelection(SETTINGS.dataset_train,"train")
+    candidateSelection(SETTINGS.dataset_eval,"eval")
+
+def candidatePadding(dataset:Dataset,name="UNK"):
     # make sure always 7 candidates
     paddingCand = Candidate(-1,0,"#UNK#")
-    for doc in tqdm(SETTINGS.dataset.documents, unit="documents", file=sys.stdout):
+    for doc in tqdm(dataset.documents, unit=name+"_documents", file=sys.stdout):
         for mention in doc.mentions:
             cands = mention.candidates
             if len(cands) < 7:
                 paddingCands = [paddingCand for _ in range(len(cands),7)]
                 mention.candidates += paddingCands
 
+def candidatePadding_full():
+    candidatePadding(SETTINGS.dataset_train,"train")
+    candidatePadding(SETTINGS.dataset_eval,"eval")
+
 def trainToCompletion():  # TODO - add params
     # TODO - checkpoint along the way
-    print(f"Training on {len(SETTINGS.dataset.documents)} documents")
+    print(f"Training on {len(SETTINGS.dataset_train.documents)} documents")
+    print(f"Evaluating on {len(SETTINGS.dataset_eval.documents)} documents")
     cudaAvail = torch.cuda.is_available()
     print(f"Cuda? {cudaAvail}")
     if cudaAvail:
@@ -77,7 +86,7 @@ def trainToCompletion():  # TODO - add params
     SETTINGS.device = device
 
     startTime = time.time()
-    utils.reportedRun("Candidate Selection", candidateSelection)
+    utils.reportedRun("Candidate Selection", candidateSelection_full)
     model = Model()
     # Make the NN
     model_nn: neural.NeuralNet
@@ -99,7 +108,7 @@ def trainToCompletion():  # TODO - add params
         eval.print()
         model.evals.metrics.append(eval)
         print(f"Loop {loop + 1} Done.")
-        model.save(f"save_ment_{loop + 1}")
+        model.save(f"{SETTINGS.saveName}_{loop + 1}")
         if eval.accuracy >= SETTINGS.learning_reduction_threshold_f1:
             lr = SETTINGS.learning_rate_final
         if eval.accuracy > maxF1:
