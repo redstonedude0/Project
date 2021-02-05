@@ -294,8 +294,8 @@ class NeuralNet(nn.Module):
         )
         B_diag = torch.ones(300).to(SETTINGS.device)
         #randn~Norm(0,1)
-        R_diag = torch.randn(3,300).to(SETTINGS.device)*0.1# todo k elem
-        D_diag = torch.randn(3,300).to(SETTINGS.device)*0.1# todo also k elems
+        R_diag = torch.randn(SETTINGS.k,300).to(SETTINGS.device)*0.1# todo k elem
+        D_diag = torch.randn(SETTINGS.k,300).to(SETTINGS.device)*0.1# todo also k elems
 
         if not SETTINGS.rel_specialinit:
             R_diag += 1
@@ -432,8 +432,8 @@ class NeuralNet(nn.Module):
             #antieye = 1-eye#for multiplying
             #antieye = antieye.reshape([n,n,1])#make 3d
             #brackets *= antieye
-            z_ijk = smartsum(x,dim=1).reshape([n,1,3])
-            #Z_ijk is a (ni,3) sum, then a (ni*1*7) broadcastable tensor
+            z_ijk = smartsum(x,dim=1).reshape([n,1,SETTINGS.k])
+            #Z_ijk is a (ni,k) sum, then a (ni*1*k) broadcastable tensor
         x /= z_ijk
         return x
 

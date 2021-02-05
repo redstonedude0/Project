@@ -58,6 +58,7 @@ def APPLYBUNDLE_relNorm(settings:Hyperparameters):
 def APPLYBUNDLE_mentNorm(settings:Hyperparameters):
     settings.normalisation = NormalisationMethod.MentNorm
     settings.rel_specialinit = False
+    settings.k = 3
     settings.learning_reduction_threshold_f1 = 0.915
 
 def APPLYBUNDLE_mentNormK1(settings:Hyperparameters):
@@ -66,6 +67,7 @@ def APPLYBUNDLE_mentNormK1(settings:Hyperparameters):
 
 def APPLYBUNDLE_mentNormNoPad(settings:Hyperparameters):
     # TODO mentNormNoPad needs some parameters set
+    APPLYBUNDLE_mentNorm(settings)
     pass
 
 def APPLYBUNDLE_hpc(settings:Hyperparameters):

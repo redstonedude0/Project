@@ -33,7 +33,7 @@ def _embeddingScore(mention: Mention, candidate: Candidate):
 
 def candidateSelection(dataset:Dataset,name="UNK"):
     # keep top 4 using p_e_m and top 3 using entity embeddings w/ context
-    for doc in tqdm(dataset.documents, unit=name+"documents", file=sys.stdout):
+    for doc in tqdm(dataset.documents, unit=name+"_documents", file=sys.stdout):
         for mention in doc.mentions:
             cands = mention.candidates
             # Sort p_e_m high to low
