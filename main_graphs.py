@@ -62,7 +62,9 @@ while True:
     print("e1", evals1.metrics)
     # 4) Present comparison options
     print("Select comparison option:")
-    print("0) Step-based | ratio")
+    print("0) ratio | step")
+    print("1) loss  | step")
+    print("2) step  | time")
     selection = input()
     # 5) Graph
     if selection == "0":
@@ -81,3 +83,32 @@ while True:
         plt.ylim(0, 1)
         plt.legend(handles=[l1, l2, l3])
         plt.show()
+    elif selection == "1":
+        print("Comparing...")
+        x1, y1 = XYFromEvals(evals1, "step", "loss")
+        x2, y2 = XYFromEvals(evals2, "step", "loss")
+
+        plt.figure()
+
+        l1 = plt.plot(x1, y1, "r-", label=file1Name)[0]
+        l2 = plt.plot(x2, y2, "g-", label=file2Name)[0]
+        plt.xlabel("Step")
+        plt.ylabel("Loss")
+        plt.ylim(0, 1)
+        plt.legend(handles=[l1, l2])
+        plt.show()
+    elif selection == "2":
+        print("Comparing...")
+        x1, y1 = XYFromEvals(evals1, "time", "step")
+        x2, y2 = XYFromEvals(evals2, "time", "step")
+
+        plt.figure()
+
+        l1 = plt.plot(x1, y1, "r-", label=file1Name)[0]
+        l2 = plt.plot(x2, y2, "g-", label=file2Name)[0]
+        plt.xlabel("Time")
+        plt.ylabel("Step")
+        plt.ylim(0, 1)
+        plt.legend(handles=[l1, l2])
+        plt.show()
+
