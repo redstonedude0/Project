@@ -63,7 +63,6 @@ class LocalCtxAttRanker(AbstractWordEntity):
         print(entity_mask)
         print(p_e_m)
         print("---END---")
-        quit(0)
 
         batchsize, n_words = token_ids.size()
         n_entities = entity_ids.size(1) #Harrison =8 (n_cands) typically
@@ -71,6 +70,8 @@ class LocalCtxAttRanker(AbstractWordEntity):
 
         tok_vecs = self.word_embeddings(token_ids)
         entity_vecs = self.entity_embeddings(entity_ids)
+        print(tok_vecs.size())
+        print(entity_vecs.size())
 
         # att
         ent_tok_att_scores = torch.bmm(entity_vecs * self.att_mat_diag, tok_vecs.permute(0, 2, 1))
@@ -118,6 +119,8 @@ class LocalCtxAttRanker(AbstractWordEntity):
         self._entity_vecs = entity_vecs
         self._local_ctx_vecs = ctx_vecs
 
+        print(scores)
+        quit(0)
         #Harrison from the use in mulrel_ranker it is clear that scores is meant to be a tensor representing local enttiy scores (psi)
         return scores
 
