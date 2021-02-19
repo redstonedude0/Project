@@ -54,8 +54,19 @@ class LocalCtxAttRanker(AbstractWordEntity):
             print([(self.word_voca.id2word[t], a[0]) for t, a in zip(selected_tids, ap)])
 
     def forward(self, token_ids, tok_mask, entity_ids, entity_mask, p_e_m=None):
+        #Harrison called from mulrel_ranker (using super) IFF use_local is True there (should be??)
+        #Harrison entity_ids is therefore a (n_ments * n_cands) 2D tensor (note n_cands=8 typically)
+        print("REACHED LOCAL SCORING FUNCTION")
+        print(token_ids)
+        print(tok_mask)
+        print(entity_ids)
+        print(entity_mask)
+        print(p_e_m)
+        print("---END---")
+        quit(0)
+
         batchsize, n_words = token_ids.size()
-        n_entities = entity_ids.size(1)
+        n_entities = entity_ids.size(1) #Harrison =8 (n_cands) typically
         tok_mask = tok_mask.view(batchsize, 1, -1)
 
         tok_vecs = self.word_embeddings(token_ids)
@@ -71,9 +82,19 @@ class LocalCtxAttRanker(AbstractWordEntity):
 
         selected_tok_vecs = torch.gather(tok_vecs, dim=1,
                                          index=top_tok_att_ids.view(batchsize, -1, 1).repeat(1, 1, tok_vecs.size(2)))
+
+
         ctx_vecs = torch.sum((selected_tok_vecs * self.tok_score_mat_diag) * att_probs, dim=1, keepdim=True)
-        ctx_vecs = self.local_ctx_dr(ctx_vecs)
+        #Harrison - ctx_vecs is a 3D tensor
+
+
+        ctx_vecs = self.local_ctx_dr(ctx_vecs)#TODO Harrison note - this is a dropout with p=0 therefore identity???
         ent_ctx_scores = torch.bmm(entity_vecs, ctx_vecs.permute(0, 2, 1)).view(batchsize, n_entities)
+        #Harrison ent_ctx_scores is broadcastable to entity_mask
+        #Harrison entity_mask is a n*7 tensor
+        #Harrison bmm does not broadcast!!!! it takes in 2 3D tensors and outputs a 3D tensor
+        #Harrison entity_vecs is X * n * m, ctx_vecs.permute is X * m * p to get an output of size X * n * p
+        #
 
         # combine with p(e|m) if p_e_m is not None
         if p_e_m is not None:
@@ -97,6 +118,7 @@ class LocalCtxAttRanker(AbstractWordEntity):
         self._entity_vecs = entity_vecs
         self._local_ctx_vecs = ctx_vecs
 
+        #Harrison from the use in mulrel_ranker it is clear that scores is meant to be a tensor representing local enttiy scores (psi)
         return scores
 
     def regularize(self, max_norm=1):

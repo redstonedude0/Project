@@ -149,6 +149,13 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
         total += len(same_list)
 
     if SETTINGS.loss_patched:
+        eval_correct = 0
+        eval_wrong = 0
+        true_pos = 0
+        false_pos = 0
+        false_neg = 0
+        possibleCorrect = 0
+        total = 0
         #Do it their way
         for doc_idx, document in enumerate(tqdm(SETTINGS.dataset_eval.documents, unit="eval_documents", file=sys.stdout)):
             if SETTINGS.lowmem:
@@ -172,9 +179,26 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
                 print("Model output", out)
                 print("Found nans in model output! Cannot proceed with eval", file=sys.stderr)
                 continue  # next loop of document
+            # Calculate evaluation metric data
             truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions]).to(SETTINGS.device)
             # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
             best_cand_indices = out.max(dim=1)[1]  # index of maximum across candidates #1D(n) tensor (not -1)
+            same_list = truth_indices.eq(best_cand_indices)
+            correct = same_list.sum().item()  # extract value from 0-dim tensor
+            wrong = (~same_list).sum().item()
+            eval_correct += correct
+            eval_wrong += wrong
+            # TODO - paper adds #UNK#/NIL cands to pad - this should not be a tp/fp
+            true_pos += correct  # where the same, we have TP
+            got_wrong = ~same_list  # ones we got wrong
+            possible = truth_indices != -1  # ones possible to get right
+            missed = got_wrong.logical_and(possible)  # ones we got wrong but could've got right
+            # NOTE - we will have no TP for #UNK# (-1 gold) mentions
+            false_neg += missed.sum().item()  # NOTE:sum FP=FN in the micro-averaging case
+            false_pos += missed.sum().item()
+            possibleCorrect += possible.sum().item()
+            total += len(same_list)
+
             masks = [[True]*len(m.candidates)+[False]*(7-len(m.candidates)) for m in document.mentions]
             masks = torch.tensor(masks).to(SETTINGS.device)
             #Where the best candidate isn't real, try guessing 0
@@ -272,10 +296,6 @@ class NeuralNet(nn.Module):
     def __init__(self):
         super(NeuralNet, self).__init__()
         torch.manual_seed(0)
-        self.features = nn.Sequential(
-            nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(inplace=True),
-        )  # TODO dummy network - remove
         self.f = nn.Sequential(
             nn.MultiheadAttention(100, 100, SETTINGS.dropout_rate)
             # TODO - absolutely no idea how to do this, this is a filler for now

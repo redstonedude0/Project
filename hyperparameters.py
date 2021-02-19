@@ -26,8 +26,8 @@ class Hyperparameters:
     k: int = 3
     rel_specialinit: bool = True
     learning_reduction_threshold_f1: float = 0.91
-    learning_rate_initial: float = 10E-4
-    learning_rate_final: float = 10E-5
+    learning_rate_initial: float = 1E-4
+    learning_rate_final: float = 1E-5
     learning_stop_threshold_epochs: int = 20
     DEBUG: bool = True
     lambda1: float = -1E-7

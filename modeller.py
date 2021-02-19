@@ -15,42 +15,49 @@ from hyperparameters import SETTINGS
 
 
 def _embeddingScore(mention: Mention, candidate: Candidate):
+    ctxwindow = 50#Size of the window context (EVEN)
+    halfwindow = ctxwindow//2
     leftWords = mention.left_context.split(" ")
     rightWords = mention.right_context.split(" ")
-    # TODO - assuming 50-word context window is 25 either side
-    leftWords = leftWords[-25:]
-    rightWords = rightWords[:25]
+    leftWords = leftWords[-halfwindow:]
+    rightWords = rightWords[:halfwindow]
     wordSumVec = 0
     for word in leftWords + rightWords:
         wordSumVec += processeddata.wordid2embedding[processeddata.word2wordid.get(word, processeddata.unkwordid)]
-    goldCand = mention.goldCand()
-    goldCand = candidate  # TODO - just added this line for now, what is this code meant to do?? It seems to ignore the candidate otherwise??? And uses gold truth???
-    if goldCand is not None:
-        entityVec = processeddata.entid2embedding[processeddata.ent2entid[goldCand.text]]
-        return entityVec.T.dot(wordSumVec)
-    return 0
+    entityVec = processeddata.entid2embedding[processeddata.ent2entid[candidate.text]]
+    return entityVec.T.dot(wordSumVec)
 
 
 def candidateSelection(dataset:Dataset,name="UNK"):
     # keep top 4 using p_e_m and top 3 using entity embeddings w/ context
+    keep_pem = 4#As prescribed by paper
+    keep_context = 4#Paper says 3 but code uses 4
+    pad = True#Pad with UNKs
+    #Duplicates aren't allowed
     for doc in tqdm(dataset.documents, unit=name+"_documents", file=sys.stdout):
         for mention in doc.mentions:
             cands = mention.candidates
+            unkcand = Candidate(-1,0,"#UNK#")
             # Sort p_e_m high to low
             cands.sort(key=lambda cand: cand.initial_prob, reverse=True)
             if len(cands) > 30:
                 # Need to trim to top 30 p_e_m
                 cands = cands[0:30]  # Select top 30
-            keptCands = cands[0:4]  # Keep top 4 always
+            elif pad:
+                cands = cands + [unkcand]*(30-len(cands))#Pad to 30
+            keptCands = cands[0:keep_pem]  # Keep top (4) always
             # TODO - assuming no duplicates appear, but duplicates take top 3 spots
-            # Keep top 3 eT(Sigw)
+            # Keep top 3 eT(SUM w)
             # TODO move some of this to GPU??
             # TODO can't work out how paper does this - they appear to take the top 7 based on embedding context and ignore p_e_m??? INVESTIGATE
             cands.sort(key=lambda cand: _embeddingScore(mention, cand), reverse=True)
-            keptEmbeddingCands = cands[0:3]
-            for keptEmbeddingCand in keptEmbeddingCands:
+            for keptEmbeddingCand in cands:
+                if len(keptCands) == keep_context + keep_pem:
+                    break#NO MORE
                 if keptEmbeddingCand not in keptCands:
                     keptCands.append(keptEmbeddingCand)
+            if len(keptCands) != keep_context + keep_pem:
+                raise RuntimeError(f"Incorrect number of candidates available ({len(keptCands)})")
             mention.candidates = keptCands
 
 def candidateSelection_full():
