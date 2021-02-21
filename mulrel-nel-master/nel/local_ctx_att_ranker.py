@@ -55,68 +55,83 @@ class LocalCtxAttRanker(AbstractWordEntity):
 
     def forward(self, token_ids, tok_mask, entity_ids, entity_mask, p_e_m=None):
         #H NOTES:
-        # 8 is the number of candidate entities per mention
-        # 12 is the "batchsize"??
-        # 19 is the number of mentions
-        # 66
-        # 100 is the number of words (per batch??)
-        # 300 is the dimensions of an embedding
+        # Some numbers change between runs (which occur in a random order), some are constant
+        # 8 is the number of candidate entities per mention, CONSTANT
+        # n_ment is the number of mentions, the "batchsize", varies between runs
+        # n_words is the number of words (per batch??) (I think this is the context window - local context window is 100 by default)
+        #   context window is context around which passes the is_important_word check, algorithm as follows: (ed_ranker:195)
+        #       strip and split left and right ctxs
+        #       from each, filter out unimportant words, or those where id is unk
+        #       take up to 50 from each side
+        #       join the two sides (ed_ranker:288)
+        #       pad on the right with unk id (ed_ranker:301) until all are the same length
+        # 300 is the dimensions of an embedding, CONSTANT
+        # 25 is the window size, CONSTANT
         #Harrison called from mulrel_ranker (using super) IFF use_local is True there (should be??)
         #Harrison entity_ids is therefore a (n_ments * n_cands) 2D tensor (note n_cands=8 typically)
-        print("REACHED LOCAL SCORING FUNCTION")
-        print(token_ids.size())#H 2D 12*100 tensor of IDS, 1st ID seems to be anything, last few ids are 492407 (#UNK#)
-        print(tok_mask.size())#H 2D 12*100 binary tensor, 1 for usual IDs, 0 for unk ids it appears
-        #print(entity_ids)#H 2D 19 * 8 tensor of IDs (274474 is UNK)
-        #print(entity_mask)#H 2D 19*8 binary tensor mask, 1 for IDS, 0 for unk ids
-        #print(p_e_m)#H None
-        print("---END---")
+        token_ids#2D (n_ment*n_words) tensor of IDs, 1st ID seems to be anything, last few ids are 492407 (#UNK#)
+            # up to half ctx window either side (ed_ranker:198), per-mention
+        tok_mask#2D (n_ment*n_words) binary tensor, 1 for usual IDs, 0 for unk ids it appears
+        entity_ids#2D (n_ment*8) tensor of IDs (274474 is UNK)
+        entity_mask#2D (n_ment*8) binary tensor mask, 1 for IDS, 0 for unk ids
+        p_e_m#None
 
-        batchsize, n_words = token_ids.size()#H 12*100
+        batchsize, n_words = token_ids.size()#H n_ment*n_words
         n_entities = entity_ids.size(1) #Harrison =8 (n_cands) typically
         tok_mask = tok_mask.view(batchsize, 1, -1)
+        tok_mask#Now (n_ment*1*n_words) (i.e. candidate doesn't matter)
 
         tok_vecs = self.word_embeddings(token_ids)
         entity_vecs = self.entity_embeddings(entity_ids)
-        print(tok_vecs.size())#H 19*66*300
-        print(entity_vecs.size())#H 19*8*300
+        tok_vecs#H n_ment*n_words*300
+        entity_vecs.size()#H n_ment*8*300
 
         # att
-        #H                              19*8*300   *      300         ,  19*300*66
+        #H                            n_ment*8*300 *      300         ,  n_ment*300*n_words
         ent_tok_att_scores = torch.bmm(entity_vecs * self.att_mat_diag, tok_vecs.permute(0, 2, 1))
-        #H ent_tok_att_scores should be 19*8*66 equivalent to TODO - what is the mathematical operation?
-        print(ent_tok_att_scores.size())#H 12*8*100
+        ent_tok_att_scores# (n_ment*8*n_words) which for each mention, candidate, and word, is score cand_i <dot> word_j weighted by att_mat_diag.
         ent_tok_att_scores = (ent_tok_att_scores * tok_mask).add_((tok_mask - 1).mul_(1e10))
-        print(ent_tok_att_scores.size())#H 12*8*100
+        ent_tok_att_scores# (n_ment*8*n_words) as before, but set to -1e10 for unknowns
         tok_att_scores, _ = torch.max(ent_tok_att_scores, dim=1)
-        print(tok_att_scores.size())#H 12*100
+        tok_att_scores# (n_ment*n_words) is highest score of some cand <dot> word weighted by att_mat_diag
         top_tok_att_scores, top_tok_att_ids = torch.topk(tok_att_scores, dim=1, k=min(self.tok_top_n, n_words))
-        print(top_tok_att_scores.size(),top_tok_att_ids.size())#H 12*25, 12*25
-        print(top_tok_att_scores,top_tok_att_ids)#H 25 elements 0.1-0.3, bunch of ids 0-100
-        att_probs = F.softmax(top_tok_att_scores, dim=1).view(batchsize, -1, 1)
-        print(att_probs.size())#H 12*25*1
+        top_tok_att_scores# (n_ment*25) is the 25 highest scores for some cand <dot> some word, weighted by att_mat_diag (typically around 0.1-0.3)
+        top_tok_att_ids# (n_ment*25) is the ids of the above scores into tok_att_scores (0-n_words) (NOTE: not sorted best-to-worst)
+
+        att_probs = F.softmax(top_tok_att_scores, dim=1)
+        att_probs# (n_ment,25) softmax of the 25 highest scoring words
+        att_probs = att_probs.view(batchsize, -1, 1)
+        att_probs# (n_ment*25*1) as above
+        att_probs_BK = att_probs.clone()
         att_probs = att_probs / torch.sum(att_probs, dim=1, keepdim=True)
-        print(att_probs.size())#H 12*25*1
+        print("H: AP",att_probs_BK.equal(att_probs))
+        att_probs# (n_ment*25*1) as above, should be identical as sum should be 1 after softmax
 
         selected_tok_vecs = torch.gather(tok_vecs, dim=1,
                                          index=top_tok_att_ids.view(batchsize, -1, 1).repeat(1, 1, tok_vecs.size(2)))
-        print(selected_tok_vecs.size())#H 12*25*300
+        selected_tok_vecs# (n_ment*25*300) tensor of token vectors (the corresponding vectors for top_tok_att_ids)
+        #NOTES:
+        # top_tok_att_ids.view is a (n_ment*25*1) tensor of the top 25 word ids per mention for the anycand<dot>word weighted score
+        # top_tok.view.repeat is a (n_ment*25*300) tensor of the ids as above, with the id repeated 300 times
+        # tok_vecs is a (n_ment*n_words*300) tensor
+        # gather gets a (n_ment*25*300) tensor where for each mention the id of the word is one of the ids in top_tok, this is repeated to get the right 300 elements.
+
 
         ctx_vecs = torch.sum((selected_tok_vecs * self.tok_score_mat_diag) * att_probs, dim=1, keepdim=True)
-        print(ctx_vecs.size())#H 12*1*300
-        #Harrison - ctx_vecs is a 3D tensor
-
+        ctx_vecs #(n_ment*1*300) tensor of ctx scores
+        #tok_score_mat_diag is a 300 tensor of weights, so eqn ((seltok*diag)*attprob) is (n_ment*25*300) score, where it is the <dot> score of the top 25 words,
+        # multiplied by a weighting (based on embedding position), and then multiplied by the softmax weighting of that word
+        # ctx_vecs is then the sum of these weighted embedding scores
 
         ctx_vecs_BK = ctx_vecs.clone()#H backing up
         ctx_vecs = self.local_ctx_dr(ctx_vecs)#TODO Harrison note - this is a dropout with p=0 therefore identity???
-        print(ctx_vecs.size())#H 12*1*300
-        print(ctx_vecs_BK.equal(ctx_vecs))#H True
+        print("H: CV",ctx_vecs_BK.equal(ctx_vecs))#H True
+
+        #                        n_ment*8*300 , n_ment*300*1 -> n_ment*8*1 -> n_ment*8
         ent_ctx_scores = torch.bmm(entity_vecs, ctx_vecs.permute(0, 2, 1)).view(batchsize, n_entities)
-        print(ent_ctx_scores.size())#H 12*8
-        #Harrison ent_ctx_scores is broadcastable to entity_mask
-        #Harrison entity_mask is a n*7 tensor
-        #Harrison bmm does not broadcast!!!! it takes in 2 3D tensors and outputs a 3D tensor
-        #Harrison entity_vecs is X * n * m, ctx_vecs.permute is X * m * p to get an output of size X * n * p
-        #
+        ent_ctx_scores# (n_ment*8) tensor of <dot> between each candidate entity and it's mentions context score
+        #i.e. this is a sense of relatedness between the entity and the context around the mention
+        #this is the e_i^T part of the psi calculation, where ctx_vecs is BF(c_i)
 
         # combine with p(e|m) if p_e_m is not None
         if p_e_m is not None:
@@ -129,8 +144,7 @@ class LocalCtxAttRanker(AbstractWordEntity):
             scores = ent_ctx_scores
 
         scores = (scores * entity_mask).add_((entity_mask - 1).mul_(1e10))
-        print(scores.size())#H 12*8
-        print(scores)#H Around 1e-01, -1e10 for unks
+        scores #(n_ment*8) tensor as before, set to -1e10 for unks
 
         # printing attention (debugging)
         self._token_ids = token_ids
@@ -142,10 +156,17 @@ class LocalCtxAttRanker(AbstractWordEntity):
         self._entity_vecs = entity_vecs
         self._local_ctx_vecs = ctx_vecs
 
-        print(scores)#H 2D (19*8) tensor of scores, -1e10 iff unk, otherwise around e-01
-        quit(0)
         #Harrison from the use in mulrel_ranker it is clear that scores is meant to be a tensor representing local enttiy scores (psi)
         return scores
+        #paper states this is e * B * f(c)
+        #I determine this is:
+        # e * CTX
+        #CTX = SUM(25 'i's for best attscore_i) (seltokvec_i*DIAG*attprob_i)
+        #seltokvec_i = vector for token i (t_i)
+        #attprob_i = softmax(attscore_i)
+        #attscore_i = max(all entities j) (e_j <dot> t_i weighted by DIAG2)
+
+
 
     def regularize(self, max_norm=1):
         l1_w_norm = self.score_combine_linear_1.weight.norm()
