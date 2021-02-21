@@ -54,57 +54,64 @@ class LocalCtxAttRanker(AbstractWordEntity):
             print([(self.word_voca.id2word[t], a[0]) for t, a in zip(selected_tids, ap)])
 
     def forward(self, token_ids, tok_mask, entity_ids, entity_mask, p_e_m=None):
+        #H NOTES:
+        # 8 is the number of candidate entities per mention
+        # 12 is the "batchsize"??
+        # 19 is the number of mentions
+        # 66
+        # 100 is the number of words (per batch??)
+        # 300 is the dimensions of an embedding
         #Harrison called from mulrel_ranker (using super) IFF use_local is True there (should be??)
         #Harrison entity_ids is therefore a (n_ments * n_cands) 2D tensor (note n_cands=8 typically)
         print("REACHED LOCAL SCORING FUNCTION")
-        print(token_ids.size())#H 2D tensor of IDS, 1st ID seems to be anything, last few ids are 492407 (#UNK#)
-        print(tok_mask.size())#H 2D binary tensor, 1 for usual IDs, 0 for unk ids it appears
+        print(token_ids.size())#H 2D 12*100 tensor of IDS, 1st ID seems to be anything, last few ids are 492407 (#UNK#)
+        print(tok_mask.size())#H 2D 12*100 binary tensor, 1 for usual IDs, 0 for unk ids it appears
         #print(entity_ids)#H 2D 19 * 8 tensor of IDs (274474 is UNK)
         #print(entity_mask)#H 2D 19*8 binary tensor mask, 1 for IDS, 0 for unk ids
         #print(p_e_m)#H None
         print("---END---")
 
-        batchsize, n_words = token_ids.size()
+        batchsize, n_words = token_ids.size()#H 12*100
         n_entities = entity_ids.size(1) #Harrison =8 (n_cands) typically
         tok_mask = tok_mask.view(batchsize, 1, -1)
 
         tok_vecs = self.word_embeddings(token_ids)
         entity_vecs = self.entity_embeddings(entity_ids)
-        #print(tok_vecs.size())#H 19*66*300
-        #print(entity_vecs.size())#H 19*8*300
+        print(tok_vecs.size())#H 19*66*300
+        print(entity_vecs.size())#H 19*8*300
 
         # att
         #H                              19*8*300   *      300         ,  19*300*66
         ent_tok_att_scores = torch.bmm(entity_vecs * self.att_mat_diag, tok_vecs.permute(0, 2, 1))
         #H ent_tok_att_scores should be 19*8*66 equivalent to TODO - what is the mathematical operation?
-        print(ent_tok_att_scores.size())
+        print(ent_tok_att_scores.size())#H 12*8*100
         ent_tok_att_scores = (ent_tok_att_scores * tok_mask).add_((tok_mask - 1).mul_(1e10))
-        print(ent_tok_att_scores.size())
+        print(ent_tok_att_scores.size())#H 12*8*100
         tok_att_scores, _ = torch.max(ent_tok_att_scores, dim=1)
-        print(tok_att_scores.size())
+        print(tok_att_scores.size())#H 12*100
         top_tok_att_scores, top_tok_att_ids = torch.topk(tok_att_scores, dim=1, k=min(self.tok_top_n, n_words))
-        print(top_tok_att_scores.size(),top_tok_att_ids.size())
-        print(top_tok_att_scores,top_tok_att_ids)
+        print(top_tok_att_scores.size(),top_tok_att_ids.size())#H 12*25, 12*25
+        print(top_tok_att_scores,top_tok_att_ids)#H 25 elements 0.1-0.3, bunch of ids 0-100
         att_probs = F.softmax(top_tok_att_scores, dim=1).view(batchsize, -1, 1)
-        print(att_probs.size())
+        print(att_probs.size())#H 12*25*1
         att_probs = att_probs / torch.sum(att_probs, dim=1, keepdim=True)
-        print(att_probs.size())
+        print(att_probs.size())#H 12*25*1
 
         selected_tok_vecs = torch.gather(tok_vecs, dim=1,
                                          index=top_tok_att_ids.view(batchsize, -1, 1).repeat(1, 1, tok_vecs.size(2)))
-        print(selected_tok_vecs.size())
+        print(selected_tok_vecs.size())#H 12*25*300
 
         ctx_vecs = torch.sum((selected_tok_vecs * self.tok_score_mat_diag) * att_probs, dim=1, keepdim=True)
-        print(ctx_vecs.size())
+        print(ctx_vecs.size())#H 12*1*300
         #Harrison - ctx_vecs is a 3D tensor
 
 
         ctx_vecs_BK = ctx_vecs.clone()#H backing up
         ctx_vecs = self.local_ctx_dr(ctx_vecs)#TODO Harrison note - this is a dropout with p=0 therefore identity???
-        print(ctx_vecs.size())
-        print(ctx_vecs_BK.equal(ctx_vecs))
+        print(ctx_vecs.size())#H 12*1*300
+        print(ctx_vecs_BK.equal(ctx_vecs))#H True
         ent_ctx_scores = torch.bmm(entity_vecs, ctx_vecs.permute(0, 2, 1)).view(batchsize, n_entities)
-        print(ent_ctx_scores.size())
+        print(ent_ctx_scores.size())#H 12*8
         #Harrison ent_ctx_scores is broadcastable to entity_mask
         #Harrison entity_mask is a n*7 tensor
         #Harrison bmm does not broadcast!!!! it takes in 2 3D tensors and outputs a 3D tensor
@@ -122,8 +129,8 @@ class LocalCtxAttRanker(AbstractWordEntity):
             scores = ent_ctx_scores
 
         scores = (scores * entity_mask).add_((entity_mask - 1).mul_(1e10))
-        print(scores.size())
-        print(scores)
+        print(scores.size())#H 12*8
+        print(scores)#H Around 1e-01, -1e10 for unks
 
         # printing attention (debugging)
         self._token_ids = token_ids
