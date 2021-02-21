@@ -105,6 +105,14 @@ class LocalCtxAttRanker(AbstractWordEntity):
         att_probs_BK = att_probs.clone()
         att_probs = att_probs / torch.sum(att_probs, dim=1, keepdim=True)
         print("H: AP",att_probs_BK.equal(att_probs))
+        if not att_probs_BK.equal(att_probs):
+            print("NOT EQUAL!!!!")
+            v1 = torch.sum(att_probs_BK, dim=1, keepdim=True)
+            v2 = torch.sum(att_probs, dim=1, keepdim=True)
+            print("SUM VECTOR1",v1)
+            print("SUM VECTOR2",v2)
+            print("SUM VECTOR1E",v1==1.)
+            print("SUM VECTOR2E",v2==1.)
         att_probs# (n_ment*25*1) as above, should be identical as sum should be 1 after softmax
 
         selected_tok_vecs = torch.gather(tok_vecs, dim=1,
