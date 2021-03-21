@@ -381,7 +381,7 @@ class EDRanker:
                 eval.time = time.time() - startTime
                 eval.loss = total_loss
                 evals.metrics.append(eval)
-                evals.save(f"/rds/user/hrjh2/hpc-work/checkpoints/mulrelnel_eight_{e + 1}.evals")
+                evals.save(f"/rds/user/hrjh2/hpc-work/checkpoints/mulrelnel_seven_{e + 1}.evals")
 
     def predict(self, data):
         predictions = {items[0]['doc_name']: [] for items in data}

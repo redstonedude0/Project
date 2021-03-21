@@ -45,7 +45,7 @@ parser.add_argument("--keep_p_e_m", type=int,
                     default=4)
 parser.add_argument("--keep_ctx_ent", type=int,
                     help="number of top candidates to keep w.r.t using context",
-                    default=4)
+                    default=3)
 
 # args for local model
 parser.add_argument("--ctx_window", type=int,
