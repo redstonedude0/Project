@@ -1037,3 +1037,23 @@ class TestNeural(unittest.TestCase):
             #In the end each line sums to roughly ~2.0084 (+- e-06)
             print("FINAL MBAR")
             print(mbar)
+
+    def test_ctx_consistency(self):
+        mentions = self.testingDoc2.mentions
+        SETTINGS.allow_nans = False
+        import modeller
+        SETTINGS.dataset = Dataset()
+        SETTINGS.dataset.documents = [self.testingDoc2]
+        doc = self.testingDoc2
+        #####THEIRS
+
+
+
+        ######/THEIRS
+        ######MINE
+
+
+        ######/MINE
+
+
+        print("test ran without error")

@@ -340,10 +340,10 @@ class EDRanker:
 
                     if dname == 'aida-A':
                         print("COMPUTED F1")
-                        print(org_dev_datasets[di][1])
-                        print(dir(org_dev_datasets[di][1]))
-                        print(org_dev_datasets[di][1].__dict__)
-                        quit(0)
+                        #print(org_dev_datasets[di][1])
+                        #print(dir(org_dev_datasets[di][1]))
+                        #print(org_dev_datasets[di][1].__dict__)
+                        #quit(0)
                         dev_f1 = f1
                         eval.accuracy_possible = D.eval_MAX(org_dev_datasets[di][1], predictions)
 
