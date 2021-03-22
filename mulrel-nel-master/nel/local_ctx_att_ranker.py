@@ -119,17 +119,6 @@ class LocalCtxAttRanker(AbstractWordEntity):
 
 
         ctx_vecs = torch.sum((selected_tok_vecs * self.tok_score_mat_diag) * att_probs, dim=1, keepdim=True)
-        global DEBUG
-        DEBUG['tes'] = ctx_vecs
-#        a1 = torch.sum(selected_tok_vecs * att_probs, dim=1) * self.tok_score_mat_diag.repeat(batchsize,1) NO
-#        a1 = torch.sum((selected_tok_vecs * att_probs) * self.tok_score_mat_diag, dim=1, keepdim=True) YES
-#        a1 = torch.sum(selected_tok_vecs * att_probs, dim=1, keepdim=True) * self.tok_score_mat_diag YES
-#        a1 = torch.sum(selected_tok_vecs * att_probs, dim=1) * self.tok_score_mat_diag
-#        a1 = torch.matmul(torch.sum(selected_tok_vecs * att_probs, dim=1),self.tok_score_mat_diag.diag_embed())
-        a1 = torch.matmul(torch.sum(selected_tok_vecs * att_probs, dim=1),self.tok_score_mat_diag.diag_embed()).view(batchsize,300,1).transpose(1,2)
-        a2 = ctx_vecs#.view(batchsize,300)
-        print("DIFFA?",a1-a2)
-
         ctx_vecs #(n_ment*1*300) tensor of ctx scores
         #tok_score_mat_diag is a 300 tensor of weights, so eqn ((seltok*diag)*attprob) is (n_ment*25*300) score, where it is the <dot> score of the top 25 words,
         # multiplied by a weighting (based on embedding position), and then multiplied by the softmax weighting of that word
@@ -137,7 +126,6 @@ class LocalCtxAttRanker(AbstractWordEntity):
 
         ctx_vecs_BK = ctx_vecs.clone()#H backing up
         ctx_vecs = self.local_ctx_dr(ctx_vecs)#TODO Harrison note - this is a dropout with p=0 therefore identity???
-        print("H: CV",ctx_vecs_BK.equal(ctx_vecs))#H True
 
         #                        n_ment*8*300 , n_ment*300*1 -> n_ment*8*1 -> n_ment*8
         ent_ctx_scores = torch.bmm(entity_vecs, ctx_vecs.permute(0, 2, 1)).view(batchsize, n_entities)

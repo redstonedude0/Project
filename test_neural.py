@@ -1049,9 +1049,9 @@ class TestNeural(unittest.TestCase):
         import sys
         sys.path.insert(1, "mulrel-nel-master/")
         import nel.local_ctx_att_ranker as local_ctx_att_ranker
-        local_ctx_att_ranker.DEBUG = {}
-        neural.DEBUG = {}
         import nel.utils as nelutils
+#        local_ctx_att_ranker.DEBUG = {}
+#        neural.DEBUG = {}
         voca_emb_dir = "/home/harrison/Documents/project/data/generated/embeddings/word_ent_embs/" # SETTINGS.dataDir_embeddings
         word_voca, word_embeddings = nelutils.load_voca_embs(voca_emb_dir + 'dict.word',
                                                           voca_emb_dir + 'word_embeddings.npy')
@@ -1119,36 +1119,28 @@ class TestNeural(unittest.TestCase):
         #scores (n_ment*8)
         scores = model.forward(token_ids_t,token_mask_t,entity_ids,entity_mask,p_e_m=None)
 
-        print("their scores",scores)
+        #print("their scores",scores)
         ######/THEIRS
+
+
+
         ######MINE
         mine = NeuralNet()
         mentions = doc.mentions
         n = len(mentions)
         embeddings,embed_mask = mine.embeddings(mentions,n)
-        fmcs = mine.perform_fmcs(mentions)
-        tokenEmbeddings = [
-            [
-                processeddata.wordid2embedding[token]
-                for token in tokens
-            ]
-            for tokens in token_ids
-        ]
-        tokenMaskss = torch.BoolTensor(token_mask)
-        tokenEmbeddingss = torch.FloatTensor(tokenEmbeddings)
+        tokenEmbeddingss, tokenMaskss = mine.tokenEmbeddingss(mentions)
         psiss = mine.psiss(n,embeddings,tokenEmbeddingss,tokenMaskss)
-        print("my scores",psiss)
+        #print("my scores",psiss)
         ######/MINE
 
-        diff = scores-psiss
-        print("scorediff",diff)
-        maxError = utils.maxError(scores,psiss)
-        print(f"MaxError1: {maxError}")
-        print("-----")
-        print("DIFF1",local_ctx_att_ranker.DEBUG['tes']-neural.DEBUG['tes'])
 
+
+        #diff = scores-psiss
+        #print("scorediff",diff)
+        maxError = utils.maxError(scores,psiss)
+        print(f"MaxError: {maxError}")
         self.assertTrue(maxError == 0)
-        print("test ran without error")
 
     def test_fmc_consistency(self):
         #This'll be fun...

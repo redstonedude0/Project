@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 import hyperparameters
 import processeddata
+import utils
 from datastructures import Model, Document, EvaluationMetrics
 from hyperparameters import SETTINGS
 from utils import debug, map_2D, map_1D, smartsum, smartmax, setMaskBroadcastable, \
@@ -393,8 +394,6 @@ class NeuralNet(nn.Module):
         #embeddingss (n,7,d) * diag weighting.diag() (d,d) * fcs (n,d)
         weighted_context_embeddings = torch.matmul(self.B_diag1.diag_embed(),fcs.T).T # (n,d)
         weighted_context_embeddings = weighted_context_embeddings.view(n,SETTINGS.d,1) #(n,d,1)
-        global DEBUG
-        DEBUG['tes'] = weighted_context_embeddings.transpose(1,2)
         valss = torch.matmul(embeddings,weighted_context_embeddings) #(n,7,1)
 
         #remove extra dim
@@ -425,6 +424,41 @@ class NeuralNet(nn.Module):
                 embeddings[m_idx][0:len(valss)] = valss
                 masks[m_idx][0:len(valss)] = True
         return embeddings, masks
+
+    '''
+    Compute embeddings and embedding mask for all tokens in window around mentions
+    INPUT:
+    mentions: 1D python list of mentions
+    n: len(mentions)
+    RETURNS:
+    3D (n,win,d) tensor of token embeddings
+    2D (n,win) bool tensor masks
+    '''
+
+    def tokenEmbeddingss(self, mentions):
+        contextss = [[m.left_context,m.right_context] for m in mentions]
+        wordsss = [[ctx.strip().split() for ctx in contexts] for contexts in contextss]
+        #TODO normalise word
+        wordsss = [[[processeddata.wordid2embedding[processeddata.word2wordid[word]] for word in words if utils.is_important_dict_word(word)]for words in wordss]for wordss in wordsss]
+        l_contexts = [wordss[0][-(SETTINGS.context_window_size // 2):] for wordss in wordsss]
+        r_contexts = [wordss[1][:(SETTINGS.context_window_size // 2)] for wordss in wordsss]
+        unkwordembedding = processeddata.wordid2embedding[processeddata.unkwordid]
+        contexts = [
+            l_context+r_context
+            if len(l_context) > 0 or len(r_context) > 0
+            else [unkwordembedding]
+            for (l_context,r_context) in zip(l_contexts,r_contexts)
+        ]
+
+        #Pad all contexts on the right to equal size
+        context_lens = [len(context) for context in contexts]
+        max_len = max(context_lens)
+        tokenEmbeddingss = [context + [unkwordembedding] * (max_len - len(context)) for context in contexts]
+        tokenMaskss = [[1.] * context_len + [0.] * (max_len - context_len) for context_len in context_lens]
+
+        tokenEmbeddingss = torch.FloatTensor(tokenEmbeddingss).to(SETTINGS.device)
+        tokenMaskss = torch.BoolTensor(tokenMaskss).to(SETTINGS.device)
+        return tokenEmbeddingss, tokenMaskss
 
     '''
     Calculate phi_k values for pairs of candidates in lists
@@ -960,6 +994,10 @@ class NeuralNet(nn.Module):
         maskCoverage = (masks.to(torch.float).sum() / (n * 7)) * 100
         debug(f"Mask coverage {maskCoverage}%")
 
+        debug("Calculating token embeddings")
+        tokenEmbeddingss, tokenMaskss = self.tokenEmbeddingss(mentions)
+        nantest(tokenEmbeddingss, "tokenEmbeddingss")
+
         debug("Calculating f_m_c values")
         f_m_cs = self.perform_fmcs(mentions)
         nantest(f_m_cs, "fmcs")
@@ -968,7 +1006,7 @@ class NeuralNet(nn.Module):
         nantest(ass, "ass")
         debug("Calculating lbp inputs")
         phis = self.phissss(n, embeddings, ass)  # 4d (n_i,n_j,7_i,7_j) tensor
-        psiss = self.psiss(n, embeddings, f_m_cs)  # 2d (n_i,7_i) tensor
+        psiss = self.psiss(n, embeddings, tokenEmbeddingss,tokenMaskss)  # 2d (n_i,7_i) tensor
         lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
         lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
         nantest(phis, "phis")

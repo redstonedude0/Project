@@ -38,6 +38,7 @@ class Hyperparameters:
     saveName = "save_default"
     loss_patched = False #Use loss&accuracy functions from the paper for certainty of comparison
     attention_token_count = 25
+    context_window_size = 100
     def __repr__(self):
         s = "Hyperparameters:"
         keys = dir(self)
