@@ -98,26 +98,19 @@ class LocalCtxAttRanker(AbstractWordEntity):
         top_tok_att_scores# (n_ment*25) is the 25 highest scores for some cand <dot> some word, weighted by att_mat_diag (typically around 0.1-0.3)
         top_tok_att_ids# (n_ment*25) is the ids of the above scores into tok_att_scores (0-n_words) (NOTE: not sorted best-to-worst)
 
+
         att_probs = F.softmax(top_tok_att_scores, dim=1)
         att_probs# (n_ment,25) softmax of the 25 highest scoring words
         att_probs = att_probs.view(batchsize, -1, 1)
         att_probs# (n_ment*25*1) as above
         att_probs_BK = att_probs.clone()
         att_probs = att_probs / torch.sum(att_probs, dim=1, keepdim=True)
-        print("H: AP",att_probs_BK.equal(att_probs))
-        if not att_probs_BK.equal(att_probs):
-            print("NOT EQUAL!!!!")
-            v1 = torch.sum(att_probs_BK, dim=1, keepdim=True)
-            v2 = torch.sum(att_probs, dim=1, keepdim=True)
-            print("SUM VECTOR1",v1)
-            print("SUM VECTOR2",v2)
-            print("SUM VECTOR1E",v1==1.)
-            print("SUM VECTOR2E",v2==1.)
         att_probs# (n_ment*25*1) as above, should be identical as sum should be 1 after softmax
 
         selected_tok_vecs = torch.gather(tok_vecs, dim=1,
                                          index=top_tok_att_ids.view(batchsize, -1, 1).repeat(1, 1, tok_vecs.size(2)))
         selected_tok_vecs# (n_ment*25*300) tensor of token vectors (the corresponding vectors for top_tok_att_ids)
+
         #NOTES:
         # top_tok_att_ids.view is a (n_ment*25*1) tensor of the top 25 word ids per mention for the anycand<dot>word weighted score
         # top_tok.view.repeat is a (n_ment*25*300) tensor of the ids as above, with the id repeated 300 times
@@ -126,6 +119,17 @@ class LocalCtxAttRanker(AbstractWordEntity):
 
 
         ctx_vecs = torch.sum((selected_tok_vecs * self.tok_score_mat_diag) * att_probs, dim=1, keepdim=True)
+        global DEBUG
+        DEBUG['tes'] = ctx_vecs
+#        a1 = torch.sum(selected_tok_vecs * att_probs, dim=1) * self.tok_score_mat_diag.repeat(batchsize,1) NO
+#        a1 = torch.sum((selected_tok_vecs * att_probs) * self.tok_score_mat_diag, dim=1, keepdim=True) YES
+#        a1 = torch.sum(selected_tok_vecs * att_probs, dim=1, keepdim=True) * self.tok_score_mat_diag YES
+#        a1 = torch.sum(selected_tok_vecs * att_probs, dim=1) * self.tok_score_mat_diag
+#        a1 = torch.matmul(torch.sum(selected_tok_vecs * att_probs, dim=1),self.tok_score_mat_diag.diag_embed())
+        a1 = torch.matmul(torch.sum(selected_tok_vecs * att_probs, dim=1),self.tok_score_mat_diag.diag_embed()).view(batchsize,300,1).transpose(1,2)
+        a2 = ctx_vecs#.view(batchsize,300)
+        print("DIFFA?",a1-a2)
+
         ctx_vecs #(n_ment*1*300) tensor of ctx scores
         #tok_score_mat_diag is a 300 tensor of weights, so eqn ((seltok*diag)*attprob) is (n_ment*25*300) score, where it is the <dot> score of the top 25 words,
         # multiplied by a weighting (based on embedding position), and then multiplied by the softmax weighting of that word
@@ -168,8 +172,13 @@ class LocalCtxAttRanker(AbstractWordEntity):
         return scores
         #paper states this is e * B * f(c)
         #I determine this is:
-        # e * CTX
+        # e^T . CTX
         #CTX = SUM(25 'i's for best attscore_i) (seltokvec_i*DIAG*attprob_i)
+        #  ctx_vecs = torch.sum((selected_tok_vecs * self.tok_score_mat_diag) * att_probs, dim=1, keepdim=True)
+        #  selected_tok_vecs is (n_ment,25,300), embeddings for 25 selected tokens for each mention
+        #  tok_score_mat_diag is (300) tensor, initially 1s
+        #  attprob_i is just a numerical probability
+        #  e . SUM(SEL*DIAG1*prob,1) = e . DIAG1*SUM(SEL*prob,1) (for a 300 e, 300 diag, sum 1 (multiplication is transpositional) to a 300
         #seltokvec_i = vector for token i (t_i)
         #attprob_i = softmax(attscore_i)
         #attscore_i = max(all entities j) (e_j <dot> t_i weighted by DIAG2)

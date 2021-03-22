@@ -37,6 +37,7 @@ class Hyperparameters:
     device = None  # Used to store the device for training
     saveName = "save_default"
     loss_patched = False #Use loss&accuracy functions from the paper for certainty of comparison
+    attention_token_count = 25
     def __repr__(self):
         s = "Hyperparameters:"
         keys = dir(self)

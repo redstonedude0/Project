@@ -1,7 +1,7 @@
 from datastructures import Document, Mention, Candidate
 
 
-def getTestData():
+def getTestData() -> Document:
     testingDoc = Document.FromData("1 EU)", [Mention.FromData(0, "German", "Eu rejects",
                                                               "call to boycott British lamb Peter Blackburn Brussels 1996 08 22 The European Commission said on Thursday it disagreed with German advice to consumers to shun British lamb until scientists determine whether mad cow disease can be transmitted to sheep Germany s representative to the European Union s veterinary committee Werner Zwingmann said on Wednesday consumers should buy sheepmeat from countries other than Britain until the scientific advice was clearer We do n t support any such recommendation because we do n t see any grounds for it the Commission s chief spokesman Nikolaus van der Pas told a news",
                                                               [Candidate(11884, 0.375, "German language"),

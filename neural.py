@@ -313,6 +313,8 @@ class NeuralNet(nn.Module):
             # TODO - this is the 2-layer nn 'g' referred to in the paper, called score_combine in mulrel_ranker.py
         )
         B_diag = torch.ones(300).to(SETTINGS.device)
+        B_diag1 = torch.ones(300).to(SETTINGS.device)
+        B_diag2 = torch.ones(300).to(SETTINGS.device)
         #randn~Norm(0,1)
         R_diag = torch.randn(SETTINGS.k,300).to(SETTINGS.device)*0.1# todo k elem
         D_diag = torch.randn(SETTINGS.k,300).to(SETTINGS.device)*0.1# todo also k elems
@@ -321,6 +323,8 @@ class NeuralNet(nn.Module):
             R_diag += 1
 
         self.register_parameter("B_diag", torch.nn.Parameter(B_diag))
+        self.register_parameter("B_diag1", torch.nn.Parameter(B_diag1))
+        self.register_parameter("B_diag2", torch.nn.Parameter(B_diag2))
         self.register_parameter("R_diag", torch.nn.Parameter(R_diag))
         self.register_parameter("D_diag", torch.nn.Parameter(D_diag))
         #TODO - check the distribution of D, paper seems to be different than impl? (0.01ment/0.1rel)
@@ -329,29 +333,74 @@ class NeuralNet(nn.Module):
     # local and pairwise score functions (equation 3+section 3.1)
 
     '''
+    Compute CTX embedding f(c)
+    INPUT:
+    n: len(mentions)
+    embeddingss: 3D (n,7,d) tensor of embeddings of entities
+    tokenEmbeddingss: 3D tensor(n,win,d) tensor of embeddings of tokens in window around each mention
+    tokenMaskss: 3D bool tensor(n,win) tensor of masks
+    RETURN:
+    3D tensor (n,7,d) of context embeddings
+    '''
+    def f_c(self,n,embeddingss,tokenEmbeddingss,tokenMaskss):
+        window_size = tokenMaskss.shape[1]#Window size is dynamic, up to 100
+        #For each mention i, we compute the correlation for each token t, for each candidate (of i) c
+        #embeddingss (n,7,d) * diag weighting.diag() (d,d) * tokenEmbeddingss (n,win,d)
+        weightedTokenEmbeddingss_ = torch.matmul(self.B_diag2.diag_embed(),tokenEmbeddingss.transpose(1,2)) # (n,d,win)
+        tokenEntityScoresss = torch.matmul(embeddingss,weightedTokenEmbeddingss_) # (n,7,win)
+        #set to -1e10 for unknown tokens
+        tokenEntityScoresss[~tokenMaskss.reshape([n,1,window_size]).repeat([1,7,1])] = -1e10
+
+        #Let the score of each token be the best score across all candidates (ignore indexes)
+        tokenScoress,_ = torch.max(tokenEntityScoresss,dim=1) #(n,win)
+
+        #Take the top (default 25) scores (unsorted!), with corresponding id
+        best_scoress,best_scoress_idx = torch.topk(tokenScoress, dim=1, k=min(SETTINGS.attention_token_count, window_size)) # (n,25), (n,25) [technically <25 if small window, assuming 25 for sake of annotations]
+
+        #Take the actual embeddings for the top 25 tokens
+        best_tokenss = torch.gather(tokenEmbeddingss, dim=1,
+                                         index=best_scoress_idx.view(n,-1,1).repeat(1, 1, SETTINGS.d)) # (n,25,d)
+
+        #Scale each tokens embedding by prob
+        token_probss = nn.functional.softmax(best_scoress,dim=1) #(n,25)
+        token_probss /= torch.sum(token_probss,dim=1,keepdim=True) #(n,25), linear normalise because they do
+
+
+        best_tokenss *= token_probss.view(n,-1,1)#multiplication will broadcast, (n,25,d)
+
+        #Sum the 25-best window to achieve a context embedding weighted by token probability
+        context_embeddings = torch.sum(best_tokenss,dim=1) #(n,d)
+
+        return context_embeddings
+
+    '''
     Compute PSI for all candidates for all mentions
     INPUT:
     n: len(mentions)
     embeddings: 3D (n,7,d) tensor of embeddings
-    fmcs: 2D tensor(n,d) fmc values
+    tokenEmbeddingss: 3D tensor(n,win,d) tensor of embeddings of tokens in window around each mention
+    tokenMaskss: 3D bool tensor(n,win) tensor of masks
     RETURN:
     2D tensor (n,7) psi values per candidate per mention
     '''
 
-    def psiss(self, n, embeddings, fmcs):
-        # c_i = m.left_context + m.right_context  # TODO - use context in f properly
-        # I think f(c_i) is just the word embeddings in the 3 parts of context? needs to be a dim*1 vector?
-        # f_c = self.f(c_i)#TODO - define f properly (Attention mechanism)
-        fcs = fmcs  # TODO - is f_m_c equal to f_c???
+    def psiss(self, n, embeddings, tokenEmbeddings,tokenMaskss):
+        #Compute context embeddings f(c)
+        fcs = self.f_c(n,embeddings,tokenEmbeddings,tokenMaskss) #(n,d)
         # embeddings is 3D (n,7,d) tensor
         # B is 2D (d,d) tensor (from (d) B_diag tensor)
-        vals = embeddings.matmul(self.B_diag.diag_embed())
-        # vals is 3D (n,7,d) tensor
-        # fcs is 2D (n,d) tensor
-        # (n,7,d)*(n,d,1) = (n,7,1)
-        vals = vals.matmul(fcs.reshape([n, SETTINGS.d, 1])).reshape([n, 7])
-        # vals is 2D (n,7) tensor
-        return vals
+
+        #embeddingss (n,7,d) * diag weighting.diag() (d,d) * fcs (n,d)
+        weighted_context_embeddings = torch.matmul(self.B_diag1.diag_embed(),fcs.T).T # (n,d)
+        weighted_context_embeddings = weighted_context_embeddings.view(n,SETTINGS.d,1) #(n,d,1)
+        global DEBUG
+        DEBUG['tes'] = weighted_context_embeddings.transpose(1,2)
+        valss = torch.matmul(embeddings,weighted_context_embeddings) #(n,7,1)
+
+        #remove extra dim
+        valss = valss.view(n,7)
+        # vals2 is 2D (n,7) tensor
+        return valss
 
     '''
     Compute embeddings and embedding mask for all mentions
