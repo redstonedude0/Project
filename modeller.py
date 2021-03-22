@@ -31,7 +31,7 @@ def _embeddingScore(mention: Mention, candidate: Candidate):
 def candidateSelection(dataset:Dataset,name="UNK"):
     # keep top 4 using p_e_m and top 3 using entity embeddings w/ context
     keep_pem = 4#As prescribed by paper
-    keep_context = 4#Paper says 3 but code uses 4
+    keep_context = 3#Paper says 3 but code uses 4
     pad = True#Pad with UNKs
     #Duplicates aren't allowed
     for doc in tqdm(dataset.documents, unit=name+"_documents", file=sys.stdout):
