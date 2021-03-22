@@ -57,7 +57,9 @@ def candidateSelection(dataset:Dataset,name="UNK"):
                 if keptEmbeddingCand not in keptCands:
                     keptCands.append(keptEmbeddingCand)
             if len(keptCands) != keep_context + keep_pem:
-                raise RuntimeError(f"Incorrect number of candidates available ({len(keptCands)})")
+                pass
+#                raise RuntimeError(f"Incorrect number of candidates available ({len(keptCands)})")
+            #TODO - finish? I think I need to pad candidates also
             mention.candidates = keptCands
 
 def candidateSelection_full():
