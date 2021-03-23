@@ -28,11 +28,10 @@ def _embeddingScore(mention: Mention, candidate: Candidate):
     return entityVec.T.dot(wordSumVec)
 
 
-def candidateSelection(dataset:Dataset,name="UNK"):
+def candidateSelection(dataset:Dataset,name="UNK",pad=True):
     # keep top 4 using p_e_m and top 3 using entity embeddings w/ context
-    keep_pem = 4#As prescribed by paper
-    keep_context = 3#Paper says 3 but code uses 4
-    pad = True#Pad with UNKs
+    keep_pem = SETTINGS.n_cands_pem
+    keep_context = SETTINGS.n_cands_ctx
     #Duplicates aren't allowed
     for doc in tqdm(dataset.documents, unit=name+"_documents", file=sys.stdout):
         for mention in doc.mentions:
@@ -43,7 +42,7 @@ def candidateSelection(dataset:Dataset,name="UNK"):
             if len(cands) > 30:
                 # Need to trim to top 30 p_e_m
                 cands = cands[0:30]  # Select top 30
-            elif pad:
+            elif pad:#TODO - padding properly
                 cands = cands + [unkcand]*(30-len(cands))#Pad to 30
             keptCands = cands[0:keep_pem]  # Keep top (4) always
             # TODO - assuming no duplicates appear, but duplicates take top 3 spots
@@ -63,22 +62,8 @@ def candidateSelection(dataset:Dataset,name="UNK"):
             mention.candidates = keptCands
 
 def candidateSelection_full():
-    candidateSelection(SETTINGS.dataset_train,"train")
-    candidateSelection(SETTINGS.dataset_eval,"eval")
-
-def candidatePadding(dataset:Dataset,name="UNK"):
-    # make sure always 7 candidates
-    paddingCand = Candidate(-1,0,"#UNK#")
-    for doc in tqdm(dataset.documents, unit=name+"_documents", file=sys.stdout):
-        for mention in doc.mentions:
-            cands = mention.candidates
-            if len(cands) < 7:
-                paddingCands = [paddingCand for _ in range(len(cands),7)]
-                mention.candidates += paddingCands
-
-def candidatePadding_full():
-    candidatePadding(SETTINGS.dataset_train,"train")
-    candidatePadding(SETTINGS.dataset_eval,"eval")
+    candidateSelection(SETTINGS.dataset_train,"train",True)
+    candidateSelection(SETTINGS.dataset_eval,"eval",True)
 
 def trainToCompletion():  # TODO - add params
     # TODO - checkpoint along the way

@@ -200,7 +200,7 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
             possibleCorrect += possible.sum().item()
             total += len(same_list)
 
-            masks = [[True]*len(m.candidates)+[False]*(7-len(m.candidates)) for m in document.mentions]
+            masks = [[True]*len(m.candidates)+[False]*(SETTINGS.n_cands-len(m.candidates)) for m in document.mentions]
             masks = torch.tensor(masks).to(SETTINGS.device)
             #Where the best candidate isn't real, try guessing 0
             best_cand_masks = masks.T[best_cand_indices].diagonal()
@@ -244,7 +244,7 @@ def loss_document(document: Document, output):
         truth_indices = torch.tensor([m.goldCandIndex() for m in document.mentions]).to(SETTINGS.device)
         # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
         truth_indices[truth_indices==-1] = 0
-        p_i_e = output  # 2D (n,7) tensor of p_i_e values
+        p_i_e = output  # 2D (n,n_cands) tensor of p_i_e values
         import torch.nn.functional as F
         loss = F.multi_margin_loss(p_i_e,truth_indices,margin=SETTINGS.gamma)
         return loss
@@ -252,15 +252,15 @@ def loss_document(document: Document, output):
     else:
         n = len(document.mentions)
         # MRN equation 7
-        p_i_e = output  # 2D (n,7) tensor of p_i_e values
+        p_i_e = output  # 2D (n,n_cands) tensor of p_i_e values
         truth_indices = [m.goldCandIndex() for m in document.mentions]
         # truth_indices is 1D (n) tensor of index of truth (0-6) (-1 for none)
         p_i_eSTAR = p_i_e.transpose(0, 1)[truth_indices].diagonal()
         # TODO - need to set piestar to 0 where truthindex -1?
-        # broadcast (n,1) to (n,7)
+        # broadcast (n,1) to (n,n_cands)
         GammaEqn = SETTINGS.gamma - p_i_eSTAR.reshape([n, 1]) + p_i_e
-        # Max each element with 0 (repeated to (n,7))
-        h = torch.max(GammaEqn, torch.tensor(0.).to(SETTINGS.device).repeat([n, 7]))
+        # Max each element with 0 (repeated to (n,n_cands))
+        h = torch.max(GammaEqn, torch.tensor(0.).to(SETTINGS.device).repeat([n, SETTINGS.n_cands]))
         L = smartsum(h)  # ignore nans in loss function (outside of candidate range)
         return L
 
@@ -337,20 +337,20 @@ class NeuralNet(nn.Module):
     Compute CTX embedding f(c)
     INPUT:
     n: len(mentions)
-    embeddingss: 3D (n,7,d) tensor of embeddings of entities
+    embeddingss: 3D (n,n_cands,d) tensor of embeddings of entities
     tokenEmbeddingss: 3D tensor(n,win,d) tensor of embeddings of tokens in window around each mention
     tokenMaskss: 3D bool tensor(n,win) tensor of masks
     RETURN:
-    3D tensor (n,7,d) of context embeddings
+    3D tensor (n,n_cands,d) of context embeddings
     '''
     def f_c(self,n,embeddingss,tokenEmbeddingss,tokenMaskss):
         window_size = tokenMaskss.shape[1]#Window size is dynamic, up to 100
         #For each mention i, we compute the correlation for each token t, for each candidate (of i) c
-        #embeddingss (n,7,d) * diag weighting.diag() (d,d) * tokenEmbeddingss (n,win,d)
+        #embeddingss (n,n_cands,d) * diag weighting.diag() (d,d) * tokenEmbeddingss (n,win,d)
         weightedTokenEmbeddingss_ = torch.matmul(self.B_diag2.diag_embed(),tokenEmbeddingss.transpose(1,2)) # (n,d,win)
-        tokenEntityScoresss = torch.matmul(embeddingss,weightedTokenEmbeddingss_) # (n,7,win)
+        tokenEntityScoresss = torch.matmul(embeddingss,weightedTokenEmbeddingss_) # (n,n_cands,win)
         #set to -1e10 for unknown tokens
-        tokenEntityScoresss[~tokenMaskss.reshape([n,1,window_size]).repeat([1,7,1])] = -1e10
+        tokenEntityScoresss[~tokenMaskss.reshape([n,1,window_size]).repeat([1,SETTINGS.n_cands,1])] = -1e10
 
         #Let the score of each token be the best score across all candidates (ignore indexes)
         tokenScoress,_ = torch.max(tokenEntityScoresss,dim=1) #(n,win)
@@ -378,27 +378,27 @@ class NeuralNet(nn.Module):
     Compute PSI for all candidates for all mentions
     INPUT:
     n: len(mentions)
-    embeddings: 3D (n,7,d) tensor of embeddings
+    embeddings: 3D (n,n_cands,d) tensor of embeddings
     tokenEmbeddingss: 3D tensor(n,win,d) tensor of embeddings of tokens in window around each mention
     tokenMaskss: 3D bool tensor(n,win) tensor of masks
     RETURN:
-    2D tensor (n,7) psi values per candidate per mention
+    2D tensor (n,n_cands) psi values per candidate per mention
     '''
 
     def psiss(self, n, embeddings, tokenEmbeddings,tokenMaskss):
         #Compute context embeddings f(c)
         fcs = self.f_c(n,embeddings,tokenEmbeddings,tokenMaskss) #(n,d)
-        # embeddings is 3D (n,7,d) tensor
+        # embeddings is 3D (n,n_cands,d) tensor
         # B is 2D (d,d) tensor (from (d) B_diag tensor)
 
-        #embeddingss (n,7,d) * diag weighting.diag() (d,d) * fcs (n,d)
+        #embeddingss (n,n_cands,d) * diag weighting.diag() (d,d) * fcs (n,d)
         weighted_context_embeddings = torch.matmul(self.B_diag1.diag_embed(),fcs.T).T # (n,d)
         weighted_context_embeddings = weighted_context_embeddings.view(n,SETTINGS.d,1) #(n,d,1)
-        valss = torch.matmul(embeddings,weighted_context_embeddings) #(n,7,1)
+        valss = torch.matmul(embeddings,weighted_context_embeddings) #(n,n_cands,1)
 
         #remove extra dim
-        valss = valss.view(n,7)
-        # vals2 is 2D (n,7) tensor
+        valss = valss.view(n,SETTINGS.n_cands)
+        # vals2 is 2D (n,n_cands) tensor
         return valss
 
     '''
@@ -407,17 +407,17 @@ class NeuralNet(nn.Module):
     mentions: 1D python list of mentions
     n: len(mentions)
     RETURNS:
-    3D (n,7,d) tensor of embeddings
-    2D (n,7) bool tensor mask
+    3D (n,n_cands,d) tensor of embeddings
+    2D (n,n_cands) bool tensor mask
     '''
 
     def embeddings(self, mentions, n):
-        embeddings = torch.zeros([n, 7, SETTINGS.d]).to(SETTINGS.device)  # 3D (n,7,d) tensor of embeddings
+        embeddings = torch.zeros([n, SETTINGS.n_cands, SETTINGS.d]).to(SETTINGS.device)  # 3D (n,n_cands,d) tensor of embeddings
         nan = 0  # use 0 as our nan-like value
         if SETTINGS.allow_nans:
             nan = float("nan")
-        embeddings *= nan  # Actually a (n,7,d) tensor of nans to begin with
-        masks = torch.zeros([n, 7], dtype=torch.bool).to(SETTINGS.device)  # 2D (n,7) bool tensor of masks
+        embeddings *= nan  # Actually a (n,n_cands,d) tensor of nans to begin with
+        masks = torch.zeros([n, SETTINGS.n_cands], dtype=torch.bool).to(SETTINGS.device)  # 2D (n,n_cands) bool tensor of masks
         for m_idx, m in enumerate(mentions):
             if len(m.candidates) > 0:
                 valss = torch.stack([e_i.entEmbeddingTorch().to(SETTINGS.device) for e_i in m.candidates])
@@ -463,49 +463,49 @@ class NeuralNet(nn.Module):
     '''
     Calculate phi_k values for pairs of candidates in lists
     n: len(mentions)
-    embeddings: 3D (n,7,d) tensor of embeddings
+    embeddings: 3D (n,n_cands,d) tensor of embeddings
     Returns: 
-    5D (n_i,n_j,7,7,k) Tensor of phi_k values foreach k foreach candidate
+    5D (n_i,n_j,n_cands,n_cands,k) Tensor of phi_k values foreach k foreach candidate
     '''
 
     def phi_ksssss(self, n, embeddings):
-        # embeddings is a 3D (n,7,d) tensor
-        # masks is a 2D (n,7) bool tensor
+        # embeddings is a 3D (n,n_cands,d) tensor
+        # masks is a 2D (n,n_cands) bool tensor
         # R is a (k,d,d) tensor from (k,d) R_diag tensor
-        valsss = embeddings.reshape([n, 1, 7, SETTINGS.d])
-        # valss is a (n,1,7,d) tensor
+        valsss = embeddings.reshape([n, 1, SETTINGS.n_cands, SETTINGS.d])
+        # valss is a (n,1,n_cands,d) tensor
         # See image 2
         valsss = torch.matmul(valsss, self.R_diag.diag_embed())
-        # valss is (n,k,7,d) tensor
-        # Have (n,k,7,d) and (n,7,d) want (n,n,7,7,k)
-        # (n,1,7,d)*(n,1,7,d,k) should do it?
+        # valss is (n,k,n_cands,d) tensor
+        # Have (n,k,n_cands,d) and (n,n_cands,d) want (n,n,n_cands,n_cands,k)
+        # (n,1,n_cands,d)*(n,1,n_cands,d,k) should do it?
         valsss = valsss.transpose(1, 2)
-        # valsss is (n,7,k,d)
+        # valsss is (n,n_cands,k,d)
         valsss = valsss.transpose(2, 3)
-        # valsss is (n,7,d,k)
-        valsss = valsss.reshape([n, 1, 7, SETTINGS.d, SETTINGS.k])
-        # valsss is (n,1,7,d,k)
-        embeddings = embeddings.reshape([n, 1, 7, SETTINGS.d])
-        # embeddings is (n,1,7,d)
+        # valsss is (n,n_cands,d,k)
+        valsss = valsss.reshape([n, 1, SETTINGS.n_cands, SETTINGS.d, SETTINGS.k])
+        # valsss is (n,1,n_cands,d,k)
+        embeddings = embeddings.reshape([n, 1, SETTINGS.n_cands, SETTINGS.d])
+        # embeddings is (n,1,n_cands,d)
         # see image 1 (applied to 2D version, this was 3D)
         # valss = valss.matmul(embeddings.T)
         valsss = torch.matmul(embeddings, valsss)
-        # valsss is (n,n,7,7,k)
+        # valsss is (n,n,n_cands,n_cands,k)
         return valsss
 
     '''
     Calculates Phi for every candidate pair for every mention
     n: len(mentions)
-    embeddings: 3D (n,7,d) tensor of embeddings
+    embeddings: 3D (n,n_cands,d) tensor of embeddings
     ass: 3D (n*n*k) matrix of a values 
     RETURN:
-    4D (n_i,n_j,7_i,7_j) Tensor of phi values foreach candidate foreach i,j
+    4D (n_i,n_j,n_cands_i,n_cands_j) Tensor of phi values foreach candidate foreach i,j
     '''
 
     def phissss(self, n, embeddings, ass):
-        # 5D(n_i,n_j,7_i,7_j,k) , 4D (n_i,n_j,7_i,7_j)
+        # 5D(n_i,n_j,n_cands_i,n_cands_j,k) , 4D (n_i,n_j,n_cands_i,n_cands_j)
         values = self.phi_ksssss(n, embeddings)
-        values *= ass.reshape([n, n, 1, 1, SETTINGS.k])  # broadcast along 7*7
+        values *= ass.reshape([n, n, 1, 1, SETTINGS.k])  # broadcast along n_cands*n_cands
         values = smartsum(values, dim=4)
         return values
 
@@ -600,41 +600,41 @@ class NeuralNet(nn.Module):
 
     '''
     Perform LBP iteration for all pairs of candidates
-    mbar: mbar message values (n,n,7) 3D tensor
-    masks 2D (n,7) boolean tensor mask
+    mbar: mbar message values (n,n,n_cands) 3D tensor
+    masks 2D (n,n_cands) boolean tensor mask
     n: len(mentions)
-    lbp_inputs: 4D tensor (n_i,n_j,7_i,7_j) psi+phi values per i,j per candidates (e',e)
+    lbp_inputs: 4D tensor (n_i,n_j,n_cands_i,n_cands_j) psi+phi values per i,j per candidates (e',e)
     RETURNS:
-    3D tensor (n,n,7_j) of maximum message values for each i,j and each candidate for j
+    3D tensor (n,n,n_cands_j) of maximum message values for each i,j and each candidate for j
     '''
 
     def lbp_iteration_mvaluesss(self, mbar,masks, n, lbp_inputs):
         # TODO - is the initial mbar and the cancellation eye learned? MRN 235/238 mulrel_ranker.py
         # mbar intuition: mbar[m_i][m_j][e_j] is how much m_i votes for e_j to be the candidate for m_j (at each timestep)
-        # mbar is a 3D (n_i,n_j,7_j) tensor
+        # mbar is a 3D (n_i,n_j,n_cands_j) tensor
         mbarsum = mbar  # start by reading mbar as k->i beliefs
-        # (n_k,n_i,7_i)
+        # (n_k,n_i,n_cands_i)
         # foreach j we will have a different sum, introduce j dimension
         mbarsum = mbarsum.repeat([n, 1, 1, 1])
-        # (n_j,n_k,n_i,7_i)
+        # (n_j,n_k,n_i,n_cands_i)
         # 0 out where j=k (do not want j->i(e'), set to 0 for all i,e')
         cancel = 1 - torch.eye(n, n).to(SETTINGS.device)  # (n_j,n_k) anti-identity
         cancel = cancel.reshape([n, n, 1, 1])  # add extra dimensions
-        mbarsum = mbarsum * cancel  # broadcast (n,n,1,1) to (n,n,n,7), setting (n,7) dim to 0 where j=k
-        # (n_j,n_k,n_i,7_i)
-        # sum to a (n_i,n_j,7_i) tensor of sums(over k) for each j,i,e'
+        mbarsum = mbarsum * cancel  # broadcast (n,n,1,1) to (n,n,n,n_cands), setting (n,n_cands) dim to 0 where j=k
+        # (n_j,n_k,n_i,n_cands_i)
+        # sum to a (n_i,n_j,n_cands_i) tensor of sums(over k) for each j,i,e'
         mbarsum = smartsum(mbarsum, 1).transpose(0, 1)
         nantest(mbarsum, "mbarsum")
         # lbp_inputs is phi+psi values, add to the mbar sums to get the values in the max brackets
         #        lbp_inputs = lbp_inputs.permute(1,0,3,2)
         values = lbp_inputs + mbarsum.reshape(
-            [n, n, 7, 1])  # broadcast (from (n_i,n_j,7_i,1) to (n_i,n_j,7_i,7_j) tensor)
+            [n, n, SETTINGS.n_cands, 1])  # broadcast (from (n_i,n_j,n_cands_i,1) to (n_i,n_j,n_cands_i,n_cands_j) tensor)
         minimumValue = values.min()-1
         #Make brackets minimum value where e or e' don't exist
         values = values.clone()
-        values[~masks.reshape([n,1,7,1]).repeat([1,n,1,7])] = minimumValue
-        values[~masks.reshape([n,1,7,1]).repeat([1,n,1,7])] = minimumValue
-        maxValue = smartmax(values, dim=2)  # (n_i,n_j,7_j) tensor of max values
+        values[~masks.reshape([n,1,SETTINGS.n_cands,1]).repeat([1,n,1,SETTINGS.n_cands])] = minimumValue
+        values[~masks.reshape([n,1,SETTINGS.n_cands,1]).repeat([1,n,1,SETTINGS.n_cands])] = minimumValue
+        maxValue = smartmax(values, dim=2)  # (n_i,n_j,n_cands_j) tensor of max values
         #maxValue will be minimumValue if nonsensical, make it zero for now
         maxValue[maxValue==minimumValue] = 0
         #print("mbar",maxValue)
@@ -642,26 +642,26 @@ class NeuralNet(nn.Module):
 
     '''
     Compute an iteration of LBP
-    mbar: mbar message values (n,n,7) 3D tensor
-    masks 2D (n,7) boolean tensor mask
+    mbar: mbar message values (n,n,n_cands) 3D tensor
+    masks 2D (n,n_cands) boolean tensor mask
     n: len(mentions)
-    lbp_inputs: 4D tensor (n_i,n_j,7_i,7_j) psi+phi values per i,j per candidates (e',e)
+    lbp_inputs: 4D tensor (n_i,n_j,n_cands_i,n_cands_j) psi+phi values per i,j per candidates (e',e)
     RETURNS:
-    3D tensor (n,n,7_j) next mbar
+    3D tensor (n,n,n_cands_j) next mbar
     '''
 
     def lbp_iteration_complete(self, mbar, masks, n, lbp_inputs):
-        # (n,n,7_j) tensor
+        # (n,n,n_cands_j) tensor
         mvalues = self.lbp_iteration_mvaluesss(mbar,masks, n, lbp_inputs)
         nantest(mvalues, "mvalues")
         #LBPEq11 - softmax mvalues
         # softmax invariant under translation, translate to around 0 to reduce float errors
-        normalise_avgToZero_rowWise(mvalues, masks.reshape([1, n, 7]), dim=2)
+        normalise_avgToZero_rowWise(mvalues, masks.reshape([1, n, SETTINGS.n_cands]), dim=2)
         expmvals = mvalues.exp()
         expmvals = expmvals.clone()  # clone to prevent autograd errors (in-place modification next)
-        setMaskBroadcastable(expmvals, ~masks.reshape([1, n, 7]), 0)  # nans are 0
+        setMaskBroadcastable(expmvals, ~masks.reshape([1, n, SETTINGS.n_cands]), 0)  # nans are 0
         softmaxdenoms = smartsum(expmvals, dim=2)  # Eq 11 softmax denominator from LBP paper
-        softmaxmvalues = expmvals/softmaxdenoms.reshape([n,n,1])# broadcast (n,n) to (n,n,7)
+        softmaxmvalues = expmvals/softmaxdenoms.reshape([n,n,1])# broadcast (n,n) to (n,n,n_cands)
 
         # Do Eq 11 (old mbars + mvalues to new mbars)
         dampingFactor = SETTINGS.dropout_rate  # delta in the paper #TODO - I believe this is dropout_rate in the MRN code then?
@@ -673,25 +673,25 @@ class NeuralNet(nn.Module):
         #        print("X2 (0-0.5)",otherbit)
         newmbar += otherbit
         #        print("X3 ([0.25-]0.5-1.0)",newmbar)
-        setMaskBroadcastable(newmbar, ~masks.reshape([1, n, 7]),
-                             1)  # 'nan's become 0 after log (broadcast (1,n,7) to (n,n,7))
+        setMaskBroadcastable(newmbar, ~masks.reshape([1, n, SETTINGS.n_cands]),
+                             1)  # 'nan's become 0 after log (broadcast (1,n,n_cands) to (n,n,n_cands))
         newmbar = newmbar.log()
         #        print("X4 (-0.69 - 0)",newmbar)
         nantest(newmbar, "newmbar")
         return newmbar
 
     def lbp_iteration_complete_bk(self, mbar, masks, n, lbp_inputs):
-        # (n,n,7_j) tensor
+        # (n,n,n_cands_j) tensor
         mvalues = self.lbp_iteration_mvaluesss(mbar,masks, n, lbp_inputs)
         nantest(mvalues, "mvalues")
         # softmax invariant under translation, translate to around 0 to reduce float errors
         # u+= 50
         # Normalise for each n across the row
-        normalise_avgToZero_rowWise(mvalues, masks.reshape([1, n, 7]), dim=2)
+        normalise_avgToZero_rowWise(mvalues, masks.reshape([1, n, SETTINGS.n_cands]), dim=2)
         expmvals = mvalues.exp()
         expmvals = expmvals.clone()  # clone to prevent autograd errors (in-place modification next)
 
-        setMaskBroadcastable(expmvals, ~masks.reshape([1, n, 7]), 0)  # nans are 0
+        setMaskBroadcastable(expmvals, ~masks.reshape([1, n, SETTINGS.n_cands]), 0)  # nans are 0
         softmaxdenoms = smartsum(expmvals, dim=2)  # Eq 11 softmax denominator from LBP paper
 
         # Do Eq 11 (old mbars + mvalues to new mbars)
@@ -700,12 +700,12 @@ class NeuralNet(nn.Module):
         newmbar = newmbar.mul(1 - dampingFactor)  # dont use inplace after exp to prevent autograd error
         #        print("X1 ([0.25-]0.5)",newmbar)
         #        print("expm",expmvals)
-        otherbit = dampingFactor * (expmvals / softmaxdenoms.reshape([n, n, 1]))  # broadcast (n,n) to (n,n,7)
+        otherbit = dampingFactor * (expmvals / softmaxdenoms.reshape([n, n, 1]))  # broadcast (n,n) to (n,n,n_cands)
         #        print("X2 (0-0.5)",otherbit)
         newmbar += otherbit
         #        print("X3 ([0.25-]0.5-1.0)",newmbar)
-        setMaskBroadcastable(newmbar, ~masks.reshape([1, n, 7]),
-                             1)  # 'nan's become 0 after log (broadcast (1,n,7) to (n,n,7))
+        setMaskBroadcastable(newmbar, ~masks.reshape([1, n, SETTINGS.n_cands]),
+                             1)  # 'nan's become 0 after log (broadcast (1,n,n_cands) to (n,n,n_cands))
         newmbar = newmbar.log()
         #        print("X4 (-0.69 - 0)",newmbar)
         nantest(newmbar, "newmbar")
@@ -714,19 +714,19 @@ class NeuralNet(nn.Module):
     '''
     Compute all LBP loops
     n: len(mentions)
-    masks 2D (n,7) boolean tensor mask
+    masks 2D (n,n_cands) boolean tensor mask
     f_m_cs: 2D (n,d) tensor of fmc values
-    psiss: 2D tensor (n,7) psi values per candidate per mention
-    lbp_inputs: 4D tensor (n_i,n_j,7_i,7_j) psi+phi values per i,j per candidates (e',e)
+    psiss: 2D tensor (n,n_cands) psi values per candidate per mention
+    lbp_inputs: 4D tensor (n_i,n_j,n_cands_i,n_cands_j) psi+phi values per i,j per candidates (e',e)
     RETURNS:
-    2D (n,7) tensor of ubar values
+    2D (n,n_cands) tensor of ubar values
     '''
 
     def lbp_total(self, n, masks, psiss, lbp_inputs):
-        # Note: Should be i*j*arb but arb dependent so i*j*7 but unused cells will be 0/nan and ignored later
+        # Note: Should be i*j*arb but arb dependent so i*j*n_cands but unused cells will be 0/nan and ignored later
         debug("Computing initial mbar for LBP")
-        mbar = torch.zeros(n, n, 7).to(SETTINGS.device)
-        # should be nan if no candidate there (n_i,n_j,7_j)
+        mbar = torch.zeros(n, n, SETTINGS.n_cands).to(SETTINGS.device)
+        # should be nan if no candidate there (n_i,n_j,n_cands_j)
         if SETTINGS.allow_nans:
             mbar_mask = masks.repeat([n, 1, 1]).to(torch.float)  # 1 where keep,0 where nan-out
             nan = float("nan")
@@ -745,7 +745,7 @@ class NeuralNet(nn.Module):
         antieye = antieye.reshape([n, n, 1])  # reshape for broadcast
         mbar = mbar * antieye  # remove where k=i
         # make mbar 0 where masked out
-        setMaskBroadcastable(mbar, ~masks.reshape([1, n, 7]), 0)
+        setMaskBroadcastable(mbar, ~masks.reshape([1, n, SETTINGS.n_cands]), 0)
         mbarsum = smartsum(mbar, 0)  # (n_i,e_i) sums
         u = psiss + mbarsum
         nantest(u, "u")
@@ -787,7 +787,7 @@ class NeuralNet(nn.Module):
             print("Max value",u.max())
         ubar = ubar.clone()  # deepclone because performing in-place modification after exp
         ubar[~masks] = 0  # reset nans to 0
-        # Normalise ubar (n,7)
+        # Normalise ubar (n,n_cands)
         nantest(ubar, "ubar (in method)")
         ubarsum = smartsum(ubar, 1)  # (n_i) sums over candidates
         nantest(ubar, "ubar (postsum)")
@@ -803,7 +803,7 @@ class NeuralNet(nn.Module):
         ubarsum[ubarsum==0]=1#Set 0 to 1 to prevent division error
         if len(ubarsum[ubarsum == float("inf")]) > 0:
             print("ubarsum has inf values")
-        ubar[ubarsum.repeat([1,7])==float("inf")] = 0#Set to 0 when dividing by inf, repeat 7 times across sum dim
+        ubar[ubarsum.repeat([1,SETTINGS.n_cands])==float("inf")] = 0#Set to 0 when dividing by inf, repeat n_cands times across sum dim
         ubarsum[ubarsum==float("inf")] = 1#Set to 1 to leave ubar as 0 when dividing by inf
         if len(ubarsum[ubarsum<1e-20]) > 0:
             print("ubar has micro values")
@@ -815,7 +815,7 @@ class NeuralNet(nn.Module):
             print(psiss[3])
             print(mbarsum[3])
             quit(0)
-        ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
+        ubar /= ubarsum  # broadcast (n_i,1) (n_i,n_cands) to normalise
         if SETTINGS.allow_nans:
             ubar[~masks] = float("nan")
             ubar[ubarsumnans.reshape([n])] = float("nan")
@@ -823,10 +823,10 @@ class NeuralNet(nn.Module):
 
 
     def lbp_total_bk2(self, n, masks, psiss, lbp_inputs):
-        # Note: Should be i*j*arb but arb dependent so i*j*7 but unused cells will be 0/nan and ignored later
+        # Note: Should be i*j*arb but arb dependent so i*j*n_cands but unused cells will be 0/nan and ignored later
         debug("Computing initial mbar for LBP")
-        mbar = torch.zeros(n, n, 7).to(SETTINGS.device)
-        # should be nan if no candidate there (n_i,n_j,7_j)
+        mbar = torch.zeros(n, n, SETTINGS.n_cands).to(SETTINGS.device)
+        # should be nan if no candidate there (n_i,n_j,n_cands_j)
         if SETTINGS.allow_nans:
             mbar_mask = masks.repeat([n, 1, 1]).to(torch.float)  # 1 where keep,0 where nan-out
             nan = float("nan")
@@ -845,7 +845,7 @@ class NeuralNet(nn.Module):
         antieye = antieye.reshape([n, n, 1])  # reshape for broadcast
         mbar = mbar * antieye  # remove where k=i
         # make mbar 0 where masked out
-        setMaskBroadcastable(mbar, ~masks.reshape([1, n, 7]), 0)
+        setMaskBroadcastable(mbar, ~masks.reshape([1, n, SETTINGS.n_cands]), 0)
         mbarsum = smartsum(mbar, 0)  # (n_i,e_i) sums
         u = psiss + mbarsum
         nantest(u, "u")
@@ -881,7 +881,7 @@ class NeuralNet(nn.Module):
             print("Max value",u.max())
         ubar = ubar.clone()  # deepclone because performing in-place modification after exp
         ubar[~masks] = 0  # reset nans to 0
-        # Normalise ubar (n,7)
+        # Normalise ubar (n,n_cands)
         nantest(ubar, "ubar (in method)")
         ubarsum = smartsum(ubar, 1)  # (n_i) sums over candidates
         nantest(ubar, "ubar (postsum)")
@@ -897,19 +897,19 @@ class NeuralNet(nn.Module):
         ubarsum[ubarsum==0]=1#Set 0 to 1 to prevent division error
         if len(ubarsum[ubarsum == float("inf")]) > 0:
             print("ubarsum has inf values")
-        ubar[ubarsum.repeat([1,7])==float("inf")] = 0#Set to 0 when dividing by inf, repeat 7 times across sum dim
+        ubar[ubarsum.repeat([1,SETTINGS.n_cands])==float("inf")] = 0#Set to 0 when dividing by inf, repeat n_cands times across sum dim
         ubarsum[ubarsum==float("inf")] = 1#Set to 1 to leave ubar as 0 when dividing by inf
-        ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
+        ubar /= ubarsum  # broadcast (n_i,1) (n_i,n_cands) to normalise
         if SETTINGS.allow_nans:
             ubar[~masks] = float("nan")
             ubar[ubarsumnans.reshape([n])] = float("nan")
         return ubar
 
     def lbp_total_bk(self, n, masks, psiss, lbp_inputs):
-        # Note: Should be i*j*arb but arb dependent so i*j*7 but unused cells will be 0/nan and ignored later
+        # Note: Should be i*j*arb but arb dependent so i*j*n_cands but unused cells will be 0/nan and ignored later
         debug("Computing initial mbar for LBP")
-        mbar = torch.zeros(n, n, 7).to(SETTINGS.device)
-        # should be nan if no candidate there (n_i,n_j,7_j)
+        mbar = torch.zeros(n, n, SETTINGS.n_cands).to(SETTINGS.device)
+        # should be nan if no candidate there (n_i,n_j,n_cands_j)
         mbar_mask = masks.repeat([n, 1, 1]).to(torch.float)  # 1 where keep,0 where nan-out
         if SETTINGS.allow_nans:
             nan = float("nan")
@@ -928,7 +928,7 @@ class NeuralNet(nn.Module):
         antieye = antieye.reshape([n, n, 1])  # reshape for broadcast
         mbar = mbar * antieye  # remove where k=i
         # make mbar 0 where masked out
-        setMaskBroadcastable(mbar, ~masks.reshape([1, n, 7]), 0)
+        setMaskBroadcastable(mbar, ~masks.reshape([1, n, SETTINGS.n_cands]), 0)
         mbarsum = smartsum(mbar, 0)  # (n_i,e_i) sums
         u = psiss + mbarsum
         nantest(u, "u")
@@ -960,7 +960,7 @@ class NeuralNet(nn.Module):
             print("Max value",u.max())
         ubar = ubar.clone()  # deepclone because performing in-place modification after exp
         ubar[~masks] = 0  # reset nans to 0
-        # Normalise ubar (n,7)
+        # Normalise ubar (n,n_cands)
         nantest(ubar, "ubar (in method)")
         ubarsum = smartsum(ubar, 1)  # (n_i) sums over candidates
         nantest(ubar, "ubar (postsum)")
@@ -976,9 +976,9 @@ class NeuralNet(nn.Module):
         ubarsum[ubarsum==0]=1#Set 0 to 1 to prevent division error
         if len(ubarsum[ubarsum == float("inf")]) > 0:
             print("ubarsum has inf values")
-        ubar[ubarsum.repeat([1,7])==float("inf")] = 0#Set to 0 when dividing by inf, repeat 7 times across sum dim
+        ubar[ubarsum.repeat([1,SETTINGS.n_cands])==float("inf")] = 0#Set to 0 when dividing by inf, repeat n_cands times across sum dim
         ubarsum[ubarsum==float("inf")] = 1#Set to 1 to leave ubar as 0 when dividing by inf
-        ubar /= ubarsum  # broadcast (n_i,1) (n_i,7) to normalise
+        ubar /= ubarsum  # broadcast (n_i,1) (n_i,n_cands) to normalise
         if SETTINGS.allow_nans:
             ubar[~masks] = float("nan")
             ubar[ubarsumnans.reshape([n])] = float("nan")
@@ -991,7 +991,7 @@ class NeuralNet(nn.Module):
         debug("Calculating embeddings")
         embeddings, masks = self.embeddings(mentions, n)
         nantest(embeddings, "embeddings")
-        maskCoverage = (masks.to(torch.float).sum() / (n * 7)) * 100
+        maskCoverage = (masks.to(torch.float).sum() / (n * SETTINGS.n_cands)) * 100
         debug(f"Mask coverage {maskCoverage}%")
 
         debug("Calculating token embeddings")
@@ -1005,10 +1005,10 @@ class NeuralNet(nn.Module):
         ass = self.ass(f_m_cs,n)
         nantest(ass, "ass")
         debug("Calculating lbp inputs")
-        phis = self.phissss(n, embeddings, ass)  # 4d (n_i,n_j,7_i,7_j) tensor
-        psiss = self.psiss(n, embeddings, tokenEmbeddingss,tokenMaskss)  # 2d (n_i,7_i) tensor
+        phis = self.phissss(n, embeddings, ass)  # 4d (n_i,n_j,n_cands_i,n_cands_j) tensor
+        psiss = self.psiss(n, embeddings, tokenEmbeddingss,tokenMaskss)  # 2d (n_i,n_cands_i) tensor
         lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
-        lbp_inputs += psiss.reshape([n, 1, 7, 1])  # broadcast (from (n_i,7_i) to (n_i,n_j,7_i,7_j) tensor)
+        lbp_inputs += psiss.reshape([n, 1, SETTINGS.n_cands, 1])  # broadcast (from (n_i,n_cands_i) to (n_i,n_j,n_cands_i,n_cands_j) tensor)
         nantest(phis, "phis")
         nantest(psiss, "psiss")
         nantest(lbp_inputs, "lbp inputs")
@@ -1017,23 +1017,23 @@ class NeuralNet(nn.Module):
         ubar = self.lbp_total(n, masks, psiss, lbp_inputs)
         nantest(ubar, "ubar")
         debug("Starting mention calculations")
-        p_e_m = torch.zeros([n, 7]).to(SETTINGS.device)
+        p_e_m = torch.zeros([n, SETTINGS.n_cands]).to(SETTINGS.device)
         for m_idx, m in enumerate(mentions):  # all mentions
             for e_idx, e in enumerate(m.candidates):  # candidate entities
                 p_e_m[m_idx][e_idx] = e.initial_prob  # input from data
-        # reshape to a (n*7,2) tensor for use by the nn
+        # reshape to a (n*n_cands,2) tensor for use by the nn
         nantest(p_e_m, "pem")
-        ubar = ubar.reshape(n * 7, 1)
-        p_e_m = p_e_m.reshape(n * 7, 1)
+        ubar = ubar.reshape(n * SETTINGS.n_cands, 1)
+        p_e_m = p_e_m.reshape(n * SETTINGS.n_cands, 1)
         inputs = torch.cat([ubar, p_e_m], dim=1)
-        inputs[~masks.reshape(n * 7)] = 0
+        inputs[~masks.reshape(n * SETTINGS.n_cands)] = 0
         nantest(inputs, "g network inputs")
         p = self.g(inputs)
         if SETTINGS.allow_nans:
-            p[~masks.reshape(n * 7)] = float("nan")
+            p[~masks.reshape(n * SETTINGS.n_cands)] = float("nan")
         else:
-            p[~masks.reshape(n * 7)] = 0  # no chance
-        p = p.reshape(n, 7)  # back to original dims
+            p[~masks.reshape(n * SETTINGS.n_cands)] = 0  # no chance
+        p = p.reshape(n, SETTINGS.n_cands)  # back to original dims
         nantest(p,"final p tensor")
         return p
 

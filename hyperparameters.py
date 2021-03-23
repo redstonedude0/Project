@@ -39,6 +39,10 @@ class Hyperparameters:
     loss_patched = False #Use loss&accuracy functions from the paper for certainty of comparison
     attention_token_count = 25
     context_window_size = 100
+    pad_candidates = True
+    n_cands_pem = 4
+    n_cands_ctx = 4
+    n_cands = 8 #Should be n_cands_pem+n_cands_ctx
     def __repr__(self):
         s = "Hyperparameters:"
         keys = dir(self)
