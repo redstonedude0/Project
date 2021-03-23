@@ -39,26 +39,23 @@ def candidateSelection(dataset:Dataset,name="UNK",pad=True):
             unkcand = Candidate(-1,0,"#UNK#")
             # Sort p_e_m high to low
             cands.sort(key=lambda cand: cand.initial_prob, reverse=True)
+            #Trim to top 30 p_e_m, pad to 30 if padding
             if len(cands) > 30:
                 # Need to trim to top 30 p_e_m
                 cands = cands[0:30]  # Select top 30
             elif pad:#TODO - padding properly
                 cands = cands + [unkcand]*(30-len(cands))#Pad to 30
-            keptCands = cands[0:keep_pem]  # Keep top (4) always
-            # TODO - assuming no duplicates appear, but duplicates take top 3 spots
-            # Keep top 3 eT(SUM w)
-            # TODO move some of this to GPU??
-            # TODO can't work out how paper does this - they appear to take the top 7 based on embedding context and ignore p_e_m??? INVESTIGATE
+            keptCands = cands[:keep_pem]  # Keep top (keep_pem) always w.r.t PEM
+            #NOTE: Paper does not allow duplicates
+            # Keep top w.r.t ctx
             cands.sort(key=lambda cand: _embeddingScore(mention, cand), reverse=True)
             for keptEmbeddingCand in cands:
                 if len(keptCands) == keep_context + keep_pem:
                     break#NO MORE
                 if keptEmbeddingCand not in keptCands:
                     keptCands.append(keptEmbeddingCand)
-            if len(keptCands) != keep_context + keep_pem:
-                pass
-#                raise RuntimeError(f"Incorrect number of candidates available ({len(keptCands)})")
-            #TODO - finish? I think I need to pad candidates also
+            if len(keptCands) != keep_context + keep_pem:#Should always be possible with unk_cand padding
+                raise RuntimeError(f"Incorrect number of candidates available ({len(keptCands)})")
             mention.candidates = keptCands
 
 def candidateSelection_full():
