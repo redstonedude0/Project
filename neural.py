@@ -364,10 +364,10 @@ class NeuralNet(nn.Module):
 
         #Scale each tokens embedding by prob
         token_probss = nn.functional.softmax(best_scoress,dim=1) #(n,25)
-        token_probss /= torch.sum(token_probss,dim=1,keepdim=True) #(n,25), linear normalise because they do
+        token_probss = token_probss / torch.sum(token_probss,dim=1,keepdim=True) #(n,25), linear normalise because they do
 
 
-        best_tokenss *= token_probss.view(n,-1,1)#multiplication will broadcast, (n,25,d)
+        best_tokenss = best_tokenss * token_probss.view(n,-1,1)#multiplication will broadcast, (n,25,d)
 
         #Sum the 25-best window to achieve a context embedding weighted by token probability
         context_embeddings = torch.sum(best_tokenss,dim=1) #(n,d)
