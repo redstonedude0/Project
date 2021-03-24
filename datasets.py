@@ -31,6 +31,7 @@ from hyperparameters import SETTINGS
 
 
 def loadDataset(csvPath: str):
+    #Load dataset initially
     csvPath = SETTINGS.dataDir_csv + csvPath
     dataset = Dataset()
     dataset.documents = []
@@ -78,6 +79,15 @@ def loadDataset(csvPath: str):
                 mention.gold_id = goldDataParts[1]  # the ID of the candidate
             doc.mentions.append(mention)
         dataset.documents.append(doc)  # Append last document
+
+    #Add in proper noun coref (according to paper)
+    if SETTINGS.switches["aug_coref"]:
+        pass
+
+    #Add in conll sentence data (according to paper)
+    if SETTINGS.switches["aug_conll"]:
+        pass
+
     return dataset
 
 # Removed - datasets can be loaded as necessary

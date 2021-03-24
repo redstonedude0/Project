@@ -214,7 +214,7 @@ class EDRanker:
                     sent = conll_doc['sentences'][conll_m['sent_id']]
                     start = conll_m['start']
                     end = conll_m['end']
-                    # TODO MARKER - SECOND EMBEDDINGS (throughout file)
+                    # TODO MARKER - SECOND EMBEDDINGS (throughout file) (used for f(m,c,), goes to mulrel_ranker
                     snd_lctx = [self.model.snd_word_voca.get_id(t)
                                 for t in sent[max(0, start - self.args.snd_local_ctx_window // 2):start]]
                     snd_rctx = [self.model.snd_word_voca.get_id(t)

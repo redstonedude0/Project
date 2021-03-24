@@ -125,7 +125,7 @@ class MulRelRanker(LocalCtxAttRanker):
             ent_vecs = self.entity_embeddings(entity_ids)
             local_ent_scores = Variable(torch.zeros(n_ments, n_cands).cuda(), requires_grad=False)
 
-        # compute context vectors # TODO MARKER - SECOND EMBEDDINGS
+        # compute context vectors # TODO MARKER - SECOND EMBEDDINGS (used for f(m,c) calculation)
         ltok_vecs = self.snd_word_embeddings(self.s_ltoken_ids) * self.s_ltoken_mask.view(n_ments, -1, 1)
         local_lctx_vecs = torch.sum(ltok_vecs, dim=1) / torch.sum(self.s_ltoken_mask, dim=1, keepdim=True).add_(1e-5)
         rtok_vecs = self.snd_word_embeddings(self.s_rtoken_ids) * self.s_rtoken_mask.view(n_ments, -1, 1)

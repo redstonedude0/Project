@@ -52,7 +52,8 @@ def candidateSelection(dataset:Dataset,name="UNK",pad=True):
             for keptEmbeddingCand in cands:
                 if len(keptCands) == keep_context + keep_pem:
                     break#NO MORE
-                if keptEmbeddingCand not in keptCands:
+                #Don't add duplicates, unless that duplicate is the unknown candidate
+                if keptEmbeddingCand not in keptCands or keptEmbeddingCand == unkcand:
                     keptCands.append(keptEmbeddingCand)
             if len(keptCands) != keep_context + keep_pem:#Should always be possible with unk_cand padding
                 raise RuntimeError(f"Incorrect number of candidates available ({len(keptCands)})")

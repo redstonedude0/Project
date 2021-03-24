@@ -436,12 +436,8 @@ class NeuralNet(nn.Module):
     '''
 
     def tokenEmbeddingss(self, mentions):
-        contextss = [[m.left_context,m.right_context] for m in mentions]
-        wordsss = [[ctx.strip().split() for ctx in contexts] for contexts in contextss]
-        #TODO normalise word
-        wordsss = [[[processeddata.wordid2embedding[processeddata.word2wordid[word]] for word in words if utils.is_important_dict_word(word)]for words in wordss]for wordss in wordsss]
-        l_contexts = [wordss[0][-(SETTINGS.context_window_size // 2):] for wordss in wordsss]
-        r_contexts = [wordss[1][:(SETTINGS.context_window_size // 2)] for wordss in wordsss]
+        l_contexts = [utils.stringToTokenEmbeddings(m.left_context,"left",SETTINGS.context_window_size) for m in mentions]
+        r_contexts = [utils.stringToTokenEmbeddings(m.right_context,"right",SETTINGS.context_window_size) for m in mentions]
         unkwordembedding = processeddata.wordid2embedding[processeddata.unkwordid]
         contexts = [
             l_context+r_context

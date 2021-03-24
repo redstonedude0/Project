@@ -43,6 +43,10 @@ class Hyperparameters:
     n_cands_pem = 4
     n_cands_ctx = 4
     n_cands = 8 #Should be n_cands_pem+n_cands_ctx
+    switches = {
+        "aug_conll":True,
+        "aug_coref":True,
+    }
     def __repr__(self):
         s = "Hyperparameters:"
         keys = dir(self)

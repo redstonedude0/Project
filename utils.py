@@ -245,3 +245,32 @@ def is_important_dict_word(s):
         if s in processeddata.word2wordid:
             return True
         return False
+
+
+'''
+Normalise a token, as the Vocabulary object from Le et al. does.
+'''
+BRACKET_MAP = {"-LCB-": "{", "-LRB-": "(", "-LSB-": "[", "-RCB-": "}", "-RRB-": ")", "-RSB-": "]"}
+def tokenNormalise(t):
+    if t in ["#UNK#", "<s>", "</s>"]:
+        return t#If unknown just return
+    if t in BRACKET_MAP.keys():
+        return BRACKET_MAP[t]#Convert brackets
+    return t
+
+'''
+Convet a string to the embeddings of the surrounding context, the same way the implementation by Le et al. does.
+'''
+def stringToTokenEmbeddings(s,trim="none",window_size = -1):
+    import processeddata
+    tokens = s.strip().split()
+    tokens = [tokenNormalise(t) for t in tokens]
+    embeddings = [processeddata.wordid2embedding[processeddata.word2wordid[token]] for token in tokens if
+                 is_important_dict_word(token)]
+    if trim == "left":
+        embeddings = embeddings[-(window_size // 2):]
+    elif trim == "right":
+        embeddings = embeddings[:(window_size // 2)]
+    elif trim != "none":
+        raise Exception(f"Unknown trim value {trim}")
+    return embeddings

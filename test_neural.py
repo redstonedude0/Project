@@ -4,6 +4,7 @@ import unittest
 import torch
 from tqdm import tqdm
 
+import modeller
 import neural
 import processeddata
 import testdata
@@ -33,14 +34,14 @@ class TestNeural(unittest.TestCase):
         for m, n in zip(self.testingDoc2.mentions, rands):
             m.candidates = m.candidates[0:math.floor(n)]
 
-        # 7 cands (pad with unks)
+        # 8 cands (pad with unks)
         self.testingDoc3 = testdata.getTestData()
-        extracand = Candidate(-1, 0.5, "#UNK#")
-        for m in self.testingDoc3.mentions:
-            if len(m.candidates) != 7:
-                cands = m.candidates[0:7]  # Trim if needed
-                extracands = [extracand for i in range(0, 7 - len(cands))]  # Expand if needed
-                m.candidates = cands + extracands
+        SETTINGS.n_cands_ctx = 4
+        SETTINGS.n_cands_pem = 4
+        SETTINGS.n_cands = 8
+        dataset = Dataset()
+        dataset.documents = [self.testingDoc3]
+        modeller.candidateSelection(dataset,"tDoc3",True)
 
     def tearDown(self) -> None:
         pass
@@ -1041,7 +1042,7 @@ class TestNeural(unittest.TestCase):
     def test_psi_consistency(self):
         SETTINGS.allow_nans = False
         SETTINGS.dataset = Dataset()
-        SETTINGS.dataset.documents = [self.testingDoc2]
+        SETTINGS.dataset.documents = [self.testingDoc3]
         doc = self.testingDoc3
         mentions= doc.mentions
 
@@ -1146,9 +1147,120 @@ class TestNeural(unittest.TestCase):
         #This'll be fun...
         #It appears they use a 2nd embedding (work out what this is from here!)
         #It appears they mean (not +), and add 1e5. Fun.
-        #All this is in mulrel_ranker, I'm not even 100% sure what their vector dimensions are
+        #(Most of) this is in mulrel_ranker, I'm not even 100% sure what their vector dimensions are
 
         #       snd_word_voca, snd_word_embeddings = nelutils.load_voca_embs(voca_emb_dir + '/glove/dict.word',
         #                                                                 voca_emb_dir + '/glove/word_embeddings.npy')
+        SETTINGS.allow_nans = False
+        #SETTINGS.dataset = Dataset()
+        #SETTINGS.dataset.documents = [self.testingDoc2]
+        doc = self.testingDoc3
+        mentions = doc.mentions
+
+        #####THEIRS (removed CUDA dependency)
+        import sys
+        sys.path.insert(1, "mulrel-nel-master/")
+        import nel.local_ctx_att_ranker as local_ctx_att_ranker
+        import nel.utils as nelutils
+
+        #Load voca & make config
+        voca_emb_dir = "/home/harrison/Documents/project/data/generated/embeddings/word_ent_embs/"  # SETTINGS.dataDir_embeddings
+        word_voca, word_embeddings = nelutils.load_voca_embs(voca_emb_dir + 'dict.word',
+                                                             voca_emb_dir + 'word_embeddings.npy')
+        entity_voca, entity_embeddings = nelutils.load_voca_embs(voca_emb_dir + 'dict.entity',
+                                                                 voca_emb_dir + 'entity_embeddings.npy')
+        config = {
+                  'snd_local_ctx_window' : 6
+                  }
+        print("CONFIG", config)
+        model = local_ctx_att_ranker.LocalCtxAttRanker(config)
+        # p_e_m is None (i think, from mulrel_ranker), although is a FloatTensor from ed_ranker, is never passed to local_ctx.
+        # Compute tokens using their code
+
+        for m in doc.mentions:
+            snd_lctx = [self.model.snd_word_voca.get_id(t)
+                        for t in sent[max(0, start - config['snd_local_ctx_window'] // 2):start]]
+            snd_rctx = [self.model.snd_word_voca.get_id(t)
+                        for t in sent[end:min(len(sent), end + config['snd_local_ctx_window'] // 2)]]
+            snd_ment = [self.model.snd_word_voca.get_id(t)
+                        for t in sent[start:end]]
+
+            if len(snd_lctx) == 0:
+                snd_lctx = [self.model.snd_word_voca.unk_id]
+            if len(snd_rctx) == 0:
+                snd_rctx = [self.model.snd_word_voca.unk_id]
+            if len(snd_ment) == 0:
+                snd_ment = [self.model.snd_word_voca.unk_id]
+
+        contexts = []
+        for m in doc.mentions:
+            lctx = m.left_context.strip().split()
+            lctx_ids = [word_voca.get_id(t) for t in lctx if nelutils.is_important_word(t)]
+            lctx_ids = [tid for tid in lctx_ids if
+                        tid != word_voca.unk_id]  # TODO - assuming self.prerank_model.word_voca is word_voca and not snd_voca (99% sure I'm right)
+            lctx_ids = lctx_ids[max(0, len(lctx_ids) - config['ctx_window'] // 2):]
+
+            rctx = m.right_context.strip().split()
+            rctx_ids = [word_voca.get_id(t) for t in rctx if nelutils.is_important_word(t)]
+            rctx_ids = [tid for tid in rctx_ids if tid != word_voca.unk_id]
+            rctx_ids = rctx_ids[:min(len(rctx_ids), config['ctx_window'] // 2)]
+
+            contexts.append((lctx_ids, rctx_ids))
+
+        # token_ids is left@right context, or [unk], LEFT padded with unks, to equal length per mention, long tensor
+        # token_mask is 1 iff exists for token_ids, including the initial [unk] if no ctx
+        token_ids = [l + r
+                     if len(l) + len(r) > 0
+                     else [word_voca.unk_id]
+                     for (l, r) in contexts]
+        token_ids, token_mask = nelutils.make_equal_len(token_ids, word_voca.unk_id)
+        token_ids_t = torch.LongTensor(token_ids)
+        token_mask_t = torch.FloatTensor(token_mask)
+
+        # entity_ids is the cand ids for each mention in batch
+        wiki_prefix = 'en.wikipedia.org/wiki/'
+        ent_candss = []
+        for m in mentions:
+            named_cands = [c.text for c in m.candidates]
+            cands = [(wiki_prefix + c).replace('"', '%22').replace(' ', '_') for c in
+                     named_cands]  # They use the opposite direction mapping to me (add prefix, use URL strings)
+            ent_candss.append(cands)
+        #        if len(cands) == 0:
+        #            print("Should remove this candidate")
+        #            quit(0)
+
+        entity_ids = [[
+            entity_voca.get_id(ent_cand) for ent_cand in ent_cands
+        ]
+            for ent_cands in ent_candss]
+
+        entity_ids, entity_mask = nelutils.make_equal_len(entity_ids, entity_voca.unk_id)
+        entity_ids = torch.LongTensor(entity_ids)
+        entity_mask = torch.FloatTensor(entity_mask)
+        # scores (n_ment*8)
+        scores = model.forward(token_ids_t, token_mask_t, entity_ids, entity_mask, p_e_m=None)
+
+
+
+
+
+
+
+        ######/THEIRS
+
+        ######MINE
+        mine = NeuralNet()
+        #n = len(mentions)
+        #embeddings, embed_mask = mine.embeddings(mentions, n)
+        #tokenEmbeddingss, tokenMaskss = mine.tokenEmbeddingss(mentions)
+        #psiss = mine.psiss(n, embeddings, tokenEmbeddingss, tokenMaskss)
+        ######/MINE
+
+        # diff = scores-psiss
+        # print("scorediff",diff)
+        #maxError = utils.maxError(scores, psiss)
+        #print(f"MaxError: {maxError}")
+        #self.assertTrue(maxError == 0)
+
 
         print("test ran without error")
