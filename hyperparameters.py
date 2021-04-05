@@ -12,6 +12,8 @@ class NormalisationMethod(Enum):
 class Hyperparameters:
     dataDir = "/home/harrison/Documents/project/data/"
     dataDir_csv = "/home/harrison/Documents/project/data/generated/test_train_data/"
+    dataDir_conll = "/home/harrison/Documents/project/data/basic_data/test_datasets/"
+    dataDir_personNames = "/home/harrison/Documents/project/data/basic_data/p_e_m_data/persons.txt"
     dataDir_embeddings = "/home/harrison/Documents/project/data/generated/embeddings/word_ent_embs/"
     dataDir_checkpoints = "/home/harrison/Documents/project/data/checkpoints/"
     training: bool = True

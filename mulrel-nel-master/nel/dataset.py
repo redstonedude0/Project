@@ -200,8 +200,8 @@ def eval(testset, system_pred):
         if g == p and p != 'NIL':
             true_pos += 1
 
-    precision = true_pos / len([p for p in pred if p != 'NIL'])
-    recall = true_pos / len(gold)
+    precision = true_pos / len([p for p in pred if p != 'NIL'])#tp+fp (pred positive)
+    recall = true_pos / len(gold)#tp+fn (cond positive)
     f1 = 2 * precision * recall / (precision + recall)
     return f1
 

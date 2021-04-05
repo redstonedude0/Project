@@ -30,7 +30,7 @@ class DatasetType(Enum):
 from hyperparameters import SETTINGS
 
 
-def loadDataset(csvPath: str):
+def loadDataset(csvPath: str,conllPath: str):
     #Load dataset initially
     csvPath = SETTINGS.dataDir_csv + csvPath
     dataset = Dataset()
@@ -82,11 +82,98 @@ def loadDataset(csvPath: str):
 
     #Add in proper noun coref (according to paper)
     if SETTINGS.switches["aug_coref"]:
-        pass
+        names = []
+        with open(SETTINGS.dataDir_personNames, 'r', encoding='utf8') as f:
+            for line in f:
+                names.append(line)#Note - plaintext-normalised!!!!
+        from tqdm import tqdm
+        for document in tqdm(dataset.documents,unit="docs"):
+            for mention in document.mentions:
+                #cur_m = ment['mention'].lower()
+                coreferences = []
+                for mention_other in document.mentions:
+                    if mention == mention_other:
+                        continue#Don't check same mention
+                    if len(mention_other.candidates) == 0:
+                        continue#No candidates, skip
+                    if mention_other.candidates[0].text not in names:
+                        continue#Main candidate isn't a name, skip
+
+                    #Is mention a substring of other mention?
+                    start_pos = mention_other.text.lower().find(mention.text.lower())
+                    if start_pos == -1:
+                        continue#Not - return
+
+                    end_pos = start_pos + len(mention) - 1 #Find end of the substring of mention
+                    # If the mention is actually embedded in the mention_other:
+                    # If starts as standalone word
+                    if (start_pos == 0 or mention_other[start_pos - 1] == ' '):
+                        #If ends as standarlone word
+                        if (end_pos == len(mention_other) - 1 or mention_other[end_pos + 1] == ' '):
+                            #Start/end are 'whitespace', this is a coreference
+                            coreferences.append(mention_other)
+                if len(coreferences) > 0:
+                    candidate_pems = {}#Map of coref candidate ids, to SUM of p_e_m scores
+                    textmap = {}
+                    for mention_other in coreferences:
+                        for candidate in mention_other.candidates:
+                            candidate_pems[candidate.id] = candidate_pems.get(candidate.id, 0) + candidate.initial_prob
+                            textmap[candidate.id] = candidate.text
+                    #make average p_e_m across all coreferences
+                    for candidate_id in candidate_pems.keys():
+                        candidate_pems[candidate_id] /= len(coreferences)
+                    #Set candidates, sorted in descending p_e_m scores
+                    mention.candidates = sorted([Candidate(cid,pem,textmap[cid]) for cid,pem in candidate_pems.items()], key=lambda cand: cand.initial_prob,reverse=True)
 
     #Add in conll sentence data (according to paper)
     if SETTINGS.switches["aug_conll"]:
-        pass
+        conll_data = {}#Extract sentences and mentions
+        with open(SETTINGS.dataDir_conll + conllPath, 'r', encoding='utf8') as f:
+            current_document = None
+            current_sentence = None
+            for line in f:
+                line = line.strip()#Trim line
+                if line.startswith('-DOCSTART-'):#Wait for a docstart signal
+                    document_name = " ".join(line.split()[1:])#just the bit in brackets
+                    document_name = document_name[1:]#Remove open bracket (keep closing)
+                    conll_data[document_name] = {'sentences': [], 'mentions': []} #Add new doc
+                    current_document = conll_data[document_name]
+                    current_sentence = [] #doc ends in new line, sentence can be saved lated
+                else:
+                    if line == '':#Save current sentence
+                        current_document['sentences'].append(current_sentence)
+                        current_sentence = []
+                    else:
+                        bits = line.split('\t')
+                        word = bits[0]
+                        current_sentence.append(word)
+                        if len(bits) >= 6:#If marked a NE (mention)
+                            pos = bits[1] #has POS
+                            #golden = bits[4]
+                            if pos == 'I':
+                                current_document['mentions'][-1]['end_word_idx'] += 1 #Extension of previous mention
+                            else:
+                                current_document['mentions'].append({
+                                    'sentence_idx': len(current_document['sentences']),
+                                    'start_word_idx': len(current_sentence) - 1,
+                                    'end_word_idx': len(current_sentence)
+                                })
+        for document in dataset.documents:
+            conll_doc = conll_data[document.id]
+            missed = 0
+            for mention_idx,mention in enumerate(document.mentions):
+                while mention_idx+missed < len(conll_doc['mentions']):
+                    mention_details = conll_doc['mentions'][mention_idx+missed]
+                    sentence_for_mention = conll_doc['sentences'][mention_details['sentence_idx']]
+                    conll_start = mention_details['start_word_idx']
+                    conll_end = mention_details['end_word_idx']
+                    conll_mention_string = ' '.join(sentence_for_mention[conll_start:conll_end])
+                    if conll_mention_string.lower() == mention.text.lower():#Sanity check - are the mentions equal?
+                        mention.conll_start = conll_start
+                        mention.conll_end = conll_end
+                        break
+                    else: #Mentions not equal, must've missed a conll mention, move on
+                        missed += 1
 
     return dataset
 

@@ -46,6 +46,8 @@ class Mention:
     right_context: str = None  # Context to the right of the mention
     candidates: List[Candidate] = None  # Candidates for the mention
     gold_id: str = None  # Gold truth - actual candidate (id) for this mention
+    conll_start: int = None # Optional conll data
+    conll_end: int = None # Optional conll data
 
     def FromData(id, text, left_context, right_context, candidates, gold_id):
         self = Mention()

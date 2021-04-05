@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from nel.local_ctx_att_ranker import LocalCtxAttRanker
+import nel.consistency as consistency
 from torch.autograd import Variable
 
 
@@ -120,6 +121,7 @@ class MulRelRanker(LocalCtxAttRanker):
             local_ent_scores = super(MulRelRanker, self).forward(token_ids, tok_mask,
                                                                  entity_ids, entity_mask,
                                                                  p_e_m=None)
+            consistency.save(local_ent_scores,"psi")
             ent_vecs = self._entity_vecs
         else:
             ent_vecs = self.entity_embeddings(entity_ids)

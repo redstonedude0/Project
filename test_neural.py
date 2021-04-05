@@ -1043,6 +1043,8 @@ class TestNeural(unittest.TestCase):
         SETTINGS.allow_nans = False
         SETTINGS.dataset = Dataset()
         SETTINGS.dataset.documents = [self.testingDoc3]
+        #SETTINGS.dataset_train = datasets.loadDataset("aida_train.csv","AIDA/aida_train.txt")
+        #SETTINGS.dataset_eval = datasets.loadDataset("aida_testA.csv","AIDA/testa_testb_aggregate_original")
         doc = self.testingDoc3
         mentions= doc.mentions
 
@@ -1264,3 +1266,8 @@ class TestNeural(unittest.TestCase):
 
 
         print("test ran without error")
+
+    def test_load_train(self):
+        import datasets
+        dataset_train = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
+        print("loaded dataset successfully")
