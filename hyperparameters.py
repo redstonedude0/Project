@@ -48,6 +48,7 @@ class Hyperparameters:
     switches = {
         "aug_conll":True,
         "aug_coref":True,
+        "switch_sel":True,
     }
     def __repr__(self):
         s = "Hyperparameters:"

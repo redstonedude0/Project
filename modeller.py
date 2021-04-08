@@ -45,19 +45,36 @@ def candidateSelection(dataset:Dataset,name="UNK",pad=True):
                 cands = cands[0:30]  # Select top 30
             elif pad:#TODO - padding properly
                 cands = cands + [unkcand]*(30-len(cands))#Pad to 30
-            keptCands = cands[:keep_pem]  # Keep top (keep_pem) always w.r.t PEM
-            #NOTE: Paper does not allow duplicates
-            # Keep top w.r.t ctx
-            cands.sort(key=lambda cand: _embeddingScore(mention, cand), reverse=True)
-            for keptEmbeddingCand in cands:
-                if len(keptCands) == keep_context + keep_pem:
-                    break#NO MORE
-                #Don't add duplicates, unless that duplicate is the unknown candidate
-                if keptEmbeddingCand not in keptCands or keptEmbeddingCand == unkcand:
-                    keptCands.append(keptEmbeddingCand)
-            if len(keptCands) != keep_context + keep_pem:#Should always be possible with unk_cand padding
-                raise RuntimeError(f"Incorrect number of candidates available ({len(keptCands)})")
-            mention.candidates = keptCands
+            if SETTINGS.switches["switch_sel"]:#Changed from paper
+                #Initially sort by embedding score
+                cands.sort(key=lambda cand: _embeddingScore(mention, cand), reverse=True)
+                #Then keep w.r.t ctx
+                keptCands = cands[:keep_context]
+                # Keep top w.r.t pem after
+                cands.sort(key=lambda cand: cand.initial_prob, reverse=True)
+                for keptEmbeddingCand in cands:
+                    if len(keptCands) == keep_context + keep_pem:
+                        break  # NO MORE
+                    # Don't add duplicates, unless that duplicate is the unknown candidate
+                    if keptEmbeddingCand not in keptCands or keptEmbeddingCand == unkcand:
+                        keptCands.append(keptEmbeddingCand)
+                if len(keptCands) != keep_context + keep_pem:  # Should always be possible with unk_cand padding
+                    raise RuntimeError(f"Incorrect number of candidates available ({len(keptCands)})")
+                mention.candidates = keptCands
+            else:
+                keptCands = cands[:keep_pem]  # Keep top (keep_pem) always w.r.t PEM
+                #NOTE: Paper does not allow duplicates
+                # Keep top w.r.t ctx
+                cands.sort(key=lambda cand: _embeddingScore(mention, cand), reverse=True)
+                for keptEmbeddingCand in cands:
+                    if len(keptCands) == keep_context + keep_pem:
+                        break#NO MORE
+                    #Don't add duplicates, unless that duplicate is the unknown candidate
+                    if keptEmbeddingCand not in keptCands or keptEmbeddingCand == unkcand:
+                        keptCands.append(keptEmbeddingCand)
+                if len(keptCands) != keep_context + keep_pem:#Should always be possible with unk_cand padding
+                    raise RuntimeError(f"Incorrect number of candidates available ({len(keptCands)})")
+                mention.candidates = keptCands
 
 def candidateSelection_full():
     candidateSelection(SETTINGS.dataset_train,"train",True)

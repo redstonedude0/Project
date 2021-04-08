@@ -15,6 +15,7 @@ from nel.abstract_word_entity import load as load_model
 from nel.mulrel_ranker import MulRelRanker
 from nel.vocabulary import Vocabulary
 from torch.autograd import Variable
+import nel.consistency as consistency
 
 ModelClass = MulRelRanker
 wiki_prefix = 'en.wikipedia.org/wiki/'
@@ -89,10 +90,14 @@ class EDRanker:
                 token_offsets = Variable(torch.LongTensor(token_offsets).cuda())
                 token_ids = Variable(torch.LongTensor(token_ids).cuda())
 
+                consistency.save(token_ids, "prerank_tokids")
+                consistency.save(token_offsets, "prerank_tokoffs")
+                consistency.save(entity_ids, "prerank_entids")
                 log_probs = self.prerank_model.forward(token_ids, token_offsets, entity_ids, use_sum=True)
                 log_probs = (log_probs * entity_mask).add_((entity_mask - 1).mul_(1e10))
                 _, top_pos = torch.topk(log_probs, dim=1, k=self.args.keep_ctx_ent)
                 top_pos = top_pos.data.cpu().numpy()
+                consistency.save(top_pos, "top_pos")
 
             else:
                 top_pos = [[]] * len(content)
