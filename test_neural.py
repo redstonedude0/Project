@@ -4,6 +4,7 @@ import unittest
 import torch
 from tqdm import tqdm
 
+import datasets
 import modeller
 import neural
 import processeddata
@@ -1041,12 +1042,18 @@ class TestNeural(unittest.TestCase):
 
     def test_psi_consistency(self):
         SETTINGS.allow_nans = False
-        SETTINGS.dataset = Dataset()
-        SETTINGS.dataset.documents = [self.testingDoc3]
+#        SETTINGS.dataset = Dataset()
+#        SETTINGS.dataset.documents = [self.testingDoc3]
         #SETTINGS.dataset_train = datasets.loadDataset("aida_train.csv","AIDA/aida_train.txt")
         #SETTINGS.dataset_eval = datasets.loadDataset("aida_testA.csv","AIDA/testa_testb_aggregate_original")
-        doc = self.testingDoc3
-        mentions= doc.mentions
+#        doc = self.testingDoc3
+#        mentions= doc.mentions
+
+        SETTINGS.dataset = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
+        modeller.candidateSelection(SETTINGS.dataset,"TEST_train",True)
+        doc = SETTINGS.dataset.documents[0]
+        mentions = doc.mentions
+
 
         #####THEIRS (removed CUDA dependency)
         import sys
@@ -1142,6 +1149,7 @@ class TestNeural(unittest.TestCase):
         #diff = scores-psiss
         #print("scorediff",diff)
         maxError = utils.maxError(scores,psiss)
+        print(scores,psiss)
         print(f"MaxError: {maxError}")
         self.assertTrue(maxError == 0)
 
@@ -1271,3 +1279,25 @@ class TestNeural(unittest.TestCase):
         import datasets
         dataset_train = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
         print("loaded dataset successfully")
+
+    def load_consistency(self,ident):
+        path = f"/home/harrison/Documents/project/mount2/consistency/mrn_{ident}.pt"
+        return torch.load(path,map_location=torch.device('cpu'))
+
+    def test_psi_consistency_new(self):
+        theirs = self.load_consistency("psi")
+
+        net = NeuralNet()
+        dataset = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
+        modeller.candidateSelection(dataset,"TEST_train",True)
+        mentions = dataset.documents[0].mentions
+        n = len(mentions)
+        embeddings,embed_mask = net.embeddings(mentions,n)
+        tokenEmbeddingss, tokenMaskss = net.tokenEmbeddingss(mentions)
+        mine = net.psiss(n,embeddings,tokenEmbeddingss,tokenMaskss)
+
+        print("Their shape:",theirs.shape)
+        print("My shape:",mine.shape)
+        print(theirs,mine)
+        close = torch.allclose(theirs,mine)
+        self.assertTrue(close)

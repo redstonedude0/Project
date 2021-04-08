@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from nel.abstract_word_entity import AbstractWordEntity
-
+import nel.consistency as consistency
 
 class LocalCtxAttRanker(AbstractWordEntity):
     """
@@ -54,6 +54,13 @@ class LocalCtxAttRanker(AbstractWordEntity):
             print([(self.word_voca.id2word[t], a[0]) for t, a in zip(selected_tids, ap)])
 
     def forward(self, token_ids, tok_mask, entity_ids, entity_mask, p_e_m=None):
+        consistency.save(token_ids, "psi_i_tokid")
+        consistency.save(tok_mask, "psi_i_tokm")
+        consistency.save(entity_ids, "psi_i_entid")
+        consistency.save(entity_mask, "psi_i_entm")
+        consistency.save(p_e_m, "psi_i_pem")
+        consistency.save(self.att_mat_diag, "psi_i_attmat")
+        consistency.save(self.tok_score_mat_diag, "psi_i_tokmat")
         #H NOTES:
         # Some numbers change between runs (which occur in a random order), some are constant
         # 8 is the number of candidate entities per mention, CONSTANT
@@ -155,7 +162,7 @@ class LocalCtxAttRanker(AbstractWordEntity):
 
         self._entity_vecs = entity_vecs
         self._local_ctx_vecs = ctx_vecs
-
+        consistency.save(scores, "psi_internal")
         #Harrison from the use in mulrel_ranker it is clear that scores is meant to be a tensor representing local enttiy scores (psi)
         return scores
         #paper states this is e * B * f(c)
