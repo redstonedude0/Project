@@ -95,8 +95,9 @@ class EDRanker:
                 consistency.save(entity_ids, "prerank_entids")
                 log_probs = self.prerank_model.forward(token_ids, token_offsets, entity_ids, use_sum=True)
                 log_probs = (log_probs * entity_mask).add_((entity_mask - 1).mul_(1e10))
-                _, top_pos = torch.topk(log_probs, dim=1, k=self.args.keep_ctx_ent)
+                top_pos_vals, top_pos = torch.topk(log_probs, dim=1, k=self.args.keep_ctx_ent)
                 top_pos = top_pos.data.cpu().numpy()
+                consistency.save(top_pos_vals, "top_pos_vals")
                 consistency.save(top_pos, "top_pos")
 
             else:

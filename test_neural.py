@@ -1324,6 +1324,8 @@ class TestNeural(unittest.TestCase):
         sys.path.insert(1, "mulrel-nel-master/")
         import nel.local_ctx_att_ranker as local_ctx_att_ranker
         import nel.utils as nelutils
+        import nel.consistency as nel_consistency
+        nel_consistency.TESTING = True
         #        local_ctx_att_ranker.DEBUG = {}
         #        neural.DEBUG = {}
         voca_emb_dir = "/home/harrison/Documents/project/data/generated/embeddings/word_ent_embs/"  # SETTINGS.dataDir_embeddings
@@ -1405,3 +1407,31 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(torch.allclose(their_entm,entity_mask))
         self.assertTrue(torch.allclose(their_pem,None))
 
+    def test_prerank_internal(self):
+        their_tokids = self.load_consistency("prerank_tokids")
+        their_tokoffs = self.load_consistency("prerank_tokoffs")
+        their_entids = self.load_consistency("prerank_entids")
+        their_ctxidxs = self.load_consistency("top_pos")
+
+        #####MINE
+        SETTINGS.dataset = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
+        import our_consistency
+        our_consistency.TESTING = True
+        modeller.candidateSelection(SETTINGS.dataset,"CONSISTENCY",True)
+        our_tokids = our_consistency.SAVED["tokids"]
+        our_tokoffs = our_consistency.SAVED["tokoffs"]
+        our_entids = our_consistency.SAVED["entids"]
+        our_ctxidxs = our_consistency.SAVED["top_pos"]
+
+
+        self.assertTrue(torch.allclose(their_tokids,our_tokids))
+        self.assertTrue(torch.allclose(their_tokoffs,our_tokoffs))
+        self.assertTrue(torch.allclose(their_entids,our_entids))
+        import numpy as np
+        print(their_ctxidxs-our_ctxidxs)
+        self.assertTrue(np.array_equal(their_ctxidxs,our_ctxidxs))
+
+        #print(their_tokids.shape)#1359
+        #print(their_tokoffs.shape)#30
+#        print(their_entids.shape)#30,30
+#        print(their_ctxidxs.shape)#30,4

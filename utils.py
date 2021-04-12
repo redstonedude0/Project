@@ -274,3 +274,17 @@ def stringToTokenEmbeddings(s,trim="none",window_size = -1):
     elif trim != "none":
         raise Exception(f"Unknown trim value {trim}")
     return embeddings
+
+def stringToTokenIds(s,trim="none",window_size = -1):
+    import processeddata
+    tokens = s.strip().split()
+    tokens = [tokenNormalise(t) for t in tokens]
+    ids = [processeddata.word2wordid[token] for token in tokens if
+                 is_important_dict_word(token)]
+    if trim == "left":
+        ids = ids[-(window_size // 2):]
+    elif trim == "right":
+        ids = ids[:(window_size // 2)]
+    elif trim != "none":
+        raise Exception(f"Unknown trim value {trim}")
+    return ids

@@ -27,14 +27,41 @@ def _embeddingScore(mention: Mention, candidate: Candidate):
     entityVec = processeddata.entid2embedding[processeddata.ent2entid[candidate.text]]
     return entityVec.T.dot(wordSumVec)
 
+def _embeddingScore_paper(token_ids, entid):
+    wordSumVec = 0
+    for tokid in token_ids:
+        wordSumVec += processeddata.wordid2embedding[tokid]
+    wordSumVec /= len(token_ids)#mean not sum
+    entityVec = processeddata.entid2embedding[entid]
+
+    return entityVec.T.dot(wordSumVec)
+
 
 def candidateSelection(dataset:Dataset,name="UNK",pad=True):
+    tempNeural = neural.NeuralNet()
     # keep top 4 using p_e_m and top 3 using entity embeddings w/ context
     keep_pem = SETTINGS.n_cands_pem
     keep_context = SETTINGS.n_cands_ctx
     #Duplicates aren't allowed
     for doc in tqdm(dataset.documents, unit=name+"_documents", file=sys.stdout):
-        for mention in doc.mentions:
+        l_contexts = [utils.stringToTokenIds(m.left_context,"left",SETTINGS.context_window_prerank) for m in doc.mentions]
+        r_contexts = [utils.stringToTokenIds(m.right_context,"right",SETTINGS.context_window_prerank) for m in doc.mentions]
+        token_idss = [l_ctx + r_ctx
+                        if len(l_ctx) > 0 or len(r_ctx) > 0
+                        else [processeddata.unkwordid]
+                     for l_ctx, r_ctx in zip(l_contexts, r_contexts)]
+        #flatten for consistency comparison
+        flat_tokids = []
+        flat_tokoffs = []
+        for token_ids in token_idss:
+            flat_tokoffs.append(len(flat_tokids))
+            flat_tokids += token_ids
+        import our_consistency
+        our_consistency.save(torch.LongTensor(flat_tokids),"tokids")
+        our_consistency.save(torch.LongTensor(flat_tokoffs),"tokoffs")
+        all_entids = []
+        all_toppos = []
+        for mention,token_ids in zip(doc.mentions,token_idss):
             cands = mention.candidates
             unkcand = Candidate(-1,0,"#UNK#")
             # Sort p_e_m high to low
@@ -45,9 +72,11 @@ def candidateSelection(dataset:Dataset,name="UNK",pad=True):
                 cands = cands[0:30]  # Select top 30
             elif pad:#TODO - padding properly
                 cands = cands + [unkcand]*(30-len(cands))#Pad to 30
+            all_entids.append([processeddata.ent2entid[cand.text] for cand in cands])
             if SETTINGS.switches["switch_sel"]:#Changed from paper
                 #Initially sort by embedding score
-                cands.sort(key=lambda cand: _embeddingScore(mention, cand), reverse=True)
+                cands.sort(key=lambda cand: _embeddingScore_paper(token_ids, processeddata.ent2entid[cand.text]), reverse=True)
+                #print("Cands by ctx:",list(map(lambda cand: processeddata.ent2entid[cand.text],cands)))
                 #Then keep w.r.t ctx
                 keptCands = cands[:keep_context]
                 # Keep top w.r.t pem after
@@ -75,6 +104,11 @@ def candidateSelection(dataset:Dataset,name="UNK",pad=True):
                 if len(keptCands) != keep_context + keep_pem:#Should always be possible with unk_cand padding
                     raise RuntimeError(f"Incorrect number of candidates available ({len(keptCands)})")
                 mention.candidates = keptCands
+        our_consistency.save(torch.LongTensor(all_entids),"entids")
+        probs = torch.FloatTensor([[_embeddingScore_paper(token_ids, entid) for entid in entids] for entids,token_ids in zip(all_entids,token_idss)])
+        top_cands, top_pos = torch.topk(probs, dim=1, k=keep_context)
+        print("TOPCANDS",top_cands)
+        our_consistency.save(top_pos.data.cpu().numpy(),"top_pos")#Store as numpy cpu data, as the paper does
 
 def candidateSelection_full():
     candidateSelection(SETTINGS.dataset_train,"train",True)

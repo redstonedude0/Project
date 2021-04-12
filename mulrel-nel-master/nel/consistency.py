@@ -2,9 +2,11 @@
 import torch
 import os.path
 
+TESTING = False
+
 """ Save tensor details """
 def save(tensor, ident):
-    if False:#Bypass for testing
+    if TESTING:#Bypass for testing
         return
     path = f"/rds/user/hrjh2/hpc-work/consistency/mrn_{ident}.pt"
     if not os.path.isfile(path):
