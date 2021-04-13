@@ -107,7 +107,8 @@ def candidateSelection(dataset:Dataset,name="UNK",pad=True):
         our_consistency.save(torch.LongTensor(all_entids),"entids")
         probs = torch.FloatTensor([[_embeddingScore_paper(token_ids, entid) for entid in entids] for entids,token_ids in zip(all_entids,token_idss)])
         top_cands, top_pos = torch.topk(probs, dim=1, k=keep_context)
-        print("TOPCANDS",top_cands)
+        our_consistency.save(top_cands,"top_pos_vals")#TODO - normalize to match theirs
+        our_consistency.save(top_cands,"ntee_scores")
         our_consistency.save(top_pos.data.cpu().numpy(),"top_pos")#Store as numpy cpu data, as the paper does
 
 def candidateSelection_full():

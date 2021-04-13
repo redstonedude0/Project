@@ -1412,6 +1412,8 @@ class TestNeural(unittest.TestCase):
         their_tokoffs = self.load_consistency("prerank_tokoffs")
         their_entids = self.load_consistency("prerank_entids")
         their_ctxidxs = self.load_consistency("top_pos")
+        their_ctxvals = self.load_consistency("top_pos_vals")
+        their_ctxscores = self.load_consistency("ntee_scores")
 
         #####MINE
         SETTINGS.dataset = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
@@ -1422,11 +1424,14 @@ class TestNeural(unittest.TestCase):
         our_tokoffs = our_consistency.SAVED["tokoffs"]
         our_entids = our_consistency.SAVED["entids"]
         our_ctxidxs = our_consistency.SAVED["top_pos"]
+        our_ctxvals = our_consistency.SAVED["top_pos_vals"]
+        our_ctxscores = our_consistency.SAVED["ntee_scores"]
 
 
         self.assertTrue(torch.allclose(their_tokids,our_tokids))
         self.assertTrue(torch.allclose(their_tokoffs,our_tokoffs))
         self.assertTrue(torch.allclose(their_entids,our_entids))
+        print("SCORES",their_ctxscores,our_ctxscores)
         import numpy as np
         print(their_ctxidxs-our_ctxidxs)
         self.assertTrue(np.array_equal(their_ctxidxs,our_ctxidxs))

@@ -31,13 +31,15 @@ class NTEE(AbstractWordEntity):
     def forward(self, token_ids, token_offsets, entity_ids, use_sum=False):
         sent_vecs = self.compute_sent_vecs(token_ids, token_offsets, use_sum)
         entity_vecs = self.entity_embeddings(entity_ids)
+        import nel.consistency as consistency
 
         # compute scores
         batchsize, dims = sent_vecs.size()#30,300?
         n_entities = entity_vecs.size(1)#30,(30),300
         #                  30x30x300  , 30,300,1   -> 30,30,1
+        consistency.save(entity_vecs, "ntee_ents")
+        consistency.save(sent_vecs, "ntee_sents")
         scores = torch.bmm(entity_vecs, sent_vecs.view(batchsize, dims, 1)).view(batchsize, n_entities)
-        import nel.consistency as consistency
         consistency.save(scores, "ntee_scores")
         log_probs = F.log_softmax(scores, dim=1)
         return log_probs
