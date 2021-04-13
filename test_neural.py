@@ -1414,6 +1414,8 @@ class TestNeural(unittest.TestCase):
         their_ctxidxs = self.load_consistency("top_pos")
         their_ctxvals = self.load_consistency("top_pos_vals")
         their_ctxscores = self.load_consistency("ntee_scores")
+        their_ctxents = self.load_consistency("ntee_ents")
+        their_ctxsents = self.load_consistency("ntee_sents")
 
         #####MINE
         SETTINGS.dataset = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
@@ -1426,11 +1428,33 @@ class TestNeural(unittest.TestCase):
         our_ctxidxs = our_consistency.SAVED["top_pos"]
         our_ctxvals = our_consistency.SAVED["top_pos_vals"]
         our_ctxscores = our_consistency.SAVED["ntee_scores"]
+        our_ctxents = our_consistency.SAVED["ntee_ents"]
+        our_ctxsents = our_consistency.SAVED["ntee_sents"]
 
 
         self.assertTrue(torch.allclose(their_tokids,our_tokids))
         self.assertTrue(torch.allclose(their_tokoffs,our_tokoffs))
         self.assertTrue(torch.allclose(their_entids,our_entids))
+        #print("CAND 0,0",SETTINGS.dataset.documents[0].mentions[0].candidates[0].text)
+        #print("THEIR EMBED",their_ctxents[0])
+        #print("OUR EMBED",our_ctxents[0])
+        #print("OUR ID",processeddata.ent2entid["Canadians of German ethnicity"])
+        print("OUR ID",our_entids[0][0])
+        torch.set_printoptions(precision=15)#Print in high precision mode
+        import numpy as np
+        np.set_printoptions(precision=15)
+        print("VALUES",their_ctxents[0][0][0],
+              our_ctxents[0][0][0],
+              format(their_ctxents[0][0][0],'.60g'),
+              format(our_ctxents[0][0][0],'.60g'),
+              #their_ctxents[0][0][0]-our_ctxents[0][0][0],
+              format(processeddata.entid2embedding[240797][0],'.60g'),
+              format(np.load("/home/harrison/Documents/project/data/generated/embeddings/word_ent_embs/entity_embeddings.npy")[240797][0],'.60g'))
+#        print("OUR ENT?",their_ctxents[0]-our_ctxents[0])
+#        print("OUR ENT?",torch.allclose(their_ctxents[0],our_ctxents[0]))
+        print(their_ctxents-our_ctxents)
+        self.assertTrue(torch.allclose(their_ctxents,our_ctxents))
+        self.assertTrue(torch.allclose(their_ctxsents,our_ctxsents))
         print("SCORES",their_ctxscores,our_ctxscores)
         import numpy as np
         print(their_ctxidxs-our_ctxidxs)

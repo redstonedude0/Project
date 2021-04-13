@@ -105,6 +105,21 @@ def candidateSelection(dataset:Dataset,name="UNK",pad=True):
                     raise RuntimeError(f"Incorrect number of candidates available ({len(keptCands)})")
                 mention.candidates = keptCands
         our_consistency.save(torch.LongTensor(all_entids),"entids")
+        all_ents = [[processeddata.entid2embedding[entid] for entid in entids] for entids in all_entids]
+        all_sents = []
+        for token_ids in token_idss:
+            wordSumVec=0
+            for tokid in token_ids:
+                wordSumVec += processeddata.wordid2embedding[tokid]
+            wordSumVec /= len(token_ids)  # mean not sum
+            all_sents.append(wordSumVec)
+        print("POINT1",format(all_ents[0][0][0],'.60g'))
+        print("POINT2",format(torch.FloatTensor(all_ents)[0][0][0],'.60g'))
+        print("POINT3",format(torch.Tensor(all_ents)[0][0][0],'.60g'))
+        print("POINT4",format(torch.nn.Parameter(torch.Tensor(all_ents))[0][0][0],'.60g'))
+        our_consistency.save(torch.FloatTensor(all_ents),"ntee_ents")
+        our_consistency.save(torch.FloatTensor(all_sents),"ntee_sents")
+
         probs = torch.FloatTensor([[_embeddingScore_paper(token_ids, entid) for entid in entids] for entids,token_ids in zip(all_entids,token_idss)])
         top_cands, top_pos = torch.topk(probs, dim=1, k=keep_context)
         our_consistency.save(top_cands,"top_pos_vals")#TODO - normalize to match theirs

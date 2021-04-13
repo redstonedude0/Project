@@ -49,6 +49,9 @@ class AbstractWordEntity(nn.Module):
             self.word_embeddings.weight = nn.Parameter(torch.Tensor(config['word_embeddings']))
         if 'entity_embeddings' in config:
             self.entity_embeddings.weight = nn.Parameter(torch.Tensor(config['entity_embeddings']))
+            print("LOADING ENTITY EMBEDDINGS FROM CONFIG")
+            print(format(config['entity_embeddings'][240797][0],'.60g'))
+            print(format(self.entity_embeddings(240797)[0],'.60g'))
 
         if 'snd_word_voca' in config:
             self.snd_word_voca = config['snd_word_voca']
