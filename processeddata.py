@@ -45,10 +45,15 @@ def loadEmbeddings():
 
         #Adjust following paper
         if SETTINGS.switches["override_embs"]:#Normalisation from paper
+            #Normalise each embedding by dividing by its length, maxed at 1e-12 to prevent div0, with unkemb being set to all 1e-10
             maxEmbs = np.maximum(np.linalg.norm(entid2embedding,
                                           axis=1, keepdims=True), 1e-12)
             entid2embedding /= maxEmbs
             unkentembed[:,:] = 1e-10
+            maxEmbs = np.maximum(np.linalg.norm(wordid2embedding,
+                                          axis=1, keepdims=True), 1e-12)
+            wordid2embedding /= maxEmbs#
+            wordid2embedding[unkwordid][:] = 1e-10
 
         entid2embedding = np.append(entid2embedding, unkentembed, axis=0)  # append as 1D
 

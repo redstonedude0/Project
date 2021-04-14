@@ -1448,12 +1448,23 @@ class TestNeural(unittest.TestCase):
         #print(their_ctxents[3][15]-our_ctxents[3][15])
         self.assertTrue(torch.allclose(their_ctxents,our_ctxents))
         self.assertTrue(torch.allclose(their_ctxsents,our_ctxsents))
-        print("SCORES",their_ctxscores,our_ctxscores)
+        #print("SCORESSHAPE",their_ctxscores.shape,our_ctxscores.shape)
+        #print("SCORESDIFF", their_ctxscores- our_ctxscores)
+        #print("SCORES",their_ctxscores,our_ctxscores)
+        self.assertTrue(torch.allclose(their_ctxscores,our_ctxscores))
         import numpy as np
-        print(their_ctxidxs-our_ctxidxs)
-        self.assertTrue(np.array_equal(their_ctxidxs,our_ctxidxs))
 
-        #print(their_tokids.shape)#1359
-        #print(their_tokoffs.shape)#30
-#        print(their_entids.shape)#30,30
-#        print(their_ctxidxs.shape)#30,4
+        if not np.array_equal(their_ctxidxs,our_ctxidxs):
+            #Not exactly, equal, topk wasn't stable
+            nonzeroIdxs1, nonzeroIdxs2 = np.nonzero(their_ctxidxs-our_ctxidxs)
+            for nonzeroIdx1,nonzeroIdx2 in zip(nonzeroIdxs1,nonzeroIdxs2):
+                their_ctxidx = their_ctxidxs[nonzeroIdx1][nonzeroIdx2]
+                our_ctxidx = our_ctxidxs[nonzeroIdx1][nonzeroIdx2]
+                their_entid = their_entids[nonzeroIdx1][their_ctxidx]
+                our_entid = our_entids[nonzeroIdx1][our_ctxidx]
+                self.assertTrue(their_entid == our_entid)
+
+
+
+
+

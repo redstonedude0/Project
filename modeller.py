@@ -117,9 +117,15 @@ def candidateSelection(dataset:Dataset,name="UNK",pad=True):
         our_consistency.save(torch.FloatTensor(all_sents),"ntee_sents")
 
         probs = torch.FloatTensor([[_embeddingScore_paper(token_ids, entid) for entid in entids] for entids,token_ids in zip(all_entids,token_idss)])
+        our_consistency.save(probs,"ntee_scores")
+        #entmask = torch.BoolTensor([[entid!=processeddata.unkentid for entid in entids]for entids in all_entids])
+        #probs = torch.nn.functional.log_softmax(probs, dim=1)
+        #probs = (probs * entmask).add_((probs - 1).mul_(1e10))
+        #NOTE: https://github.com/pytorch/pytorch/issues/27542
+        #Topk appears to be unstable between CPU and CUDA, among other differences - theirs gives lower indices, mine higher
+        #When the values are equal.
         top_cands, top_pos = torch.topk(probs, dim=1, k=keep_context)
         our_consistency.save(top_cands,"top_pos_vals")#TODO - normalize to match theirs
-        our_consistency.save(top_cands,"ntee_scores")
         our_consistency.save(top_pos.data.cpu().numpy(),"top_pos")#Store as numpy cpu data, as the paper does
 
 def candidateSelection_full():
