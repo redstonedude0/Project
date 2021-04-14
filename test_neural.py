@@ -1443,16 +1443,22 @@ class TestNeural(unittest.TestCase):
         torch.set_printoptions(precision=15)#Print in high precision mode
         import numpy as np
         np.set_printoptions(precision=15)
-        print("VALUES",their_ctxents[0][0][0],
-              our_ctxents[0][0][0],
+        print("VALUES",#their_ctxents[0][0][0],
+              #our_ctxents[0][0][0],
               format(their_ctxents[0][0][0],'.60g'),
               format(our_ctxents[0][0][0],'.60g'),
+              format(their_ctxents[0][0][0]-our_ctxents[0][0][0],'.60g'),
+              their_ctxents[0][0][0]==our_ctxents[0][0][0])
               #their_ctxents[0][0][0]-our_ctxents[0][0][0],
-              format(processeddata.entid2embedding[240797][0],'.60g'),
-              format(np.load("/home/harrison/Documents/project/data/generated/embeddings/word_ent_embs/entity_embeddings.npy")[240797][0],'.60g'))
+              #format(processeddata.entid2embedding[240797][0],'.60g'),
+              #format(np.load("/home/harrison/Documents/project/data/generated/embeddings/word_ent_embs/entity_embeddings.npy")[240797][0],'.60g'))
 #        print("OUR ENT?",their_ctxents[0]-our_ctxents[0])
 #        print("OUR ENT?",torch.allclose(their_ctxents[0],our_ctxents[0]))
         print(their_ctxents-our_ctxents)
+        print(torch.allclose(their_ctxents[0],our_ctxents[0]))
+        print(torch.allclose(their_ctxents[1],our_ctxents[1]))
+        print(torch.allclose(their_ctxents[2],our_ctxents[2]))
+        print(torch.allclose(their_ctxents,our_ctxents))
         self.assertTrue(torch.allclose(their_ctxents,our_ctxents))
         self.assertTrue(torch.allclose(their_ctxsents,our_ctxsents))
         print("SCORES",their_ctxscores,our_ctxscores)

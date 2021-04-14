@@ -115,8 +115,10 @@ def candidateSelection(dataset:Dataset,name="UNK",pad=True):
             all_sents.append(wordSumVec)
         print("POINT1",format(all_ents[0][0][0],'.60g'))
         print("POINT2",format(torch.FloatTensor(all_ents)[0][0][0],'.60g'))
-        print("POINT3",format(torch.Tensor(all_ents)[0][0][0],'.60g'))
-        print("POINT4",format(torch.nn.Parameter(torch.Tensor(all_ents))[0][0][0],'.60g'))
+        print("POINT3",format(torch.FloatTensor([all_ents[0][0][0]])[0],'.60g'))
+        print("POINT4",format(torch.Tensor(all_ents)[0][0][0],'.60g'))
+        #print("POINT2",format(all_entids[0][0],'.60g'))
+        #print("POINT2",format(processeddata.entid2embedding[240797][0],'.60g'))
         our_consistency.save(torch.FloatTensor(all_ents),"ntee_ents")
         our_consistency.save(torch.FloatTensor(all_sents),"ntee_sents")
 

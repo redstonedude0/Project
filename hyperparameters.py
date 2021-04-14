@@ -50,6 +50,7 @@ class Hyperparameters:
         "aug_conll":True,
         "aug_coref":True,
         "switch_sel":True,
+        "override_embs":True,
     }
     def __repr__(self):
         s = "Hyperparameters:"
