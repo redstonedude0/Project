@@ -41,14 +41,15 @@ def loadEmbeddings():
         ent2entid["#UNK#"] = unkentid
         wordid2embedding = np.load(SETTINGS.dataDir_embeddings + "word_embeddings.npy")
         entid2embedding = np.load(SETTINGS.dataDir_embeddings + "entity_embeddings.npy")
+        unkentembed = np.mean(entid2embedding, axis=0, keepdims=True)  # mean embedding, as a (1,d) array
 
         #Adjust following paper
         if SETTINGS.switches["override_embs"]:#Normalisation from paper
             maxEmbs = np.maximum(np.linalg.norm(entid2embedding,
                                           axis=1, keepdims=True), 1e-12)
             entid2embedding /= maxEmbs
+            unkentembed[:,:] = 1e-10
 
-        unkentembed = np.mean(entid2embedding, axis=0, keepdims=True)  # mean embedding, as a (1,d) array
         entid2embedding = np.append(entid2embedding, unkentembed, axis=0)  # append as 1D
 
     else:
