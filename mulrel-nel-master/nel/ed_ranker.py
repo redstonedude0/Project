@@ -29,10 +29,13 @@ class EDRanker:
     def __init__(self, config):
         print('--- create model ---')
 
+        print("LOADING ENTITY EMBEDDINGS in ed_ranker ")
+        print(format(config['entity_embeddings'][240797][0], '.60g'))
         config['entity_embeddings'] = config['entity_embeddings'] / \
                                       np.maximum(np.linalg.norm(config['entity_embeddings'],
                                                                 axis=1, keepdims=True), 1e-12)
         config['entity_embeddings'][config['entity_voca'].unk_id] = 1e-10
+        print(format(config['entity_embeddings'][240797][0], '.60g'))
         config['word_embeddings'] = config['word_embeddings'] / \
                                     np.maximum(np.linalg.norm(config['word_embeddings'],
                                                               axis=1, keepdims=True), 1e-12)

@@ -120,8 +120,6 @@ if __name__ == "__main__":
 
     entity_voca, entity_embeddings = utils.load_voca_embs(voca_emb_dir + 'dict.entity',
                                                           voca_emb_dir + 'entity_embeddings.npy')
-    print("LOADING ENTITY EMBEDDINGS FROM CONFIG at "+voca_emb_dir)
-    print(format(entity_embeddings[240797][0],'.60g'))
     config = {'hid_dims': args.hid_dims,
               'emb_dims': entity_embeddings.shape[1],
               'freeze_embs': True,
