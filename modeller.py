@@ -59,38 +59,84 @@ def candidateSelection(dataset:Dataset,name="UNK",pad=True):
         import our_consistency
         our_consistency.save(torch.LongTensor(flat_tokids),"tokids")
         our_consistency.save(torch.LongTensor(flat_tokoffs),"tokoffs")
-        all_entids = []
-        all_toppos = []
-        for mention,token_ids in zip(doc.mentions,token_idss):
-            cands = mention.candidates
-            unkcand = Candidate(-1,0,"#UNK#")
-            # Sort p_e_m high to low
-            cands.sort(key=lambda cand: cand.initial_prob, reverse=True)
-            #Trim to top 30 p_e_m, pad to 30 if padding
-            if len(cands) > 30:
-                # Need to trim to top 30 p_e_m
-                cands = cands[0:30]  # Select top 30
-            elif pad:#TODO - padding properly
-                cands = cands + [unkcand]*(30-len(cands))#Pad to 30
-            all_entids.append([processeddata.ent2entid[cand.text] for cand in cands])
-            if SETTINGS.switches["switch_sel"]:#Changed from paper
-                #Initially sort by embedding score
-                cands.sort(key=lambda cand: _embeddingScore_paper(token_ids, processeddata.ent2entid[cand.text]), reverse=True)
-                #print("Cands by ctx:",list(map(lambda cand: processeddata.ent2entid[cand.text],cands)))
-                #Then keep w.r.t ctx
-                keptCands = cands[:keep_context]
-                # Keep top w.r.t pem after
+        if SETTINGS.switches["switch_sel"]:# Changed to match paper
+            unkcand = Candidate(-1, 0, "#UNK#")
+            #keep 30 w.r.t initial_prob (p_e_m scores)
+            for mention, token_ids in zip(doc.mentions, token_idss):
+                cands = mention.candidates
+                # Sort p_e_m high to low
                 cands.sort(key=lambda cand: cand.initial_prob, reverse=True)
-                for keptEmbeddingCand in cands:
-                    if len(keptCands) == keep_context + keep_pem:
+                # Trim to top 30 p_e_m, pad to 30 if padding
+                if len(cands) > 30:
+                    # Need to trim to top 30 p_e_m
+                    cands = cands[0:30]  # Select top 30
+                elif pad:  # TODO - padding properly
+                    cands = cands + [unkcand] * (30 - len(cands))  # Pad to 30
+                mention.candidates = cands
+            all_entids = [
+                [processeddata.ent2entid[cand.text] for cand in m.candidates]
+                for m in doc.mentions
+            ]
+            our_consistency.save(torch.LongTensor(all_entids), "entids")
+            #initially sort by embedding and keep top 4
+            all_ents = [[processeddata.entid2embedding[entid] for entid in entids] for entids in all_entids]
+            all_sents = []
+            for token_ids in token_idss:
+                wordSumVec = 0
+                for tokid in token_ids:
+                    wordSumVec += processeddata.wordid2embedding[tokid]
+                wordSumVec /= len(token_ids)  # mean not sum
+                all_sents.append(wordSumVec)
+            #entity and context ('sentence') embeddings
+            our_consistency.save(torch.FloatTensor(all_ents), "ntee_ents")
+            our_consistency.save(torch.FloatTensor(all_sents), "ntee_sents")
+            #embedding-entity scores
+            probs = torch.FloatTensor(
+                [[_embeddingScore_paper(token_ids, entid) for entid in entids] for entids, token_ids in
+                 zip(all_entids, token_idss)])
+            our_consistency.save(probs, "ntee_scores")
+            #keep top keep_context
+            # NOTE: https://github.com/pytorch/pytorch/issues/27542
+            # Topk appears to be unstable between CPU and CUDA, among other differences - theirs gives lower indices, mine higher
+            # When the values are equal.
+            top_cand_vals, top_pos = torch.topk(probs, dim=1, k=keep_context)
+            our_consistency.save(top_cand_vals, "top_pos_vals")  # TODO - normalize to match theirs
+            our_consistency.save(top_pos.data.cpu().numpy(), "top_pos")  # Store as numpy cpu data, as the paper does
+            top_cand_idss = torch.gather(torch.tensor(all_entids),dim=1,index=top_pos)
+            top_cand_idss = top_cand_idss.tolist()
+            #pad out based on p_e_m again
+            #all_entids is already sorted by p_e_m
+            for mention, top_cand_ids, ent_ids in zip(doc.mentions, top_cand_idss, all_entids):
+                # Keep top w.r.t pem
+                for ent_id in ent_ids:
+                    if len(top_cand_ids) == keep_context + keep_pem:
                         break  # NO MORE
                     # Don't add duplicates, unless that duplicate is the unknown candidate
-                    if keptEmbeddingCand not in keptCands or keptEmbeddingCand == unkcand:
-                        keptCands.append(keptEmbeddingCand)
-                if len(keptCands) != keep_context + keep_pem:  # Should always be possible with unk_cand padding
-                    raise RuntimeError(f"Incorrect number of candidates available ({len(keptCands)})")
-                mention.candidates = keptCands
-            else:
+                    if ent_id not in top_cand_ids or ent_id == processeddata.unkentid:
+                        top_cand_ids.append(ent_id)
+                if len(top_cand_ids) != keep_context + keep_pem:  # Should always be possible with unk_cand padding
+                    raise RuntimeError(f"Incorrect number of candidates available ({len(top_cand_ids)})")
+                #cand ids back to cands
+                cands = []
+                for ent_id in top_cand_ids:
+                    for c in mention.candidates:
+                        if processeddata.ent2entid[c.text] == ent_id:
+                            cands.append(c)
+                            break #inner
+                mention.candidates = cands
+
+        else:
+            for mention,token_ids in zip(doc.mentions,token_idss):
+                cands = mention.candidates
+                unkcand = Candidate(-1,0,"#UNK#")
+                # Sort p_e_m high to low
+                cands.sort(key=lambda cand: cand.initial_prob, reverse=True)
+                #Trim to top 30 p_e_m, pad to 30 if padding
+                if len(cands) > 30:
+                    # Need to trim to top 30 p_e_m
+                    cands = cands[0:30]  # Select top 30
+                elif pad:#TODO - padding properly
+                    cands = cands + [unkcand]*(30-len(cands))#Pad to 30
                 keptCands = cands[:keep_pem]  # Keep top (keep_pem) always w.r.t PEM
                 #NOTE: Paper does not allow duplicates
                 # Keep top w.r.t ctx
@@ -104,29 +150,6 @@ def candidateSelection(dataset:Dataset,name="UNK",pad=True):
                 if len(keptCands) != keep_context + keep_pem:#Should always be possible with unk_cand padding
                     raise RuntimeError(f"Incorrect number of candidates available ({len(keptCands)})")
                 mention.candidates = keptCands
-        our_consistency.save(torch.LongTensor(all_entids),"entids")
-        all_ents = [[processeddata.entid2embedding[entid] for entid in entids] for entids in all_entids]
-        all_sents = []
-        for token_ids in token_idss:
-            wordSumVec=0
-            for tokid in token_ids:
-                wordSumVec += processeddata.wordid2embedding[tokid]
-            wordSumVec /= len(token_ids)  # mean not sum
-            all_sents.append(wordSumVec)
-        our_consistency.save(torch.FloatTensor(all_ents),"ntee_ents")
-        our_consistency.save(torch.FloatTensor(all_sents),"ntee_sents")
-
-        probs = torch.FloatTensor([[_embeddingScore_paper(token_ids, entid) for entid in entids] for entids,token_ids in zip(all_entids,token_idss)])
-        our_consistency.save(probs,"ntee_scores")
-        #entmask = torch.BoolTensor([[entid!=processeddata.unkentid for entid in entids]for entids in all_entids])
-        #probs = torch.nn.functional.log_softmax(probs, dim=1)
-        #probs = (probs * entmask).add_((probs - 1).mul_(1e10))
-        #NOTE: https://github.com/pytorch/pytorch/issues/27542
-        #Topk appears to be unstable between CPU and CUDA, among other differences - theirs gives lower indices, mine higher
-        #When the values are equal.
-        top_cands, top_pos = torch.topk(probs, dim=1, k=keep_context)
-        our_consistency.save(top_cands,"top_pos_vals")#TODO - normalize to match theirs
-        our_consistency.save(top_pos.data.cpu().numpy(),"top_pos")#Store as numpy cpu data, as the paper does
 
 def candidateSelection_full():
     candidateSelection(SETTINGS.dataset_train,"train",True)

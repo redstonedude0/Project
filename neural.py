@@ -379,13 +379,14 @@ class NeuralNet(nn.Module):
     INPUT:
     n: len(mentions)
     embeddings: 3D (n,n_cands,d) tensor of embeddings
+    masks: 2D (n,n_cands) bool tensor mask
     tokenEmbeddingss: 3D tensor(n,win,d) tensor of embeddings of tokens in window around each mention
     tokenMaskss: 3D bool tensor(n,win) tensor of masks
     RETURN:
     2D tensor (n,n_cands) psi values per candidate per mention
     '''
 
-    def psiss(self, n, embeddings, tokenEmbeddings,tokenMaskss):
+    def psiss(self, n, embeddings, masks, tokenEmbeddings,tokenMaskss):
         #Compute context embeddings f(c)
         fcs = self.f_c(n,embeddings,tokenEmbeddings,tokenMaskss) #(n,d)
         # embeddings is 3D (n,n_cands,d) tensor
@@ -399,6 +400,17 @@ class NeuralNet(nn.Module):
         #remove extra dim
         valss = valss.view(n,SETTINGS.n_cands)
         # vals2 is 2D (n,n_cands) tensor
+
+        valss[~masks] = -1e10
+
+        if SETTINGS.switches["consistency_psi"]:
+            #TODO - add consistency checks
+            import our_consistency
+            our_consistency.save(None,"psi_i_pem")#hardcoded but check anyway
+            our_consistency.save(self.B_diag1,"psi_i_attmat")
+            our_consistency.save(self.B_diag2,"psi_i_tokmat")
+            our_consistency.save(valss,"psi_internal")
+
         return valss
 
     '''
@@ -417,12 +429,21 @@ class NeuralNet(nn.Module):
         if SETTINGS.allow_nans:
             nan = float("nan")
         embeddings *= nan  # Actually a (n,n_cands,d) tensor of nans to begin with
+        idss = torch.ones([n,SETTINGS.n_cands],dtype=torch.long).to(SETTINGS.device) #2D (n,n_cands) tensor of ids
+        idss *= processeddata.unkentid
         masks = torch.zeros([n, SETTINGS.n_cands], dtype=torch.bool).to(SETTINGS.device)  # 2D (n,n_cands) bool tensor of masks
         for m_idx, m in enumerate(mentions):
             if len(m.candidates) > 0:
                 valss = torch.stack([e_i.entEmbeddingTorch().to(SETTINGS.device) for e_i in m.candidates])
+                ids = torch.LongTensor([processeddata.ent2entid[e_i.text] for e_i in m.candidates]).to(SETTINGS.device)
                 embeddings[m_idx][0:len(valss)] = valss
-                masks[m_idx][0:len(valss)] = True
+                idss[m_idx][0:len(valss)] = ids
+                masks[m_idx][0:len(valss)] = torch.BoolTensor([processeddata.ent2entid[e_i.text]!=processeddata.unkentid for e_i in m.candidates]).to(SETTINGS.device)
+
+        if SETTINGS.switches["consistency_psi"]:
+            import our_consistency
+            our_consistency.save(idss,"psi_i_entid")
+            our_consistency.save(masks.to(torch.float),"psi_i_entm")
         return embeddings, masks
 
     '''
@@ -454,6 +475,23 @@ class NeuralNet(nn.Module):
 
         tokenEmbeddingss = torch.FloatTensor(tokenEmbeddingss).to(SETTINGS.device)
         tokenMaskss = torch.BoolTensor(tokenMaskss).to(SETTINGS.device)
+
+
+        if SETTINGS.switches["consistency_psi"]:
+            import our_consistency
+            l_contexts = [utils.stringToTokenIds(m.left_context, "left", SETTINGS.context_window_size) for m in
+                          mentions]
+            r_contexts = [utils.stringToTokenIds(m.right_context, "right", SETTINGS.context_window_size) for m in
+                          mentions]
+            contexts = [
+                l_context + r_context
+                if len(l_context) > 0 or len(r_context) > 0
+                else [processeddata.unkwordid]
+                for (l_context, r_context) in zip(l_contexts, r_contexts)
+            ]
+            tokenIdss = [context + [processeddata.unkwordid] * (max_len - len(context)) for context in contexts]
+            our_consistency.save(torch.tensor(tokenIdss),"psi_i_tokid")
+            our_consistency.save(tokenMaskss.to(torch.float),"psi_i_tokm")
         return tokenEmbeddingss, tokenMaskss
 
     '''
@@ -1002,7 +1040,7 @@ class NeuralNet(nn.Module):
         nantest(ass, "ass")
         debug("Calculating lbp inputs")
         phis = self.phissss(n, embeddings, ass)  # 4d (n_i,n_j,n_cands_i,n_cands_j) tensor
-        psiss = self.psiss(n, embeddings, tokenEmbeddingss,tokenMaskss)  # 2d (n_i,n_cands_i) tensor
+        psiss = self.psiss(n, embeddings, masks, tokenEmbeddingss,tokenMaskss)  # 2d (n_i,n_cands_i) tensor
         lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
         lbp_inputs += psiss.reshape([n, 1, SETTINGS.n_cands, 1])  # broadcast (from (n_i,n_cands_i) to (n_i,n_j,n_cands_i,n_cands_j) tensor)
         nantest(phis, "phis")
