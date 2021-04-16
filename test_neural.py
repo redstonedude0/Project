@@ -11,7 +11,7 @@ import processeddata
 import testdata
 import utils
 from datastructures import Candidate, Dataset, Model, EvalHistory
-from hyperparameters import SETTINGS
+from hyperparameters import SETTINGS, NormalisationMethod
 from neural import NeuralNet
 
 
@@ -1318,6 +1318,7 @@ class TestNeural(unittest.TestCase):
         #OURS
         SETTINGS.dataset_train = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
         SETTINGS.dataset_eval = SETTINGS.dataset_train
+        SETTINGS.normalisation = NormalisationMethod.MentNorm
         import our_consistency
         our_consistency.TESTING = True
         modeller.candidateSelection(SETTINGS.dataset_train,"CONSISTENCY",True)
@@ -1366,6 +1367,7 @@ class TestNeural(unittest.TestCase):
 
         #####MINE
         SETTINGS.dataset = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
+        SETTINGS.normalisation = NormalisationMethod.MentNorm
         import our_consistency
         our_consistency.TESTING = True
         modeller.candidateSelection(SETTINGS.dataset,"CONSISTENCY",True)
@@ -1428,6 +1430,7 @@ class TestNeural(unittest.TestCase):
         #OURS
         SETTINGS.dataset_train = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
         SETTINGS.dataset_eval = SETTINGS.dataset_train
+        SETTINGS.normalisation = NormalisationMethod.MentNorm
         import our_consistency
         our_consistency.TESTING = True
         modeller.candidateSelection(SETTINGS.dataset_train, "CONSISTENCY", True)
@@ -1451,7 +1454,7 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(their_mode == our_mode)
         self.assertTrue(their_comp_mode == our_comp_mode)
         print(their_ctx_bow.shape,our_ctx_bow.shape)
-        print(their_ctx.shape,our_ctx.shape)
+        print(their_ctx.shape,our_ctx.shape)#ours smaller
         print(their_relctxctx.shape,our_relctxctx.shape)
         print(their_phient.shape,our_phient.shape)
         print(their_phirel.shape,our_phirel.shape)

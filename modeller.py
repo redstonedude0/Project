@@ -7,8 +7,10 @@ import time
 import torch
 from tqdm import tqdm
 
+import hyperparameters
 import neural
 import processeddata
+import our_consistency
 import utils
 from datastructures import Model, Mention, Candidate, EvalHistory, Dataset
 from hyperparameters import SETTINGS
@@ -56,7 +58,6 @@ def candidateSelection(dataset:Dataset,name="UNK",pad=True):
         for token_ids in token_idss:
             flat_tokoffs.append(len(flat_tokids))
             flat_tokids += token_ids
-        import our_consistency
         our_consistency.save(torch.LongTensor(flat_tokids),"tokids")
         our_consistency.save(torch.LongTensor(flat_tokoffs),"tokoffs")
         if SETTINGS.switches["switch_sel"]:# Changed to match paper
@@ -150,6 +151,27 @@ def candidateSelection(dataset:Dataset,name="UNK",pad=True):
                 if len(keptCands) != keep_context + keep_pem:#Should always be possible with unk_cand padding
                     raise RuntimeError(f"Incorrect number of candidates available ({len(keptCands)})")
                 mention.candidates = keptCands
+    #Append padding
+    if SETTINGS.normalisation == hyperparameters.NormalisationMethod.MentNorm and SETTINGS.switches["pad_enable"]:
+        our_consistency.save(True, "use_pad_ent")
+        # Padding entity
+        #Text and candidates the neutral unknown entity?
+        #  Cannot use text and cand as unk - some code relies on unk==no candidate, need special padding entity
+        #  see paper source code for their implementation of this, they treat psi and phi differently for this, so we will too
+        #pad_cand = Candidate(processeddata.unkentid, 1, "#UNK#")
+        #pad_cands = [pad_cand for _ in range(0,keep_context+keep_pem)]
+        #pad_mention = Mention.FromData(-1, "#UNK#", "", "", pad_cands, str(processeddata.unkentid))
+        #for doc in dataset.documents:
+        #    doc.mentions.append(pad_mention)
+        # theirs:
+        # add entity vec (randn(1)*0.1)
+        # add mask (10000000)
+        # add pem (10000000)
+        # add psi! 0000000
+        # increment n obviously
+        # [entity vec fmc other (randn(1)*0.1)]
+    else:
+        our_consistency.save(False, "use_pad_ent")
 
 def candidateSelection_full():
     candidateSelection(SETTINGS.dataset_train,"train",True)

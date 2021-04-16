@@ -12,7 +12,7 @@ import hyperparameters
 import our_consistency
 import processeddata
 import utils
-from datastructures import Model, Document, EvaluationMetrics
+from datastructures import Model, Document, EvaluationMetrics, Candidate, Mention
 from hyperparameters import SETTINGS
 from utils import debug, map_2D, map_1D, smartsum, smartmax, setMaskBroadcastable, \
     normalise_avgToZero_rowWise,nantest
@@ -329,6 +329,9 @@ class NeuralNet(nn.Module):
         self.register_parameter("B_diag2", torch.nn.Parameter(B_diag2))
         self.register_parameter("R_diag", torch.nn.Parameter(R_diag))
         self.register_parameter("D_diag", torch.nn.Parameter(D_diag))
+        #Default (normally sampled) entity and context
+        self.register_parameter("pad_ent",torch.nn.Parameter(torch.randn(300).to(SETTINGS.device) * 0.1))
+        self.register_parameter("pad_ctx",torch.nn.Parameter(torch.randn(300).to(SETTINGS.device) * 0.1))
         #TODO - check the distribution of D, paper seems to be different than impl? (0.01ment/0.1rel)
         #TODO - check for B, paper seems to have 2 matrices to do ctx score? (ctxattrranker.forward)
 
@@ -538,9 +541,7 @@ class NeuralNet(nn.Module):
     '''
 
     def phissss(self, n, embeddings, ass):
-        our_consistency.save(False,"use_pad_ent")
-        #TODO - pad ent
-        our_consistency.save("ment","mode")
+        our_consistency.save("ment-norm","mode")
         our_consistency.save("bilinear","comp_mode")
         # 5D(n_i,n_j,n_cands_i,n_cands_j,k) , 4D (n_i,n_j,n_cands_i,n_cands_j)
         values = self.phi_ksssss(n, embeddings)
@@ -706,6 +707,9 @@ class NeuralNet(nn.Module):
         expmvals = expmvals.clone()  # clone to prevent autograd errors (in-place modification next)
         setMaskBroadcastable(expmvals, ~masks.reshape([1, n, SETTINGS.n_cands]), 0)  # nans are 0
         softmaxdenoms = smartsum(expmvals, dim=2)  # Eq 11 softmax denominator from LBP paper
+#        softmaxdenoms[softmaxdenoms == 0] = 1#divide by 1 not 0 if all values are 0 (e.g.
+#        print("DENOMS",softmaxdenoms[:,30])
+#        print("EXPS",expmvals[:,30,:])
         softmaxmvalues = expmvals/softmaxdenoms.reshape([n,n,1])# broadcast (n,n) to (n,n,n_cands)
 
         # Do Eq 11 (old mbars + mvalues to new mbars)
@@ -1046,12 +1050,47 @@ class NeuralNet(nn.Module):
         debug("Calculating f_m_c values")
         f_m_cs = self.perform_fmcs(mentions)
         nantest(f_m_cs, "fmcs")
+
+
+        debug("Calculating psi")
+        psiss = self.psiss(n, embeddings, masks, tokenEmbeddingss,tokenMaskss)  # 2d (n_i,n_cands_i) tensor
+        if SETTINGS.normalisation == hyperparameters.NormalisationMethod.MentNorm and SETTINGS.switches["pad_enable"]:
+            # Padding entity (they way they do)
+            # add entity vec (randn(1)*0.1)
+            #   self.pad_ent, self.pad_ctx
+
+            pad_cand = Candidate(None, 1, None)#Default p_e_m of 1, erroneous string and id
+            pad_cand.entEmbeddingTorch = lambda: self.pad_ent
+            pad_unk = Candidate(processeddata.unkentid, 0, "#UNK#")#UNK
+
+            cand_count = SETTINGS.n_cands_pem+SETTINGS.n_cands_ctx
+            pad_cands = [pad_cand] + [pad_unk for _ in range(0,cand_count-1)]
+            pad_cand_embs = [c.entEmbeddingTorch() for c in pad_cands]
+            pad_cand_embs = torch.stack(pad_cand_embs)
+            pad_mask = [True] + [False for _ in range(0,cand_count-1)]
+            pad_psi = torch.FloatTensor([0 for _ in range(0,cand_count)])
+            pad_mask = torch.BoolTensor(pad_mask).to(SETTINGS.device)
+
+            pad_mention = Mention.FromData(None, None, None, None, pad_cands, None)
+            document.mentions.append(pad_mention)
+
+            embeddings = torch.cat([pad_cand_embs.reshape(1,cand_count,300),embeddings])
+            # add mask (10000000)
+            masks = torch.cat([pad_mask.reshape(1,cand_count),masks])
+            # add pem (10000000) [N/A]
+            # add psi! 0000000
+            psiss = torch.cat([pad_psi.reshape(1,cand_count),psiss])
+            # increment n obviously
+            n += 1
+            # [entity vec fmc other (randn(1)*0.1)]
+            f_m_cs = torch.cat([self.pad_ctx.reshape(1,300),f_m_cs])
+
         debug("Calculating a values")
         ass = self.ass(f_m_cs,n)
         nantest(ass, "ass")
-        debug("Calculating lbp inputs")
+        debug("Calculating phi")
         phis = self.phissss(n, embeddings, ass)  # 4d (n_i,n_j,n_cands_i,n_cands_j) tensor
-        psiss = self.psiss(n, embeddings, masks, tokenEmbeddingss,tokenMaskss)  # 2d (n_i,n_cands_i) tensor
+        debug("Calculating lbp inputs")
         lbp_inputs = phis  # values inside max{} brackets - Eq (10) LBP paper
         lbp_inputs += psiss.reshape([n, 1, SETTINGS.n_cands, 1])  # broadcast (from (n_i,n_cands_i) to (n_i,n_j,n_cands_i,n_cands_j) tensor)
         nantest(phis, "phis")
