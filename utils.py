@@ -233,7 +233,7 @@ STOPWORDS = ['a', 'about', 'above', 'across', 'after', 'afterwards', 'again', 'a
 '''
 Checks if a word is considered 'important' by Le et al.
 '''
-def is_important_dict_word(s):
+def is_important_dict_word(s,special=None):
     try:
         if len(s) <= 1 or s.lower() in STOPWORDS:
             return False
@@ -242,8 +242,12 @@ def is_important_dict_word(s):
     except:
         #Is important word, is it actually in dict?
         import processeddata
-        if s in processeddata.word2wordid:
-            return True
+        if special == "snd":
+            if s in processeddata.word2wordid_snd:
+                return True
+        else:
+            if s in processeddata.word2wordid:
+                return True
         return False
 
 
@@ -261,12 +265,16 @@ def tokenNormalise(t):
 '''
 Convet a string to the embeddings of the surrounding context, the same way the implementation by Le et al. does.
 '''
-def stringToTokenEmbeddings(s,trim="none",window_size = -1):
+def stringToTokenEmbeddings(s,trim="none",window_size = -1,special=None):
     import processeddata
     tokens = s.strip().split()
     tokens = [tokenNormalise(t) for t in tokens]
-    embeddings = [processeddata.wordid2embedding[processeddata.word2wordid[token]] for token in tokens if
-                 is_important_dict_word(token)]
+    if special == "snd":
+        embeddings = [processeddata.wordid2embedding_snd[processeddata.word2wordid_snd[token]] for token in tokens if
+                      is_important_dict_word(token,special="snd")]
+    else:
+        embeddings = [processeddata.wordid2embedding[processeddata.word2wordid[token]] for token in tokens if
+                      is_important_dict_word(token)]
     if trim == "left":
         embeddings = embeddings[-(window_size // 2):]
     elif trim == "right":

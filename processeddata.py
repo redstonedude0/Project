@@ -14,6 +14,10 @@ unkentid = 0
 wordid2embedding = []
 entid2embedding = []
 
+word2wordid_snd = {}
+unkwordid_snd = 0
+wordid2embedding_snd = []
+
 '''Loading the entity and word embeddings and id maps'''
 
 
@@ -25,6 +29,9 @@ def loadEmbeddings():
     global unkentid
     global wordid2embedding
     global entid2embedding
+    global word2wordid_snd
+    global unkwordid_snd
+    global wordid2embedding_snd
     if len(word2wordid) == 0:
         with open(SETTINGS.dataDir_embeddings + "dict.word", "r") as f:
             for line in tqdm(f, unit="words", total=492408):
@@ -56,6 +63,17 @@ def loadEmbeddings():
             wordid2embedding[unkwordid][:] = 1e-10
 
         entid2embedding = np.append(entid2embedding, unkentembed, axis=0)  # append as 1D
+
+        if SETTINGS.switches["snd_embs"]:
+            #Create second embeddings too
+            #TODO - do embeddings need required_grad False to be manually set?
+            with open(SETTINGS.dataDir_embeddings + "glove/dict.word", "r") as f:
+                for line in tqdm(f, unit="words_snd", total=1):
+                    word = line.split("\t")[0]
+                    word2wordid_snd[word] = len(word2wordid_snd)
+            unkwordid_snd = word2wordid_snd["#UNK#"]#not actually used?
+            wordid2embedding_snd = np.load(SETTINGS.dataDir_embeddings + "glove/word_embeddings.npy")
+            #no embedding normalisation on these?
 
     else:
         print("ALREADY LOADED EMBEDDINGS!")

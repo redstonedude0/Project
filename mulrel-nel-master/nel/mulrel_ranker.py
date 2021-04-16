@@ -128,14 +128,21 @@ class MulRelRanker(LocalCtxAttRanker):
             local_ent_scores = Variable(torch.zeros(n_ments, n_cands).cuda(), requires_grad=False)
 
         # compute context vectors # TODO MARKER - SECOND EMBEDDINGS (used for f(m,c) calculation)
+
+        consistency.save(self.snd_word_embeddings(self.s_ltoken_ids), "fmc_i_lctx_embs")
+        consistency.save(self.snd_word_embeddings(self.s_rtoken_ids), "fmc_i_rctx_embs")
+        consistency.save(self.snd_word_embeddings(self.s_mtoken_ids), "fmc_i_mctx_embs")
         ltok_vecs = self.snd_word_embeddings(self.s_ltoken_ids) * self.s_ltoken_mask.view(n_ments, -1, 1)
         local_lctx_vecs = torch.sum(ltok_vecs, dim=1) / torch.sum(self.s_ltoken_mask, dim=1, keepdim=True).add_(1e-5)
         rtok_vecs = self.snd_word_embeddings(self.s_rtoken_ids) * self.s_rtoken_mask.view(n_ments, -1, 1)
         local_rctx_vecs = torch.sum(rtok_vecs, dim=1) / torch.sum(self.s_rtoken_mask, dim=1, keepdim=True).add_(1e-5)
         mtok_vecs = self.snd_word_embeddings(self.s_mtoken_ids) * self.s_mtoken_mask.view(n_ments, -1, 1)
         ment_vecs = torch.sum(mtok_vecs, dim=1) / torch.sum(self.s_mtoken_mask, dim=1, keepdim=True).add_(1e-5)
+        consistency.save(local_lctx_vecs, "fmc_i_lctx_score")
+        consistency.save(local_rctx_vecs, "fmc_i_rctx_score")
+        consistency.save(ment_vecs, "fmc_i_mctx_score")
         bow_ctx_vecs = torch.cat([local_lctx_vecs, ment_vecs, local_rctx_vecs], dim=1)
-        consistency.save(bow_ctx_vecs, "bow_ctx_vecs")
+        consistency.save(bow_ctx_vecs, "bow_ctx_vecs")#fmc
 
         consistency.save(self.use_pad_ent,"use_pad_ent")
         if self.use_pad_ent:

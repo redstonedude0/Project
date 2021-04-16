@@ -24,7 +24,6 @@ class Hyperparameters:
     gamma: float = 0.01
     LBP_loops: int = 10
     dropout_rate: float = 0.3
-    window_size: int = 6
     k: int = 3
     rel_specialinit: bool = True
     learning_reduction_threshold_f1: float = 0.91
@@ -40,8 +39,9 @@ class Hyperparameters:
     saveName = "save_default"
     loss_patched = False #Use loss&accuracy functions from the paper for certainty of comparison
     attention_token_count = 25
-    context_window_size = 100
+    context_window_size = 100#main window
     context_window_prerank = 50
+    context_window_fmc = 6
     pad_candidates = True
     n_cands_pem = 4
     n_cands_ctx = 4
@@ -53,6 +53,7 @@ class Hyperparameters:
         "override_embs":True,
         "consistency_psi":True,
         "pad_enable":True,
+        "snd_embs":True,
     }
     def __repr__(self):
         s = "Hyperparameters:"

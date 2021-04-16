@@ -588,27 +588,50 @@ class NeuralNet(nn.Module):
     RETURNS: 2D (n,d) tensor of f_m_c per mention'''
 
     def perform_fmcs(self, mentions):
-        leftWordss = [m_i.left_context.split(" ") for m_i in mentions]
-        midWordss = [m_i.text.split(" ") for m_i in mentions]
-        rightWordss = [m_i.right_context.split(" ") for m_i in mentions]
-        wordEmbedding = lambda word: processeddata.wordid2embedding[
-            processeddata.word2wordid.get(word,
-                                          processeddata.unkwordid)]
-        # 2D i*arbitrary python list of word embeddings (each word embedding is numpy array)
-        leftEmbeddingss = map_2D(wordEmbedding, leftWordss)
-        midEmbeddingss = map_2D(wordEmbedding, midWordss)
-        rightEmbeddingss = map_2D(wordEmbedding, rightWordss)
-        # 1D i python list of numpy arrays of summed embeddings
-        sumFunc = lambda embeddingsList: np.array(embeddingsList).sum(axis=0)
-        leftEmbeddingSums = map_1D(sumFunc, leftEmbeddingss)
-        midEmbeddingSums = map_1D(sumFunc, midEmbeddingss)
-        rightEmbeddingSums = map_1D(sumFunc, rightEmbeddingss)
-        # 2D i*d tensor of sum embedding for each mention
-        leftTensor = torch.from_numpy(np.array(leftEmbeddingSums)).to(SETTINGS.device)
-        midTensor = torch.from_numpy(np.array(midEmbeddingSums)).to(SETTINGS.device)
-        rightTensor = torch.from_numpy(np.array(rightEmbeddingSums)).to(SETTINGS.device)
-        #
-        tensors = [leftTensor, midTensor, rightTensor]
+        if SETTINGS.switches["snd_embs"]:
+            window_size = SETTINGS.context_window_fmc
+            leftEmbeddingss = [utils.stringToTokenEmbeddings(m.left_context, "left", window_size,special="snd") for m in
+                          mentions]
+            rightEmbeddingss = [utils.stringToTokenEmbeddings(m.right_context, "right", window_size,special="snd") for m in
+                          mentions]
+            midEmbeddingss = [utils.stringToTokenEmbeddings(m.text, "none", None,special="snd") for m in
+                          mentions]
+            # arrays of summed embeddings
+            leftEmbeddingSums = []
+            midEmbeddingSums = []
+            rightEmbeddingSums = []
+            for l,m,r in zip(leftEmbeddingss,midEmbeddingss,rightEmbeddingss):
+                leftEmbeddingSums.append(torch.FloatTensor(l).sum(dim=0))
+                midEmbeddingSums.append(torch.FloatTensor(m).sum(dim=0))
+                rightEmbeddingSums.append(torch.FloatTensor(r).sum(dim=0))
+            # 2D i*d tensor of sum embedding for each mention
+            leftTensor = torch.stack(leftEmbeddingSums)
+            midTensor = torch.stack(midEmbeddingSums)
+            rightTensor = torch.stack(rightEmbeddingSums)
+            #
+            tensors = [leftTensor, midTensor, rightTensor]
+        else:
+            leftWordss = [m_i.left_context.split(" ") for m_i in mentions]
+            midWordss = [m_i.text.split(" ") for m_i in mentions]
+            rightWordss = [m_i.right_context.split(" ") for m_i in mentions]
+            wordEmbedding = lambda word: processeddata.wordid2embedding[
+                processeddata.word2wordid.get(word,
+                                              processeddata.unkwordid)]
+            # 2D i*arbitrary python list of word embeddings (each word embedding is numpy array)
+            leftEmbeddingss = map_2D(wordEmbedding, leftWordss)
+            midEmbeddingss = map_2D(wordEmbedding, midWordss)
+            rightEmbeddingss = map_2D(wordEmbedding, rightWordss)
+            # 1D i python list of numpy arrays of summed embeddings
+            sumFunc = lambda embeddingsList: np.array(embeddingsList).sum(axis=0)
+            leftEmbeddingSums = map_1D(sumFunc, leftEmbeddingss)
+            midEmbeddingSums = map_1D(sumFunc, midEmbeddingss)
+            rightEmbeddingSums = map_1D(sumFunc, rightEmbeddingss)
+            # 2D i*d tensor of sum embedding for each mention
+            leftTensor = torch.from_numpy(np.array(leftEmbeddingSums)).to(SETTINGS.device)
+            midTensor = torch.from_numpy(np.array(midEmbeddingSums)).to(SETTINGS.device)
+            rightTensor = torch.from_numpy(np.array(rightEmbeddingSums)).to(SETTINGS.device)
+            #
+            tensors = [leftTensor, midTensor, rightTensor]
         input_ = torch.cat(tensors, dim=1)
         input_ = input_.to(torch.float)  # make default tensor type for network
         torch.manual_seed(0)

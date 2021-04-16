@@ -1414,6 +1414,24 @@ class TestNeural(unittest.TestCase):
                 self.assertTrue(their_entid == our_entid)
         #self.assertTrue(torch.allclose(their_ctxvals,our_ctxvals))#don't check because we don't bother normalising these
 
+    def test_fmc_consistency(self):
+        their_ctx_bow = self.load_consistency("bow_ctx_vecs")
+
+        #OURS
+        SETTINGS.dataset_train = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
+        SETTINGS.dataset_eval = SETTINGS.dataset_train
+        SETTINGS.normalisation = NormalisationMethod.MentNorm
+        import our_consistency
+        our_consistency.TESTING = True
+        modeller.candidateSelection(SETTINGS.dataset_train, "CONSISTENCY", True)
+        model = Model()
+        model.neuralNet = neural.NeuralNet()
+        model.evals = EvalHistory()
+        neural.train(model, lr=0)  # Just run 1 full training step
+        our_ctx_bow = our_consistency.SAVED["bow_ctx_vecs"]
+        print(their_ctx_bow,our_ctx_bow)
+        self.assertTrue(torch.equal(their_ctx_bow,our_ctx_bow))
+
     def test_phi_consistency(self):
         their_padent = self.load_consistency("use_pad_ent")
         their_mode = self.load_consistency("mode")
@@ -1425,7 +1443,6 @@ class TestNeural(unittest.TestCase):
         their_phirel = self.load_consistency("phi_i_rel")
         their_relctxctx = self.load_consistency("rel_ctx_ctx")
         their_ctx = self.load_consistency("ctx_vecs")
-        their_ctx_bow = self.load_consistency("bow_ctx_vecs")
 
         #OURS
         SETTINGS.dataset_train = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
@@ -1453,7 +1470,6 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(their_padent == our_padent)
         self.assertTrue(their_mode == our_mode)
         self.assertTrue(their_comp_mode == our_comp_mode)
-        print(their_ctx_bow.shape,our_ctx_bow.shape)
         print(their_ctx.shape,our_ctx.shape)
         print(their_relctxctx.shape,our_relctxctx.shape)
         print(their_phient.shape,our_phient.shape)
