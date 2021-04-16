@@ -614,7 +614,6 @@ class NeuralNet(nn.Module):
         torch.manual_seed(0)
         our_consistency.save(input_,"bow_ctx_vecs")
         f = self.f_m_c(input_)
-        our_consistency.save(f,"ctx_vecs")
         return f
 
     '''
@@ -1084,6 +1083,7 @@ class NeuralNet(nn.Module):
             n += 1
             # [entity vec fmc other (randn(1)*0.1)]
             f_m_cs = torch.cat([self.pad_ctx.reshape(1,300),f_m_cs])
+        our_consistency.save(f_m_cs,"ctx_vecs")
 
         debug("Calculating a values")
         ass = self.ass(f_m_cs,n)

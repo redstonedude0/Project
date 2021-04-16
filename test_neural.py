@@ -1454,7 +1454,7 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(their_mode == our_mode)
         self.assertTrue(their_comp_mode == our_comp_mode)
         print(their_ctx_bow.shape,our_ctx_bow.shape)
-        print(their_ctx.shape,our_ctx.shape)#ours smaller
+        print(their_ctx.shape,our_ctx.shape)
         print(their_relctxctx.shape,our_relctxctx.shape)
         print(their_phient.shape,our_phient.shape)
         print(their_phirel.shape,our_phirel.shape)
