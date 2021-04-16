@@ -9,6 +9,7 @@ from torch import nn
 from tqdm import tqdm
 
 import hyperparameters
+import our_consistency
 import processeddata
 import utils
 from datastructures import Model, Document, EvaluationMetrics
@@ -405,7 +406,6 @@ class NeuralNet(nn.Module):
 
         if SETTINGS.switches["consistency_psi"]:
             #TODO - add consistency checks
-            import our_consistency
             our_consistency.save(None,"psi_i_pem")#hardcoded but check anyway
             our_consistency.save(self.B_diag1,"psi_i_attmat")
             our_consistency.save(self.B_diag2,"psi_i_tokmat")
@@ -441,7 +441,6 @@ class NeuralNet(nn.Module):
                 masks[m_idx][0:len(valss)] = torch.BoolTensor([processeddata.ent2entid[e_i.text]!=processeddata.unkentid for e_i in m.candidates]).to(SETTINGS.device)
 
         if SETTINGS.switches["consistency_psi"]:
-            import our_consistency
             our_consistency.save(idss,"psi_i_entid")
             our_consistency.save(masks.to(torch.float),"psi_i_entm")
         return embeddings, masks
@@ -478,7 +477,6 @@ class NeuralNet(nn.Module):
 
 
         if SETTINGS.switches["consistency_psi"]:
-            import our_consistency
             l_contexts = [utils.stringToTokenIds(m.left_context, "left", SETTINGS.context_window_size) for m in
                           mentions]
             r_contexts = [utils.stringToTokenIds(m.right_context, "right", SETTINGS.context_window_size) for m in
@@ -507,9 +505,12 @@ class NeuralNet(nn.Module):
         # masks is a 2D (n,n_cands) bool tensor
         # R is a (k,d,d) tensor from (k,d) R_diag tensor
         valsss = embeddings.reshape([n, 1, SETTINGS.n_cands, SETTINGS.d])
+        our_consistency.save(valsss,"phi_i_ent")
         # valss is a (n,1,n_cands,d) tensor
         # See image 2
         valsss = torch.matmul(valsss, self.R_diag.diag_embed())
+        our_consistency.save(self.R_diag,"phi_i_rel")
+        our_consistency.save(valsss,"phi_i_relent")
         # valss is (n,k,n_cands,d) tensor
         # Have (n,k,n_cands,d) and (n,n_cands,d) want (n,n,n_cands,n_cands,k)
         # (n,1,n_cands,d)*(n,1,n_cands,d,k) should do it?
@@ -537,10 +538,16 @@ class NeuralNet(nn.Module):
     '''
 
     def phissss(self, n, embeddings, ass):
+        our_consistency.save(False,"use_pad_ent")
+        #TODO - pad ent
+        our_consistency.save("ment","mode")
+        our_consistency.save("bilinear","comp_mode")
         # 5D(n_i,n_j,n_cands_i,n_cands_j,k) , 4D (n_i,n_j,n_cands_i,n_cands_j)
         values = self.phi_ksssss(n, embeddings)
+        our_consistency.save(values,"phi_k")
         values *= ass.reshape([n, n, 1, 1, SETTINGS.k])  # broadcast along n_cands*n_cands
         values = smartsum(values, dim=4)
+        our_consistency.save(values,"phi")
         return values
 
     '''
@@ -572,6 +579,7 @@ class NeuralNet(nn.Module):
             z_ijk = smartsum(x,dim=1).reshape([n,1,SETTINGS.k])
             #Z_ijk is a (ni,k) sum, then a (ni*1*k) broadcastable tensor
         x /= z_ijk
+        our_consistency.save(x,"rel_ctx_ctx")
         return x
 
     '''
@@ -603,7 +611,9 @@ class NeuralNet(nn.Module):
         input_ = torch.cat(tensors, dim=1)
         input_ = input_.to(torch.float)  # make default tensor type for network
         torch.manual_seed(0)
+        our_consistency.save(input_,"bow_ctx_vecs")
         f = self.f_m_c(input_)
+        our_consistency.save(f,"ctx_vecs")
         return f
 
     '''
@@ -628,7 +638,8 @@ class NeuralNet(nn.Module):
 #        #problem value is x[3,3,0]
 #        if len(x) > 4:
 #            print("LX VALS",x[3,3,:])
-        return torch.exp(x)
+        z = torch.exp(x)
+        return z
 
     # LBP FROM https://arxiv.org/pdf/1704.04920.pdf
 
