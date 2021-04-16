@@ -1412,7 +1412,18 @@ class TestNeural(unittest.TestCase):
                 self.assertTrue(their_entid == our_entid)
         #self.assertTrue(torch.allclose(their_ctxvals,our_ctxvals))#don't check because we don't bother normalising these
 
-
+#REMAINING CONSISTENCY:
+#use_pad_ent
+#mode
+#phi
+#comp_mode
+#phi_k
+#phi_i_relent
+#phi_i_ent
+#phi_i_rel
+#rel_ctx_ctx
+#ctx_vecs
+#bow_ctx_vecs
 
 
 

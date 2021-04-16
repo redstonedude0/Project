@@ -135,7 +135,9 @@ class MulRelRanker(LocalCtxAttRanker):
         mtok_vecs = self.snd_word_embeddings(self.s_mtoken_ids) * self.s_mtoken_mask.view(n_ments, -1, 1)
         ment_vecs = torch.sum(mtok_vecs, dim=1) / torch.sum(self.s_mtoken_mask, dim=1, keepdim=True).add_(1e-5)
         bow_ctx_vecs = torch.cat([local_lctx_vecs, ment_vecs, local_rctx_vecs], dim=1)
+        consistency.save(bow_ctx_vecs, "bow_ctx_vecs")
 
+        consistency.save(self.use_pad_ent,"use_pad_ent")
         if self.use_pad_ent:
             ent_vecs = torch.cat([ent_vecs, self.pad_ent_emb.view(1, 1, -1).repeat(1, n_cands, 1)], dim=0)
             tmp = torch.zeros(1, n_cands)
@@ -174,6 +176,7 @@ class MulRelRanker(LocalCtxAttRanker):
             ctx_vecs = self.ctx_layer(bow_ctx_vecs)
             if self.use_pad_ent:
                 ctx_vecs = torch.cat([ctx_vecs, self.pad_ctx_vec], dim=0)
+            consistency.save(ctx_vecs, "ctx_vecs")
 
             m1_ctx_vecs, m2_ctx_vecs = ctx_vecs, ctx_vecs
             rel_ctx_vecs = m1_ctx_vecs.view(1, n_ments, -1) * self.ew_embs.view(n_rels, 1, -1)
@@ -191,6 +194,7 @@ class MulRelRanker(LocalCtxAttRanker):
                 threshold = topk_values[:, :, -1:]
                 mask = 1 - (rel_ctx_ctx_scores >= threshold).float()
                 rel_ctx_ctx_scores.add_(mask.mul_(-1e10))
+            consistency.save(rel_ctx_ctx_scores, "rel_ctx_ctx")
 
             if self.mode == 'ment-norm':
                 rel_ctx_ctx_probs = F.softmax(rel_ctx_ctx_scores, dim=2)
@@ -206,19 +210,24 @@ class MulRelRanker(LocalCtxAttRanker):
                 self._rel_ctx_ctx_weights = ctx_ctx_rel_probs.permute(2, 0, 1).contiguous()
 
             # compute phi(ei, ej)
+            consistency.save(self.mode, "mode")
             if self.mode == 'ment-norm':
+                consistency.save(self.ent_ent_comp, "comp_mode")
                 if self.ent_ent_comp == 'bilinear':
+                    consistency.save(self.rel_embs, "phi_i_rel")
                     if self.ent_ent_comp == 'bilinear':
                         rel_ent_vecs = ent_vecs.view(1, n_ments, n_cands, -1) * self.rel_embs.view(n_rels, 1, 1, -1)
                     elif self.ent_ent_comp == 'trans_e':
                         rel_ent_vecs = ent_vecs.view(1, n_ments, n_cands, -1) - self.rel_embs.view(n_rels, 1, 1, -1)
                     else:
                         raise Exception("unknown ent_ent_comp")
-
+                    consistency.save(rel_ent_vecs, "phi_i_relent")
+                    consistency.save(ent_vecs, "phi_i_ent")
                     rel_ent_ent_scores = torch.matmul(rel_ent_vecs.view(n_rels, n_ments, 1, n_cands, -1),
                                                       ent_vecs.view(1, 1, n_ments, n_cands, -1).permute(0, 1, 2, 4, 3))
                     # n_rels x n_ments x n_ments x n_cands x n_cands
 
+                consistency.save(rel_ent_ent_scores, "phi_k")
                 rel_ent_ent_scores = rel_ent_ent_scores.permute(0, 1, 3, 2,
                                                                 4)  # n_rel x n_ments x n_cands x n_ments x n_cands
                 rel_ent_ent_scores = (rel_ent_ent_scores * entity_mask).add_((entity_mask - 1).mul_(1e10))
@@ -235,6 +244,7 @@ class MulRelRanker(LocalCtxAttRanker):
                 ent_ent_scores = torch.matmul(ent_rel_vecs,
                                               ent_vecs.view(1, n_ments, n_cands, -1).permute(0, 1, 3, 2)) \
                     .permute(0, 2, 1, 3)
+            consistency.save(ent_ent_scores, "phi")
 
             if gold is None:
                 # LBP
