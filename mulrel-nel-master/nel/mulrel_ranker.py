@@ -129,6 +129,9 @@ class MulRelRanker(LocalCtxAttRanker):
 
         # compute context vectors # TODO MARKER - SECOND EMBEDDINGS (used for f(m,c) calculation)
 
+        consistency.save(self.s_ltoken_ids, "fmc_i_lctx_ids")
+        consistency.save(self.s_rtoken_ids, "fmc_i_rctx_ids")
+        consistency.save(self.s_mtoken_ids, "fmc_i_mctx_ids")
         consistency.save(self.snd_word_embeddings(self.s_ltoken_ids), "fmc_i_lctx_embs")
         consistency.save(self.snd_word_embeddings(self.s_rtoken_ids), "fmc_i_rctx_embs")
         consistency.save(self.snd_word_embeddings(self.s_mtoken_ids), "fmc_i_mctx_embs")

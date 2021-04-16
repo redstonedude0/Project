@@ -596,6 +596,15 @@ class NeuralNet(nn.Module):
                           mentions]
             midEmbeddingss = [utils.stringToTokenEmbeddings(m.text, "none", None,special="snd") for m in
                           mentions]
+
+            unktok = processeddata.wordid2embedding_snd[processeddata.unkwordid_snd]
+            # Pad all contexts on the right to equal size
+            context_lens = [len(leftEmbeddings) for leftEmbeddings in leftEmbeddingss]
+            max_len = max(context_lens)
+            leftEmbeddingss_ = [leftEmbeddings + [unktok] * (max_len - len(leftEmbeddings)) for leftEmbeddings in leftEmbeddingss]
+            our_consistency.save(torch.FloatTensor(leftEmbeddingss_),"fmc_i_lctx_embs")
+            our_consistency.save(midEmbeddingss,"fmc_i_mctx_embs")
+            our_consistency.save(rightEmbeddingss,"fmc_i_rctx_embs")
             # arrays of summed embeddings
             leftEmbeddingSums = []
             midEmbeddingSums = []
@@ -608,6 +617,9 @@ class NeuralNet(nn.Module):
             leftTensor = torch.stack(leftEmbeddingSums)
             midTensor = torch.stack(midEmbeddingSums)
             rightTensor = torch.stack(rightEmbeddingSums)
+            our_consistency.save(leftTensor,"fmc_i_lctx_score")
+            our_consistency.save(midTensor,"fmc_i_mctx_score")
+            our_consistency.save(rightTensor,"fmc_i_rctx_score")
             #
             tensors = [leftTensor, midTensor, rightTensor]
         else:

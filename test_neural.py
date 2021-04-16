@@ -1416,6 +1416,13 @@ class TestNeural(unittest.TestCase):
 
     def test_fmc_consistency(self):
         their_ctx_bow = self.load_consistency("bow_ctx_vecs")
+        their_lctx_embs = self.load_consistency("fmc_i_lctx_embs")
+        their_mctx_embs = self.load_consistency("fmc_i_mctx_embs")
+        their_rctx_embs = self.load_consistency("fmc_i_rctx_embs")
+        their_lctx_score = self.load_consistency("fmc_i_lctx_score")
+        their_mctx_score = self.load_consistency("fmc_i_mctx_score")
+        their_rctx_score = self.load_consistency("fmc_i_rctx_score")
+
 
         #OURS
         SETTINGS.dataset_train = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
@@ -1429,6 +1436,16 @@ class TestNeural(unittest.TestCase):
         model.evals = EvalHistory()
         neural.train(model, lr=0)  # Just run 1 full training step
         our_ctx_bow = our_consistency.SAVED["bow_ctx_vecs"]
+        our_lctx_embs = our_consistency.SAVED["fmc_i_lctx_embs"]
+        our_mctx_embs = our_consistency.SAVED["fmc_i_mctx_embs"]
+        our_rctx_embs = our_consistency.SAVED["fmc_i_rctx_embs"]
+        our_lctx_score = our_consistency.SAVED["fmc_i_lctx_score"]
+        our_mctx_score = our_consistency.SAVED["fmc_i_mctx_score"]
+        our_rctx_score = our_consistency.SAVED["fmc_i_rctx_score"]
+
+        print(their_lctx_embs,our_lctx_embs)
+        print(their_lctx_embs.shape,our_lctx_embs.shape)
+
         print(their_ctx_bow,our_ctx_bow)
         self.assertTrue(torch.equal(their_ctx_bow,our_ctx_bow))
 
