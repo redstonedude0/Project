@@ -1414,6 +1414,25 @@ class TestNeural(unittest.TestCase):
                 self.assertTrue(their_entid == our_entid)
         #self.assertTrue(torch.allclose(their_ctxvals,our_ctxvals))#don't check because we don't bother normalising these
 
+    def test_embedding_consistency(self):
+        their_sent = self.load_consistency("embs_i_sent")#from ed_ranker
+        their_lctx = self.load_consistency("embs_i_lctx")
+        #OURS
+        SETTINGS.dataset_train = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
+        SETTINGS.dataset_eval = SETTINGS.dataset_train
+        SETTINGS.normalisation = NormalisationMethod.MentNorm
+        import our_consistency
+        our_consistency.TESTING = True
+        modeller.candidateSelection(SETTINGS.dataset_train, "CONSISTENCY", True)
+        model = Model()
+        model.neuralNet = neural.NeuralNet()
+        model.evals = EvalHistory()
+        neural.train(model, lr=0)  # Just run 1 full training step
+        our_sent = our_consistency.SAVED["embs_i_sent"]
+        our_lctx = our_consistency.SAVED["embs_i_lctx"]
+        print(their_sent,our_sent)
+        print(their_lctx,our_lctx)
+
     def test_fmc_consistency(self):
         their_ctx_bow = self.load_consistency("bow_ctx_vecs")
         their_lctx_embs = self.load_consistency("fmc_i_lctx_embs")
@@ -1422,6 +1441,9 @@ class TestNeural(unittest.TestCase):
         their_lctx_score = self.load_consistency("fmc_i_lctx_score")
         their_mctx_score = self.load_consistency("fmc_i_mctx_score")
         their_rctx_score = self.load_consistency("fmc_i_rctx_score")
+        their_lctx_ids = self.load_consistency("fmc_i_lctx_ids")
+        their_mctx_ids = self.load_consistency("fmc_i_mctx_ids")
+        their_rctx_ids = self.load_consistency("fmc_i_rctx_ids")
 
 
         #OURS
@@ -1442,11 +1464,26 @@ class TestNeural(unittest.TestCase):
         our_lctx_score = our_consistency.SAVED["fmc_i_lctx_score"]
         our_mctx_score = our_consistency.SAVED["fmc_i_mctx_score"]
         our_rctx_score = our_consistency.SAVED["fmc_i_rctx_score"]
+        our_lctx_ids = our_consistency.SAVED["fmc_i_lctx_ids"]
 
-        print(their_lctx_embs,our_lctx_embs)
-        print(their_lctx_embs.shape,our_lctx_embs.shape)
+        for m,their_ids,our_ids in zip(SETTINGS.dataset_train.documents[0].mentions,their_lctx_ids,our_lctx_ids):
+            print("MENTION:",m.left_context,":",m.text,":",m.right_context)
+            print("IDS:",their_ids, our_ids)
+            for id in their_ids:
+                for k,v in processeddata.word2wordid_snd.items():
+                    if v == id:
+                        print(k)
+                        break
+            for id in our_ids:
+                for k,v in processeddata.word2wordid_snd.items():
+                    if v == id:
+                        print(k)
+                        break
 
-        print(their_ctx_bow,our_ctx_bow)
+        #print(their_lctx_embs,our_lctx_embs)
+        #print(their_lctx_embs.shape,our_lctx_embs.shape)
+
+        #print(their_ctx_bow,our_ctx_bow)
         self.assertTrue(torch.equal(their_ctx_bow,our_ctx_bow))
 
     def test_phi_consistency(self):

@@ -19,6 +19,7 @@
 
 from enum import Enum, auto
 
+import our_consistency
 from datastructures import Dataset, Mention, Candidate, Document
 
 
@@ -160,17 +161,23 @@ def loadDataset(csvPath: str,conllPath: str):
                                 })
         for document in dataset.documents:
             conll_doc = conll_data[document.id]
+            document.conll_tokens = []
             missed = 0
             for mention_idx,mention in enumerate(document.mentions):
                 while mention_idx+missed < len(conll_doc['mentions']):
                     mention_details = conll_doc['mentions'][mention_idx+missed]
                     sentence_for_mention = conll_doc['sentences'][mention_details['sentence_idx']]
+                    our_consistency.save(sentence_for_mention,"embs_i_sent")
                     conll_start = mention_details['start_word_idx']
                     conll_end = mention_details['end_word_idx']
-                    conll_mention_string = ' '.join(sentence_for_mention[conll_start:conll_end])
+                    conll_lctx = sentence_for_mention[:conll_start]
+                    conll_mctx = sentence_for_mention[conll_start:conll_end]
+                    conll_rctx = sentence_for_mention[conll_end:]
+                    conll_mention_string = ' '.join(conll_mctx)
                     if conll_mention_string.lower() == mention.text.lower():#Sanity check - are the mentions equal?
-                        mention.conll_start = conll_start
-                        mention.conll_end = conll_end
+                        mention.conll_lctx = conll_lctx
+                        mention.conll_mctx = conll_mctx
+                        mention.conll_rctx = conll_rctx
                         break
                     else: #Mentions not equal, must've missed a conll mention, move on
                         missed += 1

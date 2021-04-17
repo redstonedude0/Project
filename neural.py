@@ -605,6 +605,23 @@ class NeuralNet(nn.Module):
             our_consistency.save(torch.FloatTensor(leftEmbeddingss_),"fmc_i_lctx_embs")
             our_consistency.save(midEmbeddingss,"fmc_i_mctx_embs")
             our_consistency.save(rightEmbeddingss,"fmc_i_rctx_embs")
+
+
+            leftIdss = [
+                [
+                    processeddata.word2wordid_snd.get(word,processeddata.unkwordid_snd)
+                    for word in m.conll_lctx
+                ][-3:]
+                for m in mentions
+                if m.conll_lctx is not None
+            ]
+            our_consistency.save(leftIdss[0],"embs_i_lctx")
+            #leftIdss = [utils.stringToTokenIds(m.left_context, "left", window_size,special="snd") for m in
+            #              mentions]
+            context_id_lens = [len(leftIds) for leftIds in leftIdss]
+            max_len = max(context_id_lens)
+            leftIdss_ = [leftIds + [processeddata.unkwordid_snd] * (max_len - len(leftIds)) for leftIds in leftIdss]
+            our_consistency.save(torch.FloatTensor(leftIdss_),"fmc_i_lctx_ids")
             # arrays of summed embeddings
             leftEmbeddingSums = []
             midEmbeddingSums = []
