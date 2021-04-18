@@ -42,7 +42,8 @@ class TestNeural(unittest.TestCase):
         SETTINGS.n_cands = 8
         dataset = Dataset()
         dataset.documents = [self.testingDoc3]
-        modeller.candidateSelection(dataset,"tDoc3",True)
+        #self.testingDoc3 = None#Cause error for now, want to disale candidate sel for testing
+        #modeller.candidateSelection(dataset,"tDoc3",True)
 
     def tearDown(self) -> None:
         pass
@@ -1480,22 +1481,11 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(torch.equal(their_mctx_embs,our_mctx_embs))
         self.assertTrue(torch.equal(their_rctx_embs,our_rctx_embs))
 
-        print(SETTINGS.dataset_train.documents[0].mentions[2].conll_lctx,"LCTX")
-        print("UNK",processeddata.wordid2embedding_snd[processeddata.unkwordid_snd])
-        print(our_lctx_ids[2])
-        print(their_lctx_score[2],our_lctx_score[2])
-        print(their_lctx_score[2]-our_lctx_score[2])
-        self.assertTrue(torch.allclose(their_lctx_score[2],our_lctx_score[2]))
-        self.assertTrue(torch.allclose(their_lctx_score,our_lctx_score))
         self.assertTrue(torch.equal(their_lctx_score,our_lctx_score))
         self.assertTrue(torch.equal(their_mctx_score,our_mctx_score))
         self.assertTrue(torch.equal(their_rctx_score,our_rctx_score))
 
-        #print(their_lctx_embs,our_lctx_embs)
-        #print(their_lctx_embs.shape,our_lctx_embs.shape)
-
-        #print(their_ctx_bow,our_ctx_bow)
-        #self.assertTrue(torch.equal(their_ctx_bow,our_ctx_bow))
+        self.assertTrue(torch.equal(their_ctx_bow,our_ctx_bow))
 
     def test_phi_consistency(self):
         their_padent = self.load_consistency("use_pad_ent")
@@ -1535,6 +1525,8 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(their_padent == our_padent)
         self.assertTrue(their_mode == our_mode)
         self.assertTrue(their_comp_mode == our_comp_mode)
+        print(their_ctx,our_ctx)
+        self.assertTrue(torch.equal(their_ctx,our_ctx))
         print(their_ctx.shape,our_ctx.shape)
         print(their_relctxctx.shape,our_relctxctx.shape)
         print(their_phient.shape,our_phient.shape)

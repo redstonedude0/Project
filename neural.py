@@ -302,6 +302,7 @@ class NeuralNet(nn.Module):
             nn.MultiheadAttention(100, 100, SETTINGS.dropout_rate)
             # TODO - absolutely no idea how to do this, this is a filler for now
         )  # Attention mechanism to achieve feature representation
+        torch.manual_seed(0)
         self.f_m_c = nn.Sequential(
             nn.Linear(900, 300).float(),  # TODO what dimensions?
             nn.Tanh(),
@@ -657,6 +658,7 @@ class NeuralNet(nn.Module):
             our_consistency.save(torch.FloatTensor(leftEmbeddingss),"fmc_i_lctx_embs")
             our_consistency.save(torch.FloatTensor(midEmbeddingss),"fmc_i_mctx_embs")
             our_consistency.save(torch.FloatTensor(rightEmbeddingss),"fmc_i_rctx_embs")
+            #readjust embeddings to remove unknowns
             leftEmbeddingss = [
                 [
                     processeddata.wordid2embedding_snd[id]
@@ -664,6 +666,22 @@ class NeuralNet(nn.Module):
                     if id != processeddata.unkwordid_snd
                 ]
                 for ids in leftIdss_
+            ]
+            midEmbeddingss = [
+                [
+                    processeddata.wordid2embedding_snd[id]
+                    for id in ids
+                    if id != processeddata.unkwordid_snd
+                ]
+                for ids in midIdss_
+            ]
+            rightEmbeddingss = [
+                [
+                    processeddata.wordid2embedding_snd[id]
+                    for id in ids
+                    if id != processeddata.unkwordid_snd
+                ]
+                for ids in rightIdss_
             ]
 
             # arrays of summed embeddings
@@ -673,10 +691,17 @@ class NeuralNet(nn.Module):
             for l,m,r in zip(leftEmbeddingss,midEmbeddingss,rightEmbeddingss):
                 if len(l) == 0:#just unknowns, so just make this 1 unknown exactly
                     l = processeddata.wordid2embedding_snd[processeddata.unkwordid_snd].reshape(1,-1)
+                if len(m) == 0:
+                    m = processeddata.wordid2embedding_snd[processeddata.unkwordid_snd].reshape(1,-1)
+                if len(r) == 0:
+                    r = processeddata.wordid2embedding_snd[processeddata.unkwordid_snd].reshape(1,-1)
+                #summation normalisation terms???
                 leftSize = len(l)+1e-5
+                midSize = len(m)+1e-5
+                rightSize = len(r)+1e-5
                 leftEmbeddingSums.append(torch.FloatTensor(l).sum(dim=0)/leftSize)
-                midEmbeddingSums.append(torch.FloatTensor(m).sum(dim=0))
-                rightEmbeddingSums.append(torch.FloatTensor(r).sum(dim=0))
+                midEmbeddingSums.append(torch.FloatTensor(m).sum(dim=0)/midSize)
+                rightEmbeddingSums.append(torch.FloatTensor(r).sum(dim=0)/rightSize)
             # 2D i*d tensor of sum embedding for each mention
             leftTensor = torch.stack(leftEmbeddingSums).to(SETTINGS.device)
             midTensor = torch.stack(midEmbeddingSums).to(SETTINGS.device)
