@@ -1430,8 +1430,13 @@ class TestNeural(unittest.TestCase):
         neural.train(model, lr=0)  # Just run 1 full training step
         our_sent = our_consistency.SAVED["embs_i_sent"]
         our_lctx = our_consistency.SAVED["embs_i_lctx"]
-        print(their_sent,our_sent)
-        print(their_lctx,our_lctx)
+        #'1000' is the only token with 2 second embeddings
+        #print(processeddata.word2wordid_snd["1000"],566,577)
+        #import numpy as np
+        #self.assertTrue(np.array_equal(processeddata.wordid2embedding_snd[566],processeddata.wordid2embedding_snd[577]))
+
+        self.assertTrue(their_sent==our_sent)
+        self.assertTrue(their_lctx==our_lctx)
 
     def test_fmc_consistency(self):
         their_ctx_bow = self.load_consistency("bow_ctx_vecs")
@@ -1465,26 +1470,32 @@ class TestNeural(unittest.TestCase):
         our_mctx_score = our_consistency.SAVED["fmc_i_mctx_score"]
         our_rctx_score = our_consistency.SAVED["fmc_i_rctx_score"]
         our_lctx_ids = our_consistency.SAVED["fmc_i_lctx_ids"]
+        our_mctx_ids = our_consistency.SAVED["fmc_i_mctx_ids"]
+        our_rctx_ids = our_consistency.SAVED["fmc_i_rctx_ids"]
+        self.assertTrue(torch.equal(their_lctx_ids,our_lctx_ids))
+        self.assertTrue(torch.equal(their_mctx_ids,our_mctx_ids))
+        self.assertTrue(torch.equal(their_rctx_ids,our_rctx_ids))
 
-        for m,their_ids,our_ids in zip(SETTINGS.dataset_train.documents[0].mentions,their_lctx_ids,our_lctx_ids):
-            print("MENTION:",m.left_context,":",m.text,":",m.right_context)
-            print("IDS:",their_ids, our_ids)
-            for id in their_ids:
-                for k,v in processeddata.word2wordid_snd.items():
-                    if v == id:
-                        print(k)
-                        break
-            for id in our_ids:
-                for k,v in processeddata.word2wordid_snd.items():
-                    if v == id:
-                        print(k)
-                        break
+        self.assertTrue(torch.equal(their_lctx_embs,our_lctx_embs))
+        self.assertTrue(torch.equal(their_mctx_embs,our_mctx_embs))
+        self.assertTrue(torch.equal(their_rctx_embs,our_rctx_embs))
+
+        print(SETTINGS.dataset_train.documents[0].mentions[2].conll_lctx,"LCTX")
+        print("UNK",processeddata.wordid2embedding_snd[processeddata.unkwordid_snd])
+        print(our_lctx_ids[2])
+        print(their_lctx_score[2],our_lctx_score[2])
+        print(their_lctx_score[2]-our_lctx_score[2])
+        self.assertTrue(torch.allclose(their_lctx_score[2],our_lctx_score[2]))
+        self.assertTrue(torch.allclose(their_lctx_score,our_lctx_score))
+        self.assertTrue(torch.equal(their_lctx_score,our_lctx_score))
+        self.assertTrue(torch.equal(their_mctx_score,our_mctx_score))
+        self.assertTrue(torch.equal(their_rctx_score,our_rctx_score))
 
         #print(their_lctx_embs,our_lctx_embs)
         #print(their_lctx_embs.shape,our_lctx_embs.shape)
 
         #print(their_ctx_bow,our_ctx_bow)
-        self.assertTrue(torch.equal(their_ctx_bow,our_ctx_bow))
+        #self.assertTrue(torch.equal(their_ctx_bow,our_ctx_bow))
 
     def test_phi_consistency(self):
         their_padent = self.load_consistency("use_pad_ent")

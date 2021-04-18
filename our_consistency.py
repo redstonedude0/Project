@@ -8,4 +8,5 @@ SAVED = {}
 """ Save tensor details """
 def save(tensor, ident):
     if TESTING:#Only save if testing
-        SAVED[ident] = tensor
+        if ident not in SAVED.keys():#only save the 1st
+            SAVED[ident] = tensor

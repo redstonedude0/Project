@@ -7,6 +7,7 @@ import numpy as np
 from tqdm import tqdm
 
 
+#TODO - word2id should only be accessible via utils.normalise
 word2wordid = {}
 unkwordid = 0
 ent2entid = {}
@@ -34,15 +35,20 @@ def loadEmbeddings():
     global wordid2embedding_snd
     if len(word2wordid) == 0:
         with open(SETTINGS.dataDir_embeddings + "dict.word", "r") as f:
-            for line in tqdm(f, unit="words", total=492408):
+            for idx,line in tqdm(enumerate(f), unit="words", total=492408):
                 word = line.split("\t")[0]
-                word2wordid[word] = len(word2wordid)
+                if word in word2wordid:
+                    print("Duplicate word ", word)
+                word2wordid[word] = idx
+
         with open(SETTINGS.dataDir_embeddings + "dict.entity", "r") as f:
-            for line in tqdm(f, unit="entities", total=274474):
+            for idx,line in tqdm(enumerate(f), unit="entities", total=274474):
                 entname = line.split("\t")[0]
                 # Normalise entname - remove domain, make wiki-normalised according to wiki standard #TODO - link standard (I just happen to know it's _ => " " and remove%-encodings)
                 entname = entname.replace("en.wikipedia.org/wiki/", "").replace("_", " ").replace("%22", '"')
-                ent2entid[entname] = len(ent2entid)
+                if entname in ent2entid:
+                    print("Duplicate entname ", entname)
+                ent2entid[entname] = idx
         unkwordid = word2wordid["#UNK#"]
         unkentid = len(ent2entid)
         ent2entid["#UNK#"] = unkentid
@@ -67,11 +73,14 @@ def loadEmbeddings():
         if SETTINGS.switches["snd_embs"]:
             #Create second embeddings too
             #TODO - do embeddings need required_grad False to be manually set?
+            print("strt",len(word2wordid_snd))
             with open(SETTINGS.dataDir_embeddings + "glove/dict.word", "r") as f:
-                for line in tqdm(f, unit="words_snd", total=1):
+                for idx,line in tqdm(enumerate(f), unit="words_snd", total=1):
                     word = line.split("\t")[0]
-                    word2wordid_snd[word] = len(word2wordid_snd)
-            unkwordid_snd = word2wordid_snd["#UNK#"]#not actually used?
+                    if word in word2wordid_snd:
+                        print("Duplicate snd word ",word)
+                    word2wordid_snd[word] = idx
+            unkwordid_snd = word2wordid_snd["#UNK#"]
             wordid2embedding_snd = np.load(SETTINGS.dataDir_embeddings + "glove/word_embeddings.npy")
             #no embedding normalisation on these?
 

@@ -589,51 +589,98 @@ class NeuralNet(nn.Module):
 
     def perform_fmcs(self, mentions):
         if SETTINGS.switches["snd_embs"]:
-            window_size = SETTINGS.context_window_fmc
-            leftEmbeddingss = [utils.stringToTokenEmbeddings(m.left_context, "left", window_size,special="snd") for m in
-                          mentions]
-            rightEmbeddingss = [utils.stringToTokenEmbeddings(m.right_context, "right", window_size,special="snd") for m in
-                          mentions]
-            midEmbeddingss = [utils.stringToTokenEmbeddings(m.text, "none", None,special="snd") for m in
-                          mentions]
+            half_window_size = SETTINGS.context_window_fmc//2
 
-            unktok = processeddata.wordid2embedding_snd[processeddata.unkwordid_snd]
-            # Pad all contexts on the right to equal size
-            context_lens = [len(leftEmbeddings) for leftEmbeddings in leftEmbeddingss]
-            max_len = max(context_lens)
-            leftEmbeddingss_ = [leftEmbeddings + [unktok] * (max_len - len(leftEmbeddings)) for leftEmbeddings in leftEmbeddingss]
-            our_consistency.save(torch.FloatTensor(leftEmbeddingss_),"fmc_i_lctx_embs")
-            our_consistency.save(midEmbeddingss,"fmc_i_mctx_embs")
-            our_consistency.save(rightEmbeddingss,"fmc_i_rctx_embs")
-
-
+            #Create id tensors for conll contexts
             leftIdss = [
                 [
                     processeddata.word2wordid_snd.get(word,processeddata.unkwordid_snd)
                     for word in m.conll_lctx
-                ][-3:]
+                ][-half_window_size:]
                 for m in mentions
                 if m.conll_lctx is not None
+            ]
+            midIdss = [
+                [
+                    processeddata.word2wordid_snd.get(word, processeddata.unkwordid_snd)
+                    for word in m.conll_mctx
+                ]
+                for m in mentions
+                if m.conll_mctx is not None
+            ]
+            rightIdss = [
+                list(reversed([
+                    processeddata.word2wordid_snd.get(word, processeddata.unkwordid_snd)
+                    for word in m.conll_rctx
+                ][:half_window_size]))
+                for m in mentions
+                if m.conll_rctx is not None
             ]
             our_consistency.save(leftIdss[0],"embs_i_lctx")
             #leftIdss = [utils.stringToTokenIds(m.left_context, "left", window_size,special="snd") for m in
             #              mentions]
-            context_id_lens = [len(leftIds) for leftIds in leftIdss]
-            max_len = max(context_id_lens)
-            leftIdss_ = [leftIds + [processeddata.unkwordid_snd] * (max_len - len(leftIds)) for leftIds in leftIdss]
-            our_consistency.save(torch.FloatTensor(leftIdss_),"fmc_i_lctx_ids")
+            lctx_ids_len = [len(leftIds) for leftIds in leftIdss]
+            max_lctx_len = max(lctx_ids_len)
+            leftIdss_ = [[processeddata.unkwordid_snd] * (max_lctx_len - len(leftIds)) + leftIds for leftIds in leftIdss]
+            our_consistency.save(torch.LongTensor(leftIdss_),"fmc_i_lctx_ids")
+            mctx_ids_len = [len(midIds) for midIds in midIdss]
+            max_mctx_len = max(mctx_ids_len)
+            midIdss_ = [midIds + [processeddata.unkwordid_snd] * (max_mctx_len - len(midIds)) for midIds in midIdss]
+            our_consistency.save(torch.LongTensor(midIdss_),"fmc_i_mctx_ids")
+            rctx_ids_len = [len(rightIds) for rightIds in rightIdss]
+            max_rctx_len = max(rctx_ids_len)
+            rightIdss_ = [[processeddata.unkwordid_snd] * (max_rctx_len - len(rightIds)) + rightIds for rightIds in rightIdss]
+            our_consistency.save(torch.LongTensor(rightIdss_),"fmc_i_rctx_ids")
+
+            #embeddings
+            leftEmbeddingss = [
+                [
+                    processeddata.wordid2embedding_snd[id]
+                    for id in ids
+                ]
+                for ids in leftIdss_
+            ]
+            midEmbeddingss = [
+                [
+                    processeddata.wordid2embedding_snd[id]
+                    for id in ids
+                ]
+                for ids in midIdss_
+            ]
+            rightEmbeddingss = [
+                [
+                    processeddata.wordid2embedding_snd[id]
+                    for id in ids
+                ]
+                for ids in rightIdss_
+            ]
+            our_consistency.save(torch.FloatTensor(leftEmbeddingss),"fmc_i_lctx_embs")
+            our_consistency.save(torch.FloatTensor(midEmbeddingss),"fmc_i_mctx_embs")
+            our_consistency.save(torch.FloatTensor(rightEmbeddingss),"fmc_i_rctx_embs")
+            leftEmbeddingss = [
+                [
+                    processeddata.wordid2embedding_snd[id]
+                    for id in ids
+                    if id != processeddata.unkwordid_snd
+                ]
+                for ids in leftIdss_
+            ]
+
             # arrays of summed embeddings
             leftEmbeddingSums = []
             midEmbeddingSums = []
             rightEmbeddingSums = []
             for l,m,r in zip(leftEmbeddingss,midEmbeddingss,rightEmbeddingss):
-                leftEmbeddingSums.append(torch.FloatTensor(l).sum(dim=0))
+                if len(l) == 0:#just unknowns, so just make this 1 unknown exactly
+                    l = processeddata.wordid2embedding_snd[processeddata.unkwordid_snd].reshape(1,-1)
+                leftSize = len(l)+1e-5
+                leftEmbeddingSums.append(torch.FloatTensor(l).sum(dim=0)/leftSize)
                 midEmbeddingSums.append(torch.FloatTensor(m).sum(dim=0))
                 rightEmbeddingSums.append(torch.FloatTensor(r).sum(dim=0))
             # 2D i*d tensor of sum embedding for each mention
-            leftTensor = torch.stack(leftEmbeddingSums)
-            midTensor = torch.stack(midEmbeddingSums)
-            rightTensor = torch.stack(rightEmbeddingSums)
+            leftTensor = torch.stack(leftEmbeddingSums).to(SETTINGS.device)
+            midTensor = torch.stack(midEmbeddingSums).to(SETTINGS.device)
+            rightTensor = torch.stack(rightEmbeddingSums).to(SETTINGS.device)
             our_consistency.save(leftTensor,"fmc_i_lctx_score")
             our_consistency.save(midTensor,"fmc_i_mctx_score")
             our_consistency.save(rightTensor,"fmc_i_rctx_score")
