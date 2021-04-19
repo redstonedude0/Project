@@ -186,6 +186,7 @@ class MulRelRanker(LocalCtxAttRanker):
             dist.mul_(-1)
 
             torch.manual_seed(0)
+            consistency.save(list(self.ctx_layer.parameters()),"fmc_preweight")
             ctx_vecs = self.ctx_layer(bow_ctx_vecs)
             if self.use_pad_ent:
                 ctx_vecs = torch.cat([ctx_vecs, self.pad_ctx_vec], dim=0)

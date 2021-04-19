@@ -1498,6 +1498,7 @@ class TestNeural(unittest.TestCase):
         their_phirel = self.load_consistency("phi_i_rel")
         their_relctxctx = self.load_consistency("rel_ctx_ctx")
         their_ctx = self.load_consistency("ctx_vecs")
+        their_initialweight = self.load_consistency("fmc_initialweight")
 
         #OURS
         SETTINGS.dataset_train = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
@@ -1526,8 +1527,9 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(their_padent == our_padent)
         self.assertTrue(their_mode == our_mode)
         self.assertTrue(their_comp_mode == our_comp_mode)
+        for their_param,our_param in zip(their_initialweight,our_initialweight):
+            self.assertTrue(torch.equal(their_param,our_param))
         print(their_ctx,our_ctx)
-        print(our_initialweight)
         #Theirs [ 1.7642e-01,  0.0000e+00,  0.0000e+00,  ..., -3.6159e-02, 9.8941e-02,  0.0000e+00]
         #Ours [-0.0236, -0.0822, -0.1484,  ..., -0.0218,  0.0085,  0.1442],
         self.assertTrue(torch.equal(their_ctx,our_ctx))
