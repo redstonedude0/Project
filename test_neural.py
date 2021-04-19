@@ -1526,6 +1526,8 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(their_mode == our_mode)
         self.assertTrue(their_comp_mode == our_comp_mode)
         print(their_ctx,our_ctx)
+        #Theirs [ 1.7642e-01,  0.0000e+00,  0.0000e+00,  ..., -3.6159e-02, 9.8941e-02,  0.0000e+00]
+        #Ours [-0.0236, -0.0822, -0.1484,  ..., -0.0218,  0.0085,  0.1442],
         self.assertTrue(torch.equal(their_ctx,our_ctx))
         print(their_ctx.shape,our_ctx.shape)
         print(their_relctxctx.shape,our_relctxctx.shape)

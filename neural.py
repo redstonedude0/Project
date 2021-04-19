@@ -737,6 +737,7 @@ class NeuralNet(nn.Module):
         input_ = input_.to(torch.float)  # make default tensor type for network
         torch.manual_seed(0)
         our_consistency.save(input_,"bow_ctx_vecs")
+        torch.manual_seed(0)
         f = self.f_m_c(input_)
         return f
 
