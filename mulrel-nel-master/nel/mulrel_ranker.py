@@ -68,7 +68,7 @@ class MulRelRanker(LocalCtxAttRanker):
             torch.nn.Linear(self.emb_dims * 3, self.ew_hid_dims),
             torch.nn.Tanh(),
             torch.nn.Dropout(p=self.dr))
-        consistency.save(list(self.f_m_c.parameters()),"fmc_initialweight")
+        consistency.save(list(self.ctx_layer.parameters()),"fmc_initialweight")
 
         self.rel_embs = torch.randn(self.n_rels, self.emb_dims) * 0.01
         if self.ent_ent_comp == 'bilinear':
