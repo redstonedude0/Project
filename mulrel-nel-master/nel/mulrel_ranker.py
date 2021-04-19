@@ -191,6 +191,7 @@ class MulRelRanker(LocalCtxAttRanker):
             torch.set_deterministic(True)#Enable determinism for fmc calculations for consistency testing
             torch.backends.cudnn.deterministic = True
             torch.manual_seed(0)
+            torch.cuda.manual_seed(0)
             ctx_vecs = self.ctx_layer(bow_ctx_vecs)
             torch.backends.cudnn.deterministic = False
             torch.set_deterministic(False)
