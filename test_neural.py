@@ -1450,6 +1450,11 @@ class TestNeural(unittest.TestCase):
         their_lctx_ids = self.load_consistency("fmc_i_lctx_ids")
         their_mctx_ids = self.load_consistency("fmc_i_mctx_ids")
         their_rctx_ids = self.load_consistency("fmc_i_rctx_ids")
+        their_initialweight = self.load_consistency("fmc_initialweight")
+        their_preweight = self.load_consistency("fmc_preweight")
+        their_input = self.load_consistency("fmc_input")
+        their_model = self.load_consistency("fmc_model")
+        their_output = self.load_consistency("fmc_output")
 
 
         #OURS
@@ -1473,6 +1478,12 @@ class TestNeural(unittest.TestCase):
         our_lctx_ids = our_consistency.SAVED["fmc_i_lctx_ids"]
         our_mctx_ids = our_consistency.SAVED["fmc_i_mctx_ids"]
         our_rctx_ids = our_consistency.SAVED["fmc_i_rctx_ids"]
+        our_initialweight = our_consistency.SAVED["fmc_initialweight"]
+        our_preweight = our_consistency.SAVED["fmc_preweight"]
+        our_input = our_consistency.SAVED["fmc_input"]
+        our_model = our_consistency.SAVED["fmc_model"]
+        our_output = our_consistency.SAVED["fmc_output"]
+
         self.assertTrue(torch.equal(their_lctx_ids,our_lctx_ids))
         self.assertTrue(torch.equal(their_mctx_ids,our_mctx_ids))
         self.assertTrue(torch.equal(their_rctx_ids,our_rctx_ids))
@@ -1486,6 +1497,13 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(torch.equal(their_rctx_score,our_rctx_score))
 
         self.assertTrue(torch.equal(their_ctx_bow,our_ctx_bow))
+        self.assertTrue(torch.equal(their_input,our_input))
+        for their_param,our_param in zip(their_initialweight,our_initialweight):
+            self.assertTrue(torch.equal(their_param,our_param))
+        for their_param,our_param in zip(their_preweight,our_preweight):
+            self.assertTrue(torch.equal(their_param,our_param))
+        self.assertTrue(torch.equal(their_model,our_model))
+        self.assertTrue(torch.equal(their_output,our_output))
 
     def test_phi_consistency(self):
         their_padent = self.load_consistency("use_pad_ent")
@@ -1498,7 +1516,6 @@ class TestNeural(unittest.TestCase):
         their_phirel = self.load_consistency("phi_i_rel")
         their_relctxctx = self.load_consistency("rel_ctx_ctx")
         their_ctx = self.load_consistency("ctx_vecs")
-        their_initialweight = self.load_consistency("fmc_initialweight")
 
         #OURS
         SETTINGS.dataset_train = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
@@ -1522,13 +1539,11 @@ class TestNeural(unittest.TestCase):
         our_relctxctx = our_consistency.SAVED["rel_ctx_ctx"]
         our_ctx = our_consistency.SAVED["ctx_vecs"]
         our_ctx_bow = our_consistency.SAVED["bow_ctx_vecs"]
-        our_initialweight = our_consistency.SAVED["fmc_initialweight"]
 
         self.assertTrue(their_padent == our_padent)
         self.assertTrue(their_mode == our_mode)
         self.assertTrue(their_comp_mode == our_comp_mode)
-        for their_param,our_param in zip(their_initialweight,our_initialweight):
-            self.assertTrue(torch.equal(their_param,our_param))
+        print(their_ctx.shape,our_ctx.shape)
         print(their_ctx,our_ctx)
         #Theirs [ 1.7642e-01,  0.0000e+00,  0.0000e+00,  ..., -3.6159e-02, 9.8941e-02,  0.0000e+00]
         #Ours [-0.0236, -0.0822, -0.1484,  ..., -0.0218,  0.0085,  0.1442],

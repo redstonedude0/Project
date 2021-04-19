@@ -740,7 +740,10 @@ class NeuralNet(nn.Module):
         our_consistency.save(input_,"bow_ctx_vecs")
         torch.manual_seed(0)
         our_consistency.save(list(self.f_m_c.parameters()),"fmc_preweight")
+        our_consistency.save(self.f_m_c,"fmc_model")
+        our_consistency.save(input_,"fmc_input")
         f = self.f_m_c(input_)
+        our_consistency.save(f,"fmc_output")
         return f
 
     '''
