@@ -304,10 +304,11 @@ class NeuralNet(nn.Module):
         )  # Attention mechanism to achieve feature representation
         torch.manual_seed(0)
         self.f_m_c = nn.Sequential(
-            nn.Linear(900, 300).float(),  # TODO what dimensions?
+            nn.Linear(900, 300),  # TODO what dimensions?
             nn.Tanh(),
             nn.Dropout(p=SETTINGS.dropout_rate),
-        ).float()
+        )
+        our_consistency.save(list(self.f_m_c.parameters()),"fmc_initialweight")
         g_hid_dims = 100  # TODO - this is the default used by the paper's code, not mentioned anywhere in paper
         self.g = nn.Sequential(
             nn.Linear(2, g_hid_dims),

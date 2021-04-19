@@ -1521,11 +1521,13 @@ class TestNeural(unittest.TestCase):
         our_relctxctx = our_consistency.SAVED["rel_ctx_ctx"]
         our_ctx = our_consistency.SAVED["ctx_vecs"]
         our_ctx_bow = our_consistency.SAVED["bow_ctx_vecs"]
+        our_initialweight = our_consistency.SAVED["fmc_initialweight"]
 
         self.assertTrue(their_padent == our_padent)
         self.assertTrue(their_mode == our_mode)
         self.assertTrue(their_comp_mode == our_comp_mode)
         print(their_ctx,our_ctx)
+        print(our_initialweight)
         #Theirs [ 1.7642e-01,  0.0000e+00,  0.0000e+00,  ..., -3.6159e-02, 9.8941e-02,  0.0000e+00]
         #Ours [-0.0236, -0.0822, -0.1484,  ..., -0.0218,  0.0085,  0.1442],
         self.assertTrue(torch.equal(their_ctx,our_ctx))
