@@ -189,9 +189,9 @@ class MulRelRanker(LocalCtxAttRanker):
             consistency.save(self.ctx_layer, "fmc_model")
             consistency.save(bow_ctx_vecs, "fmc_input")
             torch.manual_seed(0)
-            torch.use_deterministic_algorithms(True)#Enable determinism for fmc calculations for consistency testing
+            torch.set_deterministic(True)#Enable determinism for fmc calculations for consistency testing
             ctx_vecs = self.ctx_layer(bow_ctx_vecs)
-            torch.use_deterministic_algorithms(False)
+            torch.set_deterministic(False)
             consistency.save(ctx_vecs, "fmc_output")
             if self.use_pad_ent:
                 ctx_vecs = torch.cat([ctx_vecs, self.pad_ctx_vec], dim=0)
