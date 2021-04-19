@@ -1502,18 +1502,8 @@ class TestNeural(unittest.TestCase):
             self.assertTrue(torch.equal(their_param,our_param))
         for their_param,our_param in zip(their_preweight,our_preweight):
             self.assertTrue(torch.equal(their_param,our_param))
-#        print(str(their_model),str(our_model))
-        torch.manual_seed(0)
-#        print(their_model(their_input))
-#        print(their_output)
-        print(our_output)
-        print(their_output)
-#        self.assertTrue(torch.equal(their_model,our_model))
-        #Theirs [ 1.7642e-01,  0.0000e+00,  0.0000e+00,  ..., -3.6159e-02, 9.8941e-02,  0.0000e+00]
-        #Ours   [ 1.7642e-01,  5.0052e-02,  0.0000e+00,  ..., -3.6159e-02, 0.0000e+00, -3.5114e-01]
+        self.assertTrue(str(their_model)==str(our_model))
         self.assertTrue(torch.equal(their_output,our_output))
-        #Theirs [ 1.7642e-01,  0.0000e+00,  0.0000e+00,  ..., -3.6159e-02, 9.8941e-02,  0.0000e+00]
-        #Ours [-0.0236, -0.0822, -0.1484,  ..., -0.0218,  0.0085,  0.1442],
 
     def test_phi_consistency(self):
         #assuming fmc consistency
