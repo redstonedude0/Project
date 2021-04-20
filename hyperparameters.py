@@ -54,6 +54,7 @@ class Hyperparameters:
         "consistency_psi":True,
         "pad_enable":True,
         "snd_embs":True,
+        "exp_adjust":True
     }
     def __repr__(self):
         s = "Hyperparameters:"

@@ -763,13 +763,19 @@ class NeuralNet(nn.Module):
         # y is a 3D (n,k,d) tensor)
         y = torch.matmul(y, fmcs.T).transpose(1, 2)
         # y is a 3D (n,n,k) tensor)
+        our_consistency.save(y,"exp_i_mentment")
+        our_consistency.save(y,"exp_i_mentment_1")
+        our_consistency.save(y,"exp_i_mentment_2")
         x = y / np.math.sqrt(SETTINGS.d)
+        our_consistency.save(x,"exp_i_mentment_scaled")
+        our_consistency.save(x,"rel_ctx_ctx")
 #        print("MIN",self.D.min())
 #        print("MAX",self.D.max())
 #        #problem value is x[3,3,0]
 #        if len(x) > 4:
 #            print("LX VALS",x[3,3,:])
         z = torch.exp(x)
+        our_consistency.save(z,"exp_i_mentment_probs")
         return z
 
     # LBP FROM https://arxiv.org/pdf/1704.04920.pdf

@@ -205,11 +205,16 @@ class MulRelRanker(LocalCtxAttRanker):
             rel_ctx_vecs = m1_ctx_vecs.view(1, n_ments, -1) * self.ew_embs.view(n_rels, 1, -1)
             rel_ctx_ctx_scores = torch.matmul(rel_ctx_vecs, m2_ctx_vecs.view(1, n_ments, -1).permute(0, 2,
                                                                                                      1))  # n_rels x n_ments x n_ments
+            consistency.save(rel_ctx_ctx_scores, "exp_i_mentment")
 
             rel_ctx_ctx_scores = rel_ctx_ctx_scores.add_((1 - Variable(dist.float().cuda())).mul_(-1e10))
+            consistency.save(rel_ctx_ctx_scores, "exp_i_mentment_1")
             eye = Variable(torch.eye(n_ments).cuda()).view(1, n_ments, n_ments)
             rel_ctx_ctx_scores.add_(eye.mul_(-1e10))
+            consistency.save(rel_ctx_ctx_scores, "exp_i_mentment_2")
             rel_ctx_ctx_scores.mul_(1 / np.sqrt(self.ew_hid_dims))  # scaling proposed by "attention is all you need"
+
+            consistency.save(rel_ctx_ctx_scores, "exp_i_mentment_scaled")
 
             # get top_n neighbour
             if self.ent_top_n < n_ments:
@@ -221,6 +226,7 @@ class MulRelRanker(LocalCtxAttRanker):
 
             if self.mode == 'ment-norm':
                 rel_ctx_ctx_probs = F.softmax(rel_ctx_ctx_scores, dim=2)
+                consistency.save(rel_ctx_ctx_scores, "exp_i_mentment_probs")
                 rel_ctx_ctx_weights = rel_ctx_ctx_probs + rel_ctx_ctx_probs.permute(0, 2, 1)
                 self._rel_ctx_ctx_weights = rel_ctx_ctx_probs
             elif self.mode == 'rel-norm':

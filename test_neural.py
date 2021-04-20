@@ -1537,24 +1537,27 @@ class TestNeural(unittest.TestCase):
         our_phirelent = our_consistency.SAVED["phi_i_relent"]
         our_phient = our_consistency.SAVED["phi_i_ent"]
         our_phirel = our_consistency.SAVED["phi_i_rel"]
-        our_relctxctx = our_consistency.SAVED["rel_ctx_ctx"]
+        our_relctxctx = our_consistency.SAVED["rel_ctx_ctx"]#TODO this will be different if >1000 mentions
         our_ctx = our_consistency.SAVED["ctx_vecs"]
-        our_ctx_bow = our_consistency.SAVED["bow_ctx_vecs"]
 
         self.assertTrue(their_padent == our_padent)
         self.assertTrue(their_mode == our_mode)
         self.assertTrue(their_comp_mode == our_comp_mode)
-        print(their_ctx.shape,our_ctx.shape)
-        print(their_ctx,our_ctx)  ###!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! TODO - seed before sampling for padding vector
         #TODO - check - is the padding vector normalised in the same as as the actual embeddings?
         self.assertTrue(torch.equal(their_ctx,our_ctx))
-        print(their_ctx.shape,our_ctx.shape)
         print(their_relctxctx.shape,our_relctxctx.shape)
+        print(their_relctxctx,our_relctxctx)
+        self.assertTrue(torch.equal(their_relctxctx,our_relctxctx.transpose(0,2)))
         print(their_phient.shape,our_phient.shape)
+        self.assertTrue(torch.equal(their_phient,our_phient.reshape(31,8,300)))
         print(their_phirel.shape,our_phirel.shape)
+        self.assertTrue(torch.equal(their_phirel,our_phirel))
         print(their_phirelent.shape,our_phirelent.shape)
+        self.assertTrue(torch.equal(their_phirelent,our_phirelent.transpose(0,1)))
         print(their_phi_k.shape,our_phi_k.shape)
+        self.assertTrue(torch.equal(their_phi_k,our_phi_k.transpose(0,4)))
         print(their_phi.shape,our_phi.shape)
+        self.assertTrue(torch.equal(their_phi,our_phi.transpose(1,2)))
 
 
 
