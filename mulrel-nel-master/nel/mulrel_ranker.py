@@ -81,6 +81,7 @@ class MulRelRanker(LocalCtxAttRanker):
 
         self.rel_embs = torch.nn.Parameter(self.rel_embs)
 
+        torch.manual_seed(0)
         self.ew_embs = torch.nn.Parameter(torch.randn(self.n_rels, self.ew_hid_dims) *
                                           (0.01 if self.mode == 'ment-norm' else 0.1))
 

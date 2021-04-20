@@ -1515,8 +1515,13 @@ class TestNeural(unittest.TestCase):
         their_phirelent = self.load_consistency("phi_i_relent")
         their_phient = self.load_consistency("phi_i_ent")
         their_phirel = self.load_consistency("phi_i_rel")
-        their_relctxctx = self.load_consistency("rel_ctx_ctx")
         their_ctx = self.load_consistency("ctx_vecs")
+        their_exp_mm = self.load_consistency("exp_i_mentment")
+        their_exp_mm_1 = self.load_consistency("exp_i_mentment_1")
+        their_exp_mm_2 = self.load_consistency("exp_i_mentment_2")
+        their_exp_mm_s = self.load_consistency("exp_i_mentment_scaled")
+        their_relctxctx = self.load_consistency("rel_ctx_ctx")
+        their_exp_mm_prob = self.load_consistency("exp_i_mentment_probs")
 
         #OURS
         SETTINGS.dataset_train = datasets.loadDataset("aida_train.csv", "AIDA/aida_train.txt")
@@ -1537,17 +1542,40 @@ class TestNeural(unittest.TestCase):
         our_phirelent = our_consistency.SAVED["phi_i_relent"]
         our_phient = our_consistency.SAVED["phi_i_ent"]
         our_phirel = our_consistency.SAVED["phi_i_rel"]
-        our_relctxctx = our_consistency.SAVED["rel_ctx_ctx"]#TODO this will be different if >1000 mentions
         our_ctx = our_consistency.SAVED["ctx_vecs"]
+        our_exp_mm = our_consistency.SAVED["exp_i_mentment"]
+        our_exp_mm_1 = our_consistency.SAVED["exp_i_mentment_1"]
+        our_exp_mm_2 = our_consistency.SAVED["exp_i_mentment_2"]
+        our_exp_mm_s = our_consistency.SAVED["exp_i_mentment_scaled"]
+        our_relctxctx = our_consistency.SAVED["rel_ctx_ctx"]#TODO this will be different if >1000 mentions
+        our_exp_mm_prob = our_consistency.SAVED["exp_i_mentment_probs"]
 
         self.assertTrue(their_padent == our_padent)
         self.assertTrue(their_mode == our_mode)
         self.assertTrue(their_comp_mode == our_comp_mode)
-        #TODO - check - is the padding vector normalised in the same as as the actual embeddings?
+        #TODO - check - is the padding vector normalised in the same way as as the actual embeddings?
         self.assertTrue(torch.equal(their_ctx,our_ctx))
+
+        #exp brackets
+        print(our_exp_mm,their_exp_mm)
+        self.assertTrue(torch.equal(our_exp_mm,their_exp_mm))
+        print(our_exp_mm_1,their_exp_mm_1)
+        self.assertTrue(torch.equal(our_exp_mm_1,their_exp_mm_1))
+        print(our_exp_mm_2,their_exp_mm_2)
+        self.assertTrue(torch.equal(our_exp_mm_2,their_exp_mm_2))
+        print(our_exp_mm_s,their_exp_mm_s)
+        self.assertTrue(torch.equal(our_exp_mm_s,their_exp_mm_s))
+
         print(their_relctxctx.shape,our_relctxctx.shape)
         print(their_relctxctx,our_relctxctx)
         self.assertTrue(torch.equal(their_relctxctx,our_relctxctx.transpose(0,2)))
+
+        print(our_exp_mm_prob,their_exp_mm_prob)
+        self.assertTrue(our_exp_mm_prob,their_exp_mm_prob)
+
+
+
+
         print(their_phient.shape,our_phient.shape)
         self.assertTrue(torch.equal(their_phient,our_phient.reshape(31,8,300)))
         print(their_phirel.shape,our_phirel.shape)
