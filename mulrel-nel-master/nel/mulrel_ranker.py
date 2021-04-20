@@ -60,6 +60,7 @@ class MulRelRanker(LocalCtxAttRanker):
             self.ent_localctx_comp = torch.nn.Parameter(torch.ones(self.emb_dims))
 
         if self.use_pad_ent:
+            torch.manual_seed(0)
             self.pad_ent_emb = torch.nn.Parameter(torch.randn(1, self.emb_dims) * 0.1)
             self.pad_ctx_vec = torch.nn.Parameter(torch.randn(1, self.emb_dims) * 0.1)
 

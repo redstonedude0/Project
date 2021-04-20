@@ -332,6 +332,7 @@ class NeuralNet(nn.Module):
         self.register_parameter("R_diag", torch.nn.Parameter(R_diag))
         self.register_parameter("D_diag", torch.nn.Parameter(D_diag))
         #Default (normally sampled) entity and context
+        torch.manual_seed(0)
         self.register_parameter("pad_ent",torch.nn.Parameter(torch.randn(300).to(SETTINGS.device) * 0.1))
         self.register_parameter("pad_ctx",torch.nn.Parameter(torch.randn(300).to(SETTINGS.device) * 0.1))
         #TODO - check the distribution of D, paper seems to be different than impl? (0.01ment/0.1rel)

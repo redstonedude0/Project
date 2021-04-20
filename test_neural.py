@@ -1545,7 +1545,8 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(their_mode == our_mode)
         self.assertTrue(their_comp_mode == our_comp_mode)
         print(their_ctx.shape,our_ctx.shape)
-        print(their_ctx,our_ctx)
+        print(their_ctx,our_ctx)  ###!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! TODO - seed before sampling for padding vector
+        #TODO - check - is the padding vector normalised in the same as as the actual embeddings?
         self.assertTrue(torch.equal(their_ctx,our_ctx))
         print(their_ctx.shape,our_ctx.shape)
         print(their_relctxctx.shape,our_relctxctx.shape)
