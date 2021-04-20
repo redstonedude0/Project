@@ -1203,16 +1203,16 @@ class NeuralNet(nn.Module):
             pad_mention = Mention.FromData(None, None, None, None, pad_cands, None)
             document.mentions.append(pad_mention)
 
-            embeddings = torch.cat([pad_cand_embs.reshape(1,cand_count,300),embeddings])
+            embeddings = torch.cat([embeddings,pad_cand_embs.reshape(1,cand_count,300)])
             # add mask (10000000)
-            masks = torch.cat([pad_mask.reshape(1,cand_count),masks])
+            masks = torch.cat([masks,pad_mask.reshape(1,cand_count)])
             # add pem (10000000) [N/A]
             # add psi! 0000000
-            psiss = torch.cat([pad_psi.reshape(1,cand_count),psiss])
+            psiss = torch.cat([psiss,pad_psi.reshape(1,cand_count)])
             # increment n obviously
             n += 1
             # [entity vec fmc other (randn(1)*0.1)]
-            f_m_cs = torch.cat([self.pad_ctx.reshape(1,300),f_m_cs])
+            f_m_cs = torch.cat([f_m_cs,self.pad_ctx.reshape(1,300)])
         our_consistency.save(f_m_cs,"ctx_vecs")
 
         debug("Calculating a values")
