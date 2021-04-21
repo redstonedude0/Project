@@ -320,9 +320,13 @@ class NeuralNet(nn.Module):
         B_diag1 = torch.ones(300).to(SETTINGS.device)
         B_diag2 = torch.ones(300).to(SETTINGS.device)
         #randn~Norm(0,1)
-        R_diag = torch.randn(SETTINGS.k,300).to(SETTINGS.device)*0.1# todo k elem
+        R_diag = torch.randn(SETTINGS.k,300).to(SETTINGS.device)*0.1
         torch.manual_seed(0)
-        D_diag = torch.randn(SETTINGS.k,300).to(SETTINGS.device)*0.1# todo also k elems
+        D_diag = torch.randn(SETTINGS.k,300).to(SETTINGS.device)*0.1
+        if SETTINGS.normalisation == hyperparameters.NormalisationMethod.MentNorm and SETTINGS.switches["exp_adjust"]:
+            torch.manual_seed(0)
+            D_diag = torch.randn(SETTINGS.k,300).to(SETTINGS.device)*0.01
+
 
         if not SETTINGS.rel_specialinit:
             R_diag += 1
@@ -764,18 +768,28 @@ class NeuralNet(nn.Module):
         y = torch.matmul(y, fmcs.T).transpose(1, 2)
         # y is a 3D (n,n,k) tensor)
         our_consistency.save(y.permute(2,0,1),"exp_i_mentment")
-        our_consistency.save(y.permute(2,0,1),"exp_i_mentment_1")
-        our_consistency.save(y.permute(2,0,1),"exp_i_mentment_2")
-        x = y / np.math.sqrt(SETTINGS.d)
-        our_consistency.save(x.permute(2,0,1),"exp_i_mentment_scaled")
-        our_consistency.save(x.permute(2,0,1),"rel_ctx_ctx")
-#        print("MIN",self.D.min())
-#        print("MAX",self.D.max())
-#        #problem value is x[3,3,0]
-#        if len(x) > 4:
-#            print("LX VALS",x[3,3,:])
-        z = torch.exp(x)
-        our_consistency.save(z.permute(2,0,1),"exp_i_mentment_probs")
+        if SETTINGS.switches["exp_adjust"]:
+            # for consistency checking, add identity * -1e10
+            #NOTE - paper adds variable onto identity, does this actually make it change with gradient? or is gradient ignored as not param?
+            #TODO - test how this works
+            n = y.shape[0]
+            eye = torch.eye(n).to(SETTINGS.device).view(n, n, 1)
+            y_new = y.clone()
+            y_new += eye*-1e10
+            our_consistency.save(y_new.permute(2,0,1).clone(),"exp_i_mentment_1")
+            y_new += eye*-1e10#do it again!
+            our_consistency.save(y_new.permute(2,0,1),"exp_i_mentment_2")
+            x = y_new / np.math.sqrt(SETTINGS.d)
+            our_consistency.save(x.permute(2, 0, 1), "exp_i_mentment_scaled")
+            our_consistency.save(x.permute(2, 0, 1), "rel_ctx_ctx")#TODO this will be different if >1000 mentions
+            z = torch.exp(x)
+            our_consistency.save(z.permute(2, 0, 1), "exp_i_mentment_probs")
+        else:
+            x = y / np.math.sqrt(SETTINGS.d)
+            our_consistency.save(x.permute(2,0,1),"exp_i_mentment_scaled")
+            our_consistency.save(x.permute(2,0,1),"rel_ctx_ctx")
+            z = torch.exp(x)
+            our_consistency.save(z.permute(2,0,1),"exp_i_mentment_probs")
         return z
 
     # LBP FROM https://arxiv.org/pdf/1704.04920.pdf

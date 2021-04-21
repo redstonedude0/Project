@@ -1557,33 +1557,29 @@ class TestNeural(unittest.TestCase):
         self.assertTrue(torch.equal(their_ctx,our_ctx))
 
         #exp brackets
-        print(our_exp_mm,their_exp_mm)
-        self.assertTrue(torch.equal(our_exp_mm,their_exp_mm))
-        print(our_exp_mm_1,their_exp_mm_1)
-        self.assertTrue(torch.equal(our_exp_mm_1,their_exp_mm_1))
-        print(our_exp_mm_2,their_exp_mm_2)
-        self.assertTrue(torch.equal(our_exp_mm_2,their_exp_mm_2))
-        print(our_exp_mm_s,their_exp_mm_s)
-        self.assertTrue(torch.equal(our_exp_mm_s,their_exp_mm_s))
+        self.assertTrue(torch.allclose(our_exp_mm,their_exp_mm))
+        self.assertTrue(torch.allclose(our_exp_mm_1,their_exp_mm_1))
+        self.assertTrue(torch.allclose(our_exp_mm_2,their_exp_mm_2))
+        self.assertTrue(torch.allclose(our_exp_mm_s,their_exp_mm_s))
 
         print(their_relctxctx.shape,our_relctxctx.shape)
         print(their_relctxctx,our_relctxctx)
-        self.assertTrue(torch.equal(their_relctxctx,our_relctxctx.transpose(0,2)))
+        self.assertTrue(torch.allclose(their_relctxctx,our_relctxctx))
 
         print(our_exp_mm_prob,their_exp_mm_prob)
-        self.assertTrue(our_exp_mm_prob,their_exp_mm_prob)
+        self.assertTrue(torch.allclose(our_exp_mm_prob,their_exp_mm_prob))
 
 
 
 
         print(their_phient.shape,our_phient.shape)
-        self.assertTrue(torch.equal(their_phient,our_phient.reshape(31,8,300)))
+        self.assertTrue(torch.allclose(their_phient,our_phient.reshape(31,8,300)))
         print(their_phirel.shape,our_phirel.shape)
-        self.assertTrue(torch.equal(their_phirel,our_phirel))
+        self.assertTrue(torch.allclose(their_phirel,our_phirel))
         print(their_phirelent.shape,our_phirelent.shape)
-        self.assertTrue(torch.equal(their_phirelent,our_phirelent.transpose(0,1)))
+        self.assertTrue(torch.allclose(their_phirelent,our_phirelent.transpose(0,1)))
         print(their_phi_k.shape,our_phi_k.shape)
-        self.assertTrue(torch.equal(their_phi_k,our_phi_k.transpose(0,4)))
+        self.assertTrue(torch.allclose(their_phi_k,our_phi_k.transpose(0,4)))
         print(their_phi.shape,our_phi.shape)
         self.assertTrue(torch.equal(their_phi,our_phi.transpose(1,2)))
 
