@@ -94,6 +94,8 @@ def APPLYBUNDLE_hpc(settings:Hyperparameters):
     settings.dataDir_csv = "/rds/user/hrjh2/hpc-work/generated/test_train_data/"
     settings.dataDir_embeddings = "/rds/user/hrjh2/hpc-work/generated/embeddings/word_ent_embs/"
     settings.dataDir_checkpoints = "/rds/user/hrjh2/hpc-work/checkpoints/"
+    settings.dataDir_conll = "/rds/user/hrjh2/hpc-work/basic_data/test_datasets/"
+    settings.dataDir_personNames = "/rds/user/hrjh2/hpc-work/basic_data/p_e_m_data/persons.txt"
     settings.lowmem = False
 
 def APPLYBUNDLE_colab(settings:Hyperparameters):
@@ -101,6 +103,8 @@ def APPLYBUNDLE_colab(settings:Hyperparameters):
     settings.dataDir_csv = "drive/MyDrive/project/data/generated/test_train_data/"
     settings.dataDir_embeddings = "drive/MyDrive/project/data/generated/embeddings/word_ent_embs/"
     settings.dataDir_checkpoints = "drive/MyDrive/project/data/checkpoints/"
+    settings.dataDir_conll = "drive/MyDrive/project/data/basic_data/test_datasets/"
+    settings.dataDir_personNames = "drive/MyDrive/project/data/basic_data/p_e_m_data/persons.txt"
     settings.lowmem = False
 
 def APPLYBUNDLE_paper(settings:Hyperparameters):

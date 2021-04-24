@@ -8,7 +8,7 @@ import datastructures
 
 datastructures.SETTINGS  # reference to prevent optimise away
 # dataDir_checkpoints = "/rds/user/hrjh2/hpc-work/checkpoints/"
-dataDir_checkpoints = "/home/harrison/Documents/project/mount/rds/user/hrjh2/hpc-work/checkpoints/"
+dataDir_checkpoints = "/home/harrison/Documents/project/mount2/checkpoints/"
 
 def loadAFile():
     while True:
