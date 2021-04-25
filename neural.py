@@ -1216,9 +1216,9 @@ class NeuralNet(nn.Module):
             cand_count = SETTINGS.n_cands_pem+SETTINGS.n_cands_ctx
             pad_cands = [pad_cand] + [pad_unk for _ in range(0,cand_count-1)]
             pad_cand_embs = [c.entEmbeddingTorch() for c in pad_cands]
-            pad_cand_embs = torch.stack(pad_cand_embs)
+            pad_cand_embs = torch.stack(pad_cand_embs).to(SETTINGS.device)
             pad_mask = [True] + [False for _ in range(0,cand_count-1)]
-            pad_psi = torch.FloatTensor([0 for _ in range(0,cand_count)])
+            pad_psi = torch.FloatTensor([0 for _ in range(0,cand_count)]).to(SETTINGS.device)
             pad_mask = torch.BoolTensor(pad_mask).to(SETTINGS.device)
 
             pad_mention = Mention.FromData(None, None, None, None, pad_cands, None)
