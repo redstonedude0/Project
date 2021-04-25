@@ -2,7 +2,7 @@
 import torch
 import os.path
 
-TESTING = False
+TESTING = True
 
 """ Save tensor details """
 def save(tensor, ident):

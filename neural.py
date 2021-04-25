@@ -299,7 +299,7 @@ class NeuralNet(nn.Module):
         super(NeuralNet, self).__init__()
         torch.manual_seed(0)
         self.f = nn.Sequential(
-            nn.MultiheadAttention(100, 100, SETTINGS.dropout_rate)
+            nn.MultiheadAttention(300, 1, SETTINGS.dropout_rate)
             # TODO - absolutely no idea how to do this, this is a filler for now
         )  # Attention mechanism to achieve feature representation
         torch.manual_seed(0)
@@ -350,33 +350,33 @@ class NeuralNet(nn.Module):
     INPUT:
     n: len(mentions)
     embeddingss: 3D (n,n_cands,d) tensor of embeddings of entities
-    tokenEmbeddingss: 3D tensor(n,win,d) tensor of embeddings of tokens in window around each mention
-    tokenMaskss: 3D bool tensor(n,win) tensor of masks
+    token_embeddingss: 3D (n,window_size,d) tensor of embeddings of tokens in window around each mention
+    token_maskss: 3D (n,window_size) bool tensor of masks
     RETURN:
     3D tensor (n,n_cands,d) of context embeddings
     '''
-    def f_c(self,n,embeddingss,tokenEmbeddingss,tokenMaskss):
-        window_size = tokenMaskss.shape[1]#Window size is dynamic, up to 100
+    def f_c(self,n,embeddingss,token_embeddingss,token_maskss):
+        window_size = token_maskss.shape[1]#Window size is dynamic, up to 100
         #For each mention i, we compute the correlation for each token t, for each candidate (of i) c
         #embeddingss (n,n_cands,d) * diag weighting.diag() (d,d) * tokenEmbeddingss (n,win,d)
-        weightedTokenEmbeddingss_ = torch.matmul(self.B_diag2.diag_embed(),tokenEmbeddingss.transpose(1,2)) # (n,d,win)
-        tokenEntityScoresss = torch.matmul(embeddingss,weightedTokenEmbeddingss_) # (n,n_cands,win)
+        weighted_token_embeddingss = torch.matmul(self.B_diag2.diag_embed(),token_embeddingss.transpose(1,2)) # (n,d,win)
+        token_entity_scoresss = torch.matmul(embeddingss,weighted_token_embeddingss) # (n,n_cands,win)
         #set to -1e10 for unknown tokens
-        tokenEntityScoresss[~tokenMaskss.reshape([n,1,window_size]).repeat([1,SETTINGS.n_cands,1])] = -1e10
+        token_entity_scoresss[~token_maskss.reshape([n,1,window_size]).repeat([1,SETTINGS.n_cands,1])] = -1e10
 
         #Let the score of each token be the best score across all candidates (ignore indexes)
-        tokenScoress,_ = torch.max(tokenEntityScoresss,dim=1) #(n,win)
+        token_scoress,_ = torch.max(token_entity_scoresss,dim=1) #(n,win)
 
         #Take the top (default 25) scores (unsorted!), with corresponding id
-        best_scoress,best_scoress_idx = torch.topk(tokenScoress, dim=1, k=min(SETTINGS.attention_token_count, window_size)) # (n,25), (n,25) [technically <25 if small window, assuming 25 for sake of annotations]
+        best_scoress,best_scoress_idx = torch.topk(token_scoress, dim=1, k=min(SETTINGS.attention_token_count, window_size)) # (n,25), (n,25) [technically <25 if small window]
 
         #Take the actual embeddings for the top 25 tokens
-        best_tokenss = torch.gather(tokenEmbeddingss, dim=1,
+        best_tokenss = torch.gather(token_embeddingss, dim=1,
                                          index=best_scoress_idx.view(n,-1,1).repeat(1, 1, SETTINGS.d)) # (n,25,d)
 
         #Scale each tokens embedding by prob
         token_probss = nn.functional.softmax(best_scoress,dim=1) #(n,25)
-        token_probss = token_probss / torch.sum(token_probss,dim=1,keepdim=True) #(n,25), linear normalise because they do
+        token_probss = token_probss / torch.sum(token_probss,dim=1,keepdim=True) #(n,25), linear normalise because Le et al. does
 
 
         best_tokenss = best_tokenss * token_probss.view(n,-1,1)#multiplication will broadcast, (n,25,d)
