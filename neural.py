@@ -568,7 +568,9 @@ class NeuralNet(nn.Module):
     '''
 
     def ass(self, fmcs, n):
+        print("TEST1",fmcs.shape)
         x = self.exp_bracketssss(fmcs).clone()
+        print("TEST2",x.shape)
         # x is (ni*nj*k)
         if SETTINGS.normalisation == hyperparameters.NormalisationMethod.RelNorm:
             # X is (ni*nj*k)
@@ -1198,7 +1200,9 @@ class NeuralNet(nn.Module):
         nantest(tokenEmbeddingss, "tokenEmbeddingss")
 
         debug("Calculating f_m_c values")
+        print("TESTX",n)
         f_m_cs = self.perform_fmcs(mentions)
+        print("TEST0",f_m_cs.shape)
         nantest(f_m_cs, "fmcs")
 
 
