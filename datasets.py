@@ -160,7 +160,7 @@ def loadDataset(csvPath: str,conllPath: str):
                                     'end_word_idx': len(current_sentence)
                                 })
         for document in dataset.documents:
-            conll_doc = conll_data[document.id]
+            conll_doc = conll_data.get(document.id,{"mentions":[]})
             document.conll_tokens = []
             missed = 0
             for mention_idx,mention in enumerate(document.mentions):
