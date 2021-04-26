@@ -710,7 +710,9 @@ class NeuralNet(nn.Module):
                 leftEmbeddingSums.append(torch.FloatTensor(l).sum(dim=0)/leftSize)
                 midEmbeddingSums.append(torch.FloatTensor(m).sum(dim=0)/midSize)
                 rightEmbeddingSums.append(torch.FloatTensor(r).sum(dim=0)/rightSize)
-            # 2D i*d tensor of sum embedding for each mention
+            print("TESTA", len(mentions))
+            print("TESTB",len(leftEmbeddingSums))
+            # 2D n*d tensor of sum embedding for each mention
             leftTensor = torch.stack(leftEmbeddingSums).to(SETTINGS.device)
             midTensor = torch.stack(midEmbeddingSums).to(SETTINGS.device)
             rightTensor = torch.stack(rightEmbeddingSums).to(SETTINGS.device)
@@ -745,11 +747,13 @@ class NeuralNet(nn.Module):
         input_ = input_.to(torch.float)  # make default tensor type for network
         torch.manual_seed(0)
         our_consistency.save(input_,"bow_ctx_vecs")
+        print("TESTC", input_.shape)
         torch.manual_seed(0)
         our_consistency.save(list(self.f_m_c.parameters()),"fmc_preweight")
         our_consistency.save(self.f_m_c,"fmc_model")
         our_consistency.save(input_,"fmc_input")
         f = self.f_m_c(input_)
+        print("TESTD", f.shape)
         our_consistency.save(f,"fmc_output")
         return f
 
