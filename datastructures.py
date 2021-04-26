@@ -58,6 +58,9 @@ class Mention:
         self.right_context = right_context
         self.candidates = candidates
         self.gold_id = gold_id
+        self.conll_lctx = []
+        self.conll_mctx = []
+        self.conll_rctx = []
         return self
 
     def goldCand(self):

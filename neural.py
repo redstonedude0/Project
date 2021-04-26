@@ -607,7 +607,6 @@ class NeuralNet(nn.Module):
                     for word in m.conll_lctx
                 ][-half_window_size:]
                 for m in mentions
-                if m.conll_lctx is not None
             ]
             midIdss = [
                 [
@@ -615,7 +614,6 @@ class NeuralNet(nn.Module):
                     for word in m.conll_mctx
                 ]
                 for m in mentions
-                if m.conll_mctx is not None
             ]
             rightIdss = [
                 list(reversed([
@@ -623,7 +621,6 @@ class NeuralNet(nn.Module):
                     for word in m.conll_rctx
                 ][:half_window_size]))
                 for m in mentions
-                if m.conll_rctx is not None
             ]
             our_consistency.save(leftIdss[0],"embs_i_lctx")
             #leftIdss = [utils.stringToTokenIds(m.left_context, "left", window_size,special="snd") for m in
