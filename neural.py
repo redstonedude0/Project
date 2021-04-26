@@ -1189,19 +1189,21 @@ class NeuralNet(nn.Module):
     def forward(self, document: Document):
         mentions = document.mentions
         n = len(mentions)
+        print("TESTX1",n)
 
         debug("Calculating embeddings")
         embeddings, masks = self.embeddings(mentions, n)
         nantest(embeddings, "embeddings")
         maskCoverage = (masks.to(torch.float).sum() / (n * SETTINGS.n_cands)) * 100
         debug(f"Mask coverage {maskCoverage}%")
+        print("TESTX2",len(mentions))
 
         debug("Calculating token embeddings")
         tokenEmbeddingss, tokenMaskss = self.tokenEmbeddingss(mentions)
         nantest(tokenEmbeddingss, "tokenEmbeddingss")
 
         debug("Calculating f_m_c values")
-        print("TESTX",n)
+        print("TESTX3",len(mentions))
         f_m_cs = self.perform_fmcs(mentions)
         print("TEST0",f_m_cs.shape)
         nantest(f_m_cs, "fmcs")
