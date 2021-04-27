@@ -597,10 +597,14 @@ class NeuralNet(nn.Module):
     RETURNS: 2D (n,d) tensor of f_m_c per mention'''
 
     def perform_fmcs(self, mentions):
+        print("TESTX4",len(mentions))
         if SETTINGS.switches["snd_embs"]:
+            print("TESTX5",len(mentions))
             half_window_size = SETTINGS.context_window_fmc//2
 
             #Create id tensors for conll contexts
+            print("TESTX6",len(mentions))
+            print("TESTX7",type(mentions))
             leftIdss = [
                 [
                     processeddata.word2wordid_snd.get(word,processeddata.unkwordid_snd)
@@ -608,6 +612,8 @@ class NeuralNet(nn.Module):
                 ][-half_window_size:]
                 for m in mentions
             ]
+            print("TESTX8",len(mentions))
+            print("TESTX9",type(mentions))
             midIdss = [
                 [
                     processeddata.word2wordid_snd.get(word, processeddata.unkwordid_snd)
