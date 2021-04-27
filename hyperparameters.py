@@ -110,4 +110,17 @@ def APPLYBUNDLE_colab(settings:Hyperparameters):
 def APPLYBUNDLE_paper(settings:Hyperparameters):
     settings.loss_patched = True
 
+def APPLYBUNDLE_blind(settings:Hyperparameters):
+    settings.switches = {#Disable all switches
+        "aug_conll":False,
+        "aug_coref":False,
+        "switch_sel":False,
+        "override_embs":False,
+        "consistency_psi":False,
+        "pad_enable":False,
+        "snd_embs":False,
+        "exp_adjust":False
+    }
+
+
 # TODO - specify useful hyper-parameter bundles
