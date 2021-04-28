@@ -30,3 +30,5 @@ def makefiles():
         optionsline = gen_theiroptions(name)
         make(name, optionsline)
 
+makefiles()
+
