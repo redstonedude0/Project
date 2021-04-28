@@ -122,5 +122,17 @@ def APPLYBUNDLE_blind(settings:Hyperparameters):
         "exp_adjust":False
     }
 
+def APPLYBUNDLE_blindN(settings:Hyperparameters,n=0):
+    settings.switches = {#Disable all switches
+        "aug_conll":n==0,
+        "aug_coref":n==1,
+        "switch_sel":n==2,
+        "override_embs":n==3,
+        "consistency_psi":n==4,
+        "pad_enable":n==5,
+        "snd_embs":n==6,
+        "exp_adjust":n==7
+    }
+
 
 # TODO - specify useful hyper-parameter bundles

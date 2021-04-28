@@ -74,14 +74,17 @@ while True:
         x3, y3 = XYFromEvals(evals1, "step", "max")
 
         plt.figure()
+        file1Name = "Le et al. (ment-norm)"
+        file2Name = "Mine (Initial) (ment-norm)"
 
         l1 = plt.plot(x1, y1, "r-", label=file1Name)[0]
         l2 = plt.plot(x2, y2, "g-", label=file2Name)[0]
-        l3 = plt.plot(x3, y3, "k--", label="MAX")[0]
+#        l3 = plt.plot(x3, y3, "k--", label="MAX")[0]
         plt.xlabel("Step")
         plt.ylabel("Accuracy")
         plt.ylim(0, 1)
-        plt.legend(handles=[l1, l2, l3])
+        plt.legend(handles=[l1,l2])
+#        plt.legend(handles=[l1, l2, l3])
         plt.show()
     elif selection == "1":
         print("Comparing...")
@@ -111,4 +114,8 @@ while True:
         plt.ylim(0, 1)
         plt.legend(handles=[l1, l2])
         plt.show()
-
+    max1,max2 = 0,0
+    for eval1,eval2 in zip(evals1.metrics,evals2.metrics):
+        max1 = max(max1,eval1.accuracy)
+        max2 = max(max2,eval2.accuracy)
+    print("MAX1,2",max1,max2)

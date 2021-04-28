@@ -1,7 +1,7 @@
 # Main pipeline to run the paper, but for HPC usage
 import sys
 from hyperparameters import SETTINGS, APPLYBUNDLE_hpc, APPLYBUNDLE_mentNorm, APPLYBUNDLE_relNorm, \
-    APPLYBUNDLE_mentNormK1, APPLYBUNDLE_mentNormNoPad, APPLYBUNDLE_paper, APPLYBUNDLE_blind
+    APPLYBUNDLE_mentNormK1, APPLYBUNDLE_mentNormNoPad, APPLYBUNDLE_paper, APPLYBUNDLE_blind, APPLYBUNDLE_blindN
 import argparse
 #TODO researched Argparse - from the standard lib
 
@@ -48,6 +48,22 @@ for bundleName in args.bundles:
         APPLYBUNDLE_paper(SETTINGS)
     elif bundleName == "blind":
         APPLYBUNDLE_blind(SETTINGS)
+    elif bundleName == "blind0":
+        APPLYBUNDLE_blindN(SETTINGS,0)
+    elif bundleName == "blind1":
+        APPLYBUNDLE_blindN(SETTINGS,1)
+    elif bundleName == "blind2":
+        APPLYBUNDLE_blindN(SETTINGS,2)
+    elif bundleName == "blind3":
+        APPLYBUNDLE_blindN(SETTINGS,3)
+    elif bundleName == "blind4":
+        APPLYBUNDLE_blindN(SETTINGS,4)
+    elif bundleName == "blind5":
+        APPLYBUNDLE_blindN(SETTINGS,5)
+    elif bundleName == "blind6":
+        APPLYBUNDLE_blindN(SETTINGS,6)
+    elif bundleName == "blind7":
+        APPLYBUNDLE_blindN(SETTINGS,7)
     else:
         print(f"Unknown bundle name '{bundleName}'")
         quit(1)
