@@ -74,8 +74,8 @@ while True:
         x3, y3 = XYFromEvals(evals1, "step", "max")
 
         plt.figure()
-        file1Name = "Le et al. (ment-norm)"
-        file2Name = "Mine (Initial) (ment-norm)"
+        file1Name = "Mine (Initial) (ment-norm)"
+        file2Name = "Mine (Fully Adjusted) (ment-norm)"
 
         l1 = plt.plot(x1, y1, "r-", label=file1Name)[0]
         l2 = plt.plot(x2, y2, "g-", label=file2Name)[0]
