@@ -56,6 +56,7 @@ class Hyperparameters:
         "snd_embs":True,
         "exp_adjust":True
     }
+    SEED: int = 0
     def __repr__(self):
         s = "Hyperparameters:"
         keys = dir(self)

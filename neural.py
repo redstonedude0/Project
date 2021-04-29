@@ -297,12 +297,12 @@ def dist(x, y):
 class NeuralNet(nn.Module):
     def __init__(self):
         super(NeuralNet, self).__init__()
-        torch.manual_seed(0)
+        torch.manual_seed(SETTINGS.SEED)
         self.f = nn.Sequential(
             nn.MultiheadAttention(300, 1, SETTINGS.dropout_rate)
             # TODO - absolutely no idea how to do this, this is a filler for now
         )  # Attention mechanism to achieve feature representation
-        torch.manual_seed(0)
+        torch.manual_seed(SETTINGS.SEED)
         self.f_m_c = nn.Sequential(
             nn.Linear(900, 300),  # TODO what dimensions?
             nn.Tanh(),
@@ -321,10 +321,10 @@ class NeuralNet(nn.Module):
         B_diag2 = torch.ones(300).to(SETTINGS.device)
         #randn~Norm(0,1)
         R_diag = torch.randn(SETTINGS.k,300).to(SETTINGS.device)*0.1
-        torch.manual_seed(0)
+        torch.manual_seed(SETTINGS.SEED)
         D_diag = torch.randn(SETTINGS.k,300).to(SETTINGS.device)*0.1
         if SETTINGS.normalisation == hyperparameters.NormalisationMethod.MentNorm and SETTINGS.switches["exp_adjust"]:
-            torch.manual_seed(0)
+            torch.manual_seed(SETTINGS.SEED)
             D_diag = torch.randn(SETTINGS.k,300).to(SETTINGS.device)*0.01
 
 
@@ -337,7 +337,7 @@ class NeuralNet(nn.Module):
         self.register_parameter("R_diag", torch.nn.Parameter(R_diag))
         self.register_parameter("D_diag", torch.nn.Parameter(D_diag))
         #Default (normally sampled) entity and context
-        torch.manual_seed(0)
+        torch.manual_seed(SETTINGS.SEED)
         self.register_parameter("pad_ent",torch.nn.Parameter(torch.randn(300).to(SETTINGS.device) * 0.1))
         self.register_parameter("pad_ctx",torch.nn.Parameter(torch.randn(300).to(SETTINGS.device) * 0.1))
         #TODO - check the distribution of D, paper seems to be different than impl? (0.01ment/0.1rel)
@@ -748,10 +748,10 @@ class NeuralNet(nn.Module):
             tensors = [leftTensor, midTensor, rightTensor]
         input_ = torch.cat(tensors, dim=1)
         input_ = input_.to(torch.float)  # make default tensor type for network
-        torch.manual_seed(0)
+        torch.manual_seed(SETTINGS.SEED)
         our_consistency.save(input_,"bow_ctx_vecs")
         print("TESTC", input_.shape)
-        torch.manual_seed(0)
+        torch.manual_seed(SETTINGS.SEED)
         our_consistency.save(list(self.f_m_c.parameters()),"fmc_preweight")
         our_consistency.save(self.f_m_c,"fmc_model")
         our_consistency.save(input_,"fmc_input")

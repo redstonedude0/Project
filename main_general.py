@@ -1,5 +1,8 @@
 # Main pipeline to run the paper, but for HPC usage
 import sys
+
+import torch
+
 from hyperparameters import SETTINGS, APPLYBUNDLE_hpc, APPLYBUNDLE_mentNorm, APPLYBUNDLE_relNorm, \
     APPLYBUNDLE_mentNormK1, APPLYBUNDLE_mentNormNoPad, APPLYBUNDLE_paper, APPLYBUNDLE_blind, APPLYBUNDLE_blindN
 import argparse
@@ -20,6 +23,7 @@ parser.add_argument(
 )
 args = parser.parse_args()
 SETTINGS.saveName = args.name
+SETTINGS.SEED = torch.seed()#generate unique seed
 normBundled = None
 def normCheck(str):
     global normBundled
