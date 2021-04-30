@@ -43,6 +43,9 @@ def loadDataset(csvPath: str,conllPath: str):
         for line in f:
             mention = Mention()
             mention.id = mentionid
+            mention.conll_lctx = []
+            mention.conll_mctx = []
+            mention.conll_rctx = []
             mentionid += 1
             parts = line.split("\t")
             doc_id1 = parts[0]

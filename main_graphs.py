@@ -37,6 +37,17 @@ def loadAFile():
         return file
 
 def loadARun():
+    runNumMap = computeRunMaps()
+    for idx, name in enumerate(runNumMap.keys()):
+        length = len(runNumMap[name])
+        print(f"{idx}) {name} ({length})")
+    print("Selection:")
+    selection = input()
+    name, idxMap = list(runNumMap.items())[int(selection)]
+    print(f"Loading {name}...")
+    return (name,idxMap)
+
+def computeRunMaps():
     test_types = ["blind0", "blind1", "blind2",
                   "blind3", "blind4", "blind5", "blind6",
                   "blind7", "blind", ""]
@@ -66,15 +77,7 @@ def loadARun():
                 else:
                     runNumMap[is_run] = {}
                     runNumMap[is_run][idx] = num
-    for idx, name in enumerate(runNumMap.keys()):
-        length = len(runNumMap[name])
-        print(f"{idx}) {name} ({length})")
-    print("Selection:")
-    selection = input()
-    name, idxMap = list(runNumMap.items())[int(selection)]
-    print(f"Loading {name}...")
-    return (name,idxMap)
-
+    return runNumMap
 
 def XYFromEvals(evals: datastructures.EvalHistory, valx, valy):
     x = []
@@ -220,4 +223,41 @@ def compare_more():
         #        plt.legend(handles=[l1, l2, l3])
         plt.show()
 
-compare_more()
+def round(float,fun,digits=4):
+    float *= 10 ** digits
+    return "{1:.{0}f}".format(digits,fun(float) / (10**digits))
+
+def compute_stats():
+    # Load runs
+    runNumMap = computeRunMaps()
+    for idx, name in enumerate(runNumMap.keys()):
+        length = len(runNumMap[name])
+        print(f"{idx}) {name} ({length})")
+        idxMap = runNumMap[name]
+        # load as evals
+        evals = []
+        for idx,num in idxMap.items():
+            evals.append(datastructures.EvalHistory.load(dataDir_checkpoints + name+"_"+str(idx)+"_"+str(num)+".evals"))
+        avgEval = computeAvgEval(evals)
+        length = len(avgEval.metrics)
+        lengths = []
+        bestScores = []
+        for eval in evals:
+            lengths.append(len(eval.metrics))
+            bestScores.append(max([m.accuracy for m in eval.metrics]))
+        for length,bestScore in zip(lengths,bestScores):
+            print("  ",length,bestScore)
+        avgLen = sum(lengths)/len(lengths)
+        avgScore = sum(bestScores)/len(bestScores)
+        lenPM = max(lengths)-avgLen
+        lenPM = max(lenPM,avgLen-min(lengths))
+        scorePM = max(bestScores)-avgScore
+        scorePM = max(scorePM,avgScore-min(bestScores))
+        print("  AVG LEN:",avgLen,lenPM)
+        print("  AVG SCR:",avgScore,scorePM)
+        import math
+        print(round(avgScore,math.floor),"\\pm",round(scorePM,math.ceil)," LEN:",
+              round(avgLen,math.ceil),"\\pm",round(lenPM,math.ceil))
+
+#compare_more()
+compute_stats()

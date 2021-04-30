@@ -131,7 +131,7 @@ def APPLYBUNDLE_blindN(settings:Hyperparameters,n=0):
         "override_embs":n==3,
         "consistency_psi":n==4,
         "pad_enable":n==5,
-        "snd_embs":n==6,
+        "snd_embs":n==0,#moved to switch 0 instead
         "exp_adjust":n==7
     }
 
