@@ -605,6 +605,8 @@ class NeuralNet(nn.Module):
             #Create id tensors for conll contexts
             print("TESTX6",len(mentions))
             print("TESTX7",type(mentions))
+            mentions = mentions.copy()
+            print("TESTX7",type(mentions))
             leftIdss = [
                 [
                     processeddata.word2wordid_snd.get(word,processeddata.unkwordid_snd)
