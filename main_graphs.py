@@ -259,6 +259,6 @@ def compute_stats():
         print(round(avgScore,math.floor),"\\pm",round(scorePM,math.ceil)," LEN:",
               round(avgLen,math.ceil),"\\pm",round(lenPM,math.ceil))
 
-compare2()
-#compare_more()
+#compare2()
+compare_more()
 #compute_stats()
