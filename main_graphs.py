@@ -124,7 +124,7 @@ def compare2():
             l2 = plt.plot(x2, y2, "g-", label=file2Name)[0]
     #        l3 = plt.plot(x3, y3, "k--", label="MAX")[0]
             plt.xlabel("Step")
-            plt.ylabel("Accuracy")
+            plt.ylabel("Micro-F1")
             plt.ylim(0, 1)
             plt.legend(handles=[l1,l2])
     #        plt.legend(handles=[l1, l2, l3])
@@ -216,7 +216,7 @@ def compare_more():
 
 
         plt.xlabel("Step")
-        plt.ylabel("Accuracy")
+        plt.ylabel("Micro-F1")
         plt.ylim(0, 1)
         plt.xticks(range(0,length+1,2))
         plt.legend(handles=handles)
@@ -259,5 +259,6 @@ def compute_stats():
         print(round(avgScore,math.floor),"\\pm",round(scorePM,math.ceil)," LEN:",
               round(avgLen,math.ceil),"\\pm",round(lenPM,math.ceil))
 
+compare2()
 #compare_more()
-compute_stats()
+#compute_stats()

@@ -193,6 +193,7 @@ def trainToCompletion():  # TODO - add params
 
     startTime = time.time()
     utils.reportedRun("Candidate Selection", candidateSelection_full)
+
     model = Model()
     # Make the NN
     model_nn: neural.NeuralNet

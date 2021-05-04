@@ -1237,7 +1237,7 @@ class NeuralNet(nn.Module):
             pad_mask = torch.BoolTensor(pad_mask).to(SETTINGS.device)
 
             pad_mention = Mention.FromData(None, None, None, None, pad_cands, None)
-            document.mentions.append(pad_mention)
+            #document.mentions.append(pad_mention)#document mentions not needed after this, do not pad
 
             embeddings = torch.cat([embeddings,pad_cand_embs.reshape(1,cand_count,300)])
             # add mask (10000000)
