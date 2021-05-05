@@ -39,9 +39,7 @@ def train_OLD(model: Model, lr=SETTINGS.learning_rate_initial):
     eval_correct = 0
     eval_wrong = 0
     for doc_idx, document in enumerate(tqdm(SETTINGS.dataset.documents, unit="documents", file=sys.stdout)):
-        if SETTINGS.normalisation == hyperparameters.NormalisationMethod.MentNorm and SETTINGS.switches["pad_enable"]:
-            #backup mentions
-            backup_mentions = document.mentions.copy()
+
         out = model.neuralNet(document)
         if len(out[out != out]) > 1:
             # Dump
@@ -59,9 +57,6 @@ def train_OLD(model: Model, lr=SETTINGS.learning_rate_initial):
         wrong = (~same_list).sum().item()
         eval_correct += correct
         eval_wrong += wrong
-        if SETTINGS.normalisation == hyperparameters.NormalisationMethod.MentNorm and SETTINGS.switches["pad_enable"]:
-            #unbackup mentions
-            document.mentions = backup_mentions
 
     # Learn!
     print("loss", loss)
@@ -110,6 +105,9 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
     theirEval_totalnonnilpredictions = 0
     theirEval_total = 0
     for doc_idx, document in enumerate(tqdm(SETTINGS.dataset_train.documents, unit="train_documents", file=sys.stdout)):
+        if SETTINGS.normalisation == hyperparameters.NormalisationMethod.MentNorm and SETTINGS.switches["pad_enable"]:
+            #backup mentions
+            backup_mentions = document.mentions.copy()
         if SETTINGS.lowmem:
             if len(document.mentions) > 200:
                 print(
@@ -155,6 +153,9 @@ def train(model: Model, lr=SETTINGS.learning_rate_initial):
         false_pos += missed.sum().item()
         possibleCorrect += possible.sum().item()
         total += len(same_list)
+        if SETTINGS.normalisation == hyperparameters.NormalisationMethod.MentNorm and SETTINGS.switches["pad_enable"]:
+            #unbackup mentions
+            document.mentions = backup_mentions
 
     if SETTINGS.loss_patched:
         eval_correct = 0
