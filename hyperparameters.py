@@ -97,7 +97,7 @@ def APPLYBUNDLE_hpc(settings:Hyperparameters):
     settings.dataDir_checkpoints = "/rds/user/hrjh2/hpc-work/checkpoints/"
     settings.dataDir_conll = "/rds/user/hrjh2/hpc-work/basic_data/test_datasets/"
     settings.dataDir_personNames = "/rds/user/hrjh2/hpc-work/basic_data/p_e_m_data/persons.txt"
-    settings.lowmem = False
+    settings.lowmem = True
 
 def APPLYBUNDLE_colab(settings:Hyperparameters):
     settings.dataDir = "drive/MyDrive/project/data/"
