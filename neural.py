@@ -453,7 +453,7 @@ class NeuralNet(nn.Module):
         for m_idx, m in enumerate(mentions):
             if len(m.candidates) > 0:
                 valss = torch.stack([e_i.entEmbeddingTorch().to(SETTINGS.device) for e_i in m.candidates])
-                ids = torch.LongTensor([processeddata.ent2entid[e_i.text] for e_i in m.candidates]).to(SETTINGS.device)
+                ids = torch.LongTensor([processeddata.ent2entid.get(e_i.text,processeddata.unkentid) for e_i in m.candidates]).to(SETTINGS.device)
                 embeddings[m_idx][0:len(valss)] = valss
                 idss[m_idx][0:len(valss)] = ids
                 masks[m_idx][0:len(valss)] = torch.BoolTensor([processeddata.ent2entid[e_i.text]!=processeddata.unkentid for e_i in m.candidates]).to(SETTINGS.device)
