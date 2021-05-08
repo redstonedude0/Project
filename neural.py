@@ -456,7 +456,7 @@ class NeuralNet(nn.Module):
                 #ids = torch.LongTensor([processeddata.ent2entid.get(e_i.text,processeddata.unkentid) for e_i in m.candidates]).to(SETTINGS.device)
                 embeddings[m_idx][0:len(valss)] = valss
                 #idss[m_idx][0:len(valss)] = ids
-                masks[m_idx][0:len(valss)] = torch.BoolTensor([processeddata.ent2entid[e_i.text]!=processeddata.unkentid for e_i in m.candidates]).to(SETTINGS.device)
+                masks[m_idx][0:len(valss)] = torch.BoolTensor([processeddata.ent2entid.get(e_i.text,processeddata.unkentid)!=processeddata.unkentid for e_i in m.candidates]).to(SETTINGS.device)
 
         if SETTINGS.switches["consistency_psi"]:
             #our_consistency.save(idss,"psi_i_entid")
