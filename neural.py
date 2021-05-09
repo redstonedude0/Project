@@ -1231,7 +1231,7 @@ class NeuralNet(nn.Module):
             # add entity vec (randn(1)*0.1)
             #   self.pad_ent, self.pad_ctx
 
-            pad_cand = Candidate(None, 1, None)#Default p_e_m of 1, erroneous string and id
+            pad_cand = Candidate(-1, 1, "#UNK#")#Default p_e_m of 1, erroneous string and id
             pad_cand.entEmbeddingTorch = lambda: self.pad_ent
             pad_unk = Candidate(processeddata.unkentid, 0, "#UNK#")#UNK
 
@@ -1243,7 +1243,7 @@ class NeuralNet(nn.Module):
             pad_psi = torch.FloatTensor([0 for _ in range(0,cand_count)]).to(SETTINGS.device)
             pad_mask = torch.BoolTensor(pad_mask).to(SETTINGS.device)
 
-            pad_mention = Mention.FromData(None, None, None, None, pad_cands, None)
+            pad_mention = Mention.FromData(-1, "", "", "", pad_cands, 0)
             document.mentions.append(pad_mention)#document mentions not needed after this, do not pad
 
             embeddings = torch.cat([embeddings,pad_cand_embs.reshape(1,cand_count,300)])
