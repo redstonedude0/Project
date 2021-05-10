@@ -57,7 +57,7 @@ class Hyperparameters:
         "exp_adjust":True
     }
     SEED: int = 0
-    def __repr__(self):
+    def __str__(self):
         s = "Hyperparameters:"
         keys = dir(self)
         for key in keys:

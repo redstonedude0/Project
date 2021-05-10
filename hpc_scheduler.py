@@ -3,7 +3,7 @@ TARGET_FILENAME = "../genslurm"
 TEMPLATE_PLACEHOLDER = "%INSERT_OPTIONS_LINE%"
 
 def gen_myoptions(name,test_type):
-    return f"options=\"/home/hrjh2/code/main_general.py --name {name} --bundles paper ment hpc {test_type} >/home/hrjh2/out_{name}.txt 2>/home/hrjh2/err_{name}.txt\""
+    return f"options=\"/home/hrjh2/code/main_general.py --name {name} --bundles paper rel hpc {test_type} >/home/hrjh2/out_{name}.txt 2>/home/hrjh2/err_{name}.txt\""
 
 def gen_theiroptions(name):
     return f"options=\"-u -m nel.main --mode train --n_rels 3 --mulrel_type ment-norm --model_path {name} >/home/hrjh2/out_{name}.txt 2>/home/hrjh2/err_{name}.txt\""
@@ -22,7 +22,7 @@ def makefiles():
              "blind7",""]
     for test_type in test_types:
         for i in range(0,5):
-            name = f"auto_{test_type}_{i}"
+            name = f"autorel_{test_type}_{i}"
             optionsline = gen_myoptions(name,test_type)
             make(name,optionsline)
     for i in range(0,5):

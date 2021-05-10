@@ -1,6 +1,7 @@
 # Main script to run the graphing code
 
 import os
+import math
 
 import matplotlib.pyplot as plt
 
@@ -195,6 +196,7 @@ def compare_more():
             evals.append(datastructures.EvalHistory.load(dataDir_checkpoints + name+"_"+str(idx)+"_"+str(num)+".evals"))
         avgEval = computeAvgEval(evals)
         print("Comparing...")
+#        name = "Final"
         plt.figure()
         handles = []
         idx = 1
@@ -242,23 +244,31 @@ def compute_stats():
         length = len(avgEval.metrics)
         lengths = []
         bestScores = []
+        steps = []
         for eval in evals:
             lengths.append(len(eval.metrics))
             bestScores.append(max([m.accuracy for m in eval.metrics]))
+            lastAcc = -1
+            for m in eval.metrics:
+                acc = m.accuracy
+                if lastAcc != -1 and m.step <= 10:
+                    steps.append(abs(lastAcc-acc))
+                lastAcc = acc
         for length,bestScore in zip(lengths,bestScores):
             print("  ",length,bestScore)
         avgLen = sum(lengths)/len(lengths)
         avgScore = sum(bestScores)/len(bestScores)
+        avgStep = sum(steps)/len(steps)
         lenPM = max(lengths)-avgLen
         lenPM = max(lenPM,avgLen-min(lengths))
         scorePM = max(bestScores)-avgScore
         scorePM = max(scorePM,avgScore-min(bestScores))
         print("  AVG LEN:",avgLen,lenPM)
         print("  AVG SCR:",avgScore,scorePM)
-        import math
+        print("  AVG STEP/10:",avgStep)
         print(round(avgScore,math.floor),"\\pm",round(scorePM,math.ceil)," LEN:",
               round(avgLen,math.ceil),"\\pm",round(lenPM,math.ceil))
 
 #compare2()
-compare_more()
-#compute_stats()
+#compare_more()
+compute_stats()
