@@ -52,7 +52,7 @@ class Hyperparameters:
         "switch_sel":True,
         "override_embs":True,
         "consistency_psi":True,
-        "pad_enable":True,
+        "pad_enable":False,
         "snd_embs":True,
         "exp_adjust":True
     }
