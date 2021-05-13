@@ -106,7 +106,7 @@ def load_voca_embs(voca_path, embs_path):
         embs = np.append(embs, unk_emb, axis=0)
     elif embs.shape[0] != voca.size():
         print(embs.shape, voca.size())
-        raise Exception("embeddings and vocabulary have differnt number of items ")
+        raise Exception("embeddingss and vocabulary have differnt number of items ")
 
     return voca, embs
 

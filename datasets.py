@@ -31,22 +31,22 @@ class DatasetType(Enum):
 from hyperparameters import SETTINGS
 
 
-def loadDataset(csvPath: str,conllPath: str):
+def load_dataset(csv_path: str, conll_path: str):
     #Load dataset initially
-    csvPath = SETTINGS.dataDir_csv + csvPath
+    csv_path = SETTINGS.data_dir_csv + csv_path
     dataset = Dataset()
     dataset.documents = []
-    with open(csvPath, "r") as f:
+    with open(csv_path, "r") as f:
         # Iterate over CSV structure - each line is a mention, when the ID changes the doc changes
         doc = Document()
-        mentionid = 0
+        mention_id = 0
         for line in f:
             mention = Mention()
-            mention.id = mentionid
+            mention.id = mention_id
             mention.conll_lctx = []
             mention.conll_mctx = []
             mention.conll_rctx = []
-            mentionid += 1
+            mention_id += 1
             parts = line.split("\t")
             doc_id1 = parts[0]
             doc_id2 = parts[1]
@@ -78,16 +78,16 @@ def loadDataset(csvPath: str,conllPath: str):
             if parts[-2] != "GT:":
                 # As I understand it this is always equal, raise error if this invariant is broken
                 raise NotImplementedError(f"Col-2 not GT on {doc_id1}")
-            goldDataParts = parts[-1].split(",")
-            if len(goldDataParts) != 1:  # otherwise -1 anyway
-                mention.gold_id = goldDataParts[1]  # the ID of the candidate
+            gold_data_parts = parts[-1].split(",")
+            if len(gold_data_parts) != 1:  # otherwise -1 anyway
+                mention.gold_id = gold_data_parts[1]  # the ID of the candidate
             doc.mentions.append(mention)
         dataset.documents.append(doc)  # Append last document
 
     #Add in proper noun coref (according to paper)
     if SETTINGS.switches["aug_coref"]:
         names = []
-        with open(SETTINGS.dataDir_personNames, 'r', encoding='utf8') as f:
+        with open(SETTINGS.data_dir_person_names, 'r', encoding='utf8') as f:
             for line in f:
                 names.append(line)#Note - plaintext-normalised!!!!
         from tqdm import tqdm
@@ -132,7 +132,7 @@ def loadDataset(csvPath: str,conllPath: str):
     #Add in conll sentence data (according to paper)
     if SETTINGS.switches["aug_conll"]:
         conll_data = {}#Extract sentences and mentions
-        with open(SETTINGS.dataDir_conll + conllPath, 'r', encoding='utf8') as f:
+        with open(SETTINGS.data_dir_conll + conll_path, 'r', encoding='utf8') as f:
             current_document = None
             current_sentence = None
             for line in f:
@@ -188,11 +188,11 @@ def loadDataset(csvPath: str,conllPath: str):
     return dataset
 
 # Removed - datasets can be loaded as necessary
-#    loadDataset(train_AIDA, "aida_train.csv")
-#    loadDataset(dev_AIDA, "aida_testA.csv")
-#    loadDataset(test_AIDA, "aida_testB.csv")
-#    loadDataset(test_MSNBC, "wned-msnbc.csv")
-#    loadDataset(test_AQUAINT, "wned-aquaint.csv")
-#    loadDataset(test_ACE2004, "wned-ace2004.csv")
-#    loadDataset(test_CWEB, "wned-clueweb.csv")
-#    loadDataset(test_WIKI, "wned-wikipedia.csv")
+#    load_dataset(train_AIDA, "aida_train.csv")
+#    load_dataset(dev_AIDA, "aida_testA.csv")
+#    load_dataset(test_AIDA, "aida_testB.csv")
+#    load_dataset(test_MSNBC, "wned-msnbc.csv")
+#    load_dataset(test_AQUAINT, "wned-aquaint.csv")
+#    load_dataset(test_ACE2004, "wned-ace2004.csv")
+#    load_dataset(test_CWEB, "wned-clueweb.csv")
+#    load_dataset(test_WIKI, "wned-wikipedia.csv")

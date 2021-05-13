@@ -1,6 +1,6 @@
 # Main pipeline to run the paper, but for HPC usage
 import sys
-from hyperparameters import SETTINGS, APPLYBUNDLE_hpc, APPLYBUNDLE_mentNorm,APPLYBUNDLE_relNorm,APPLYBUNDLE_mentNormK1,APPLYBUNDLE_mentNormNoPad
+from hyperparameters import SETTINGS, apply_bundle_hpc, apply_bundle_ment_norm,apply_bundle_rel_norm,apply_bundle_ment_norm_k1,apply_bundle_ment_norm_no_pad
 import argparse
 #TODO researched Argparse - from the standard lib
 print("DEPRECATED")
@@ -21,33 +21,33 @@ parser.add_argument(
     default=[]
 )
 args = parser.parse_args()
-SETTINGS.saveName = args.name
-normBundled = None
-def normCheck(str):
-    global normBundled
-    if normBundled is not None:
-        print(f"Tried to apply normalisation bundles '{str}' and '{normBundled}'")
+SETTINGS.save_name = args.name
+norm_bundled = None
+def norm_check(str):
+    global norm_bundled
+    if norm_bundled is not None:
+        print(f"Tried to apply normalisation bundles '{str}' and '{norm_bundled}'")
         print("Cannot have 2 normalisation bundles.")
         quit(1)
     else:
         normBundled = str
-for bundleName in args.bundles:
-    if bundleName == "hpc":
-        APPLYBUNDLE_hpc(SETTINGS)
-    elif bundleName == "ment":
-        APPLYBUNDLE_mentNorm(SETTINGS)
-        normCheck("ment")
-    elif bundleName == "rel":
-        APPLYBUNDLE_relNorm(SETTINGS)
-        normCheck("rel")
-    elif bundleName == "mentk1":
-        APPLYBUNDLE_mentNormK1(SETTINGS)
-        normCheck("mentk1")
-    elif bundleName == "mentNoPad":
-        APPLYBUNDLE_mentNormNoPad(SETTINGS)
-        normCheck("mentNoPad")
+for bundle_name in args.bundles:
+    if bundle_name == "hpc":
+        apply_bundle_hpc(SETTINGS)
+    elif bundle_name == "ment":
+        apply_bundle_ment_norm(SETTINGS)
+        norm_check("ment")
+    elif bundle_name == "rel":
+        apply_bundle_rel_norm(SETTINGS)
+        norm_check("rel")
+    elif bundle_name == "mentk1":
+        apply_bundle_ment_norm_k1(SETTINGS)
+        norm_check("mentk1")
+    elif bundle_name == "mentNoPad":
+        apply_bundle_ment_norm_no_pad(SETTINGS)
+        norm_check("mentNoPad")
     else:
-        print(f"Unknown bundle name '{bundleName}'")
+        print(f"Unknown bundle name '{bundle_name}'")
         quit(1)
 
 import main

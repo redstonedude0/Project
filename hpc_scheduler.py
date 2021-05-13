@@ -2,10 +2,10 @@ TEMPLATE_FILENAME = "../slurm_auto_template.wilkes2"
 TARGET_FILENAME = "../genslurm"
 TEMPLATE_PLACEHOLDER = "%INSERT_OPTIONS_LINE%"
 
-def gen_myoptions(name,test_type):
+def gen_my_options(name, test_type):
     return f"options=\"/home/hrjh2/code/main_general.py --name {name} --bundles paper rel hpc {test_type} >/home/hrjh2/out_{name}.txt 2>/home/hrjh2/err_{name}.txt\""
 
-def gen_theiroptions(name):
+def gen_their_options(name):
     return f"options=\"-u -m nel.main --mode train --n_rels 3 --mulrel_type ment-norm --model_path {name} >/home/hrjh2/out_{name}.txt 2>/home/hrjh2/err_{name}.txt\""
 
 def make(name,optionsline):
@@ -16,19 +16,19 @@ def make(name,optionsline):
                     line = line.replace(TEMPLATE_PLACEHOLDER,optionsline)
                 f_target.write(line)
 
-def makefiles():
+def make_files():
     test_types = ["blind","blind0","blind1","blind2",
              "blind3","blind4","blind5","blind6",
              "blind7",""]
     for test_type in test_types:
         for i in range(0,5):
             name = f"autorel_{test_type}_{i}"
-            optionsline = gen_myoptions(name,test_type)
-            make(name,optionsline)
+            options_line = gen_my_options(name, test_type)
+            make(name,options_line)
     for i in range(0,5):
         name = f"mrna_{i}"
-        optionsline = gen_theiroptions(name)
-        make(name, optionsline)
+        options_line = gen_their_options(name)
+        make(name, options_line)
 
-makefiles()
+make_files()
 

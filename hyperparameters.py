@@ -5,21 +5,21 @@ from enum import Enum, auto
 
 
 class NormalisationMethod(Enum):
-    RelNorm = auto()
-    MentNorm = auto()
+    REL_NORM = auto()
+    MENT_NORM = auto()
 
 
 class Hyperparameters:
-    dataDir = "/home/harrison/Documents/project/data/"
-    dataDir_csv = "/home/harrison/Documents/project/data/generated/test_train_data/"
-    dataDir_conll = "/home/harrison/Documents/project/data/basic_data/test_datasets/"
-    dataDir_personNames = "/home/harrison/Documents/project/data/basic_data/p_e_m_data/persons.txt"
-    dataDir_embeddings = "/home/harrison/Documents/project/data/generated/embeddings/word_ent_embs/"
-    dataDir_checkpoints = "/home/harrison/Documents/project/data/checkpoints/"
+    data_dir = "/home/harrison/Documents/project/data/"
+    data_dir_csv = "/home/harrison/Documents/project/data/generated/test_train_data/"
+    data_dir_conll = "/home/harrison/Documents/project/data/basic_data/test_datasets/"
+    data_dir_person_names = "/home/harrison/Documents/project/data/basic_data/p_e_m_data/persons.txt"
+    data_dir_embeddings = "/home/harrison/Documents/project/data/generated/embeddings/word_ent_embs/"
+    data_dir_checkpoints = "/home/harrison/Documents/project/data/checkpoints/"
     training: bool = True
     dataset_train: 'Dataset' = None
     dataset_eval: 'Dataset' = None
-    normalisation = NormalisationMethod.RelNorm  # TODO change back to mentnorm once it's implemented
+    normalisation = NormalisationMethod.REL_NORM  # TODO change back to mentnorm once it's implemented
     d: int = 300
     gamma: float = 0.01
     LBP_loops: int = 10
@@ -29,14 +29,14 @@ class Hyperparameters:
     learning_reduction_threshold_f1: float = 0.91
     learning_rate_initial: float = 1E-4
     learning_rate_final: float = 1E-5
-    learning_stop_threshold_epochs: int = 20
+    learning_stop_threshold_epochs: int = 10
     DEBUG: bool = True
     lambda1: float = -1E-7
     lambda2: float = -1E-7
     allow_nans = False  # True if nans should be used to represent undefined values, false if not
-    lowmem = True  # True if need to use lowmem settings
+    low_mem = True  # True if need to use low_mem settings
     device = None  # Used to store the device for training
-    saveName = "save_default"
+    save_name = "save_default"
     loss_patched = False #Use loss&accuracy functions from the paper for certainty of comparison
     attention_token_count = 25
     context_window_size = 100#main window
@@ -69,49 +69,49 @@ class Hyperparameters:
 
 SETTINGS = Hyperparameters()
 
-def APPLYBUNDLE_relNorm(settings:Hyperparameters):
-    settings.normalisation = NormalisationMethod.RelNorm
+def apply_bundle_rel_norm(settings:Hyperparameters):
+    settings.normalisation = NormalisationMethod.REL_NORM
     settings.rel_specialinit = True
     settings.k = 6
     settings.learning_reduction_threshold_f1 = 0.91
 
-def APPLYBUNDLE_mentNorm(settings:Hyperparameters):
-    settings.normalisation = NormalisationMethod.MentNorm
+def apply_bundle_ment_norm(settings:Hyperparameters):
+    settings.normalisation = NormalisationMethod.MENT_NORM
     settings.rel_specialinit = False
     settings.k = 3
     settings.learning_reduction_threshold_f1 = 0.915
 
-def APPLYBUNDLE_mentNormK1(settings:Hyperparameters):
-    APPLYBUNDLE_mentNorm(settings)
+def apply_bundle_ment_norm_k1(settings:Hyperparameters):
+    apply_bundle_ment_norm(settings)
     settings.k = 1
 
-def APPLYBUNDLE_mentNormNoPad(settings:Hyperparameters):
+def apply_bundle_ment_norm_no_pad(settings:Hyperparameters):
     # TODO mentNormNoPad needs some parameters set
-    APPLYBUNDLE_mentNorm(settings)
+    apply_bundle_ment_norm(settings)
     pass
 
-def APPLYBUNDLE_hpc(settings:Hyperparameters):
-    settings.dataDir = "/rds/user/hrjh2/hpc-work/"
-    settings.dataDir_csv = "/rds/user/hrjh2/hpc-work/generated/test_train_data/"
-    settings.dataDir_embeddings = "/rds/user/hrjh2/hpc-work/generated/embeddings/word_ent_embs/"
-    settings.dataDir_checkpoints = "/rds/user/hrjh2/hpc-work/checkpoints/"
-    settings.dataDir_conll = "/rds/user/hrjh2/hpc-work/basic_data/test_datasets/"
-    settings.dataDir_personNames = "/rds/user/hrjh2/hpc-work/basic_data/p_e_m_data/persons.txt"
-    settings.lowmem = True
+def apply_bundle_hpc(settings:Hyperparameters):
+    settings.data_dir = "/rds/user/hrjh2/hpc-work/"
+    settings.data_dir_csv = "/rds/user/hrjh2/hpc-work/generated/test_train_data/"
+    settings.data_dir_embeddings = "/rds/user/hrjh2/hpc-work/generated/embeddingss/word_ent_embs/"
+    settings.data_dir_checkpoints = "/rds/user/hrjh2/hpc-work/checkpoints/"
+    settings.data_dir_conll = "/rds/user/hrjh2/hpc-work/basic_data/test_datasets/"
+    settings.data_dir_person_names = "/rds/user/hrjh2/hpc-work/basic_data/p_e_m_data/persons.txt"
+    settings.low_mem = True
 
-def APPLYBUNDLE_colab(settings:Hyperparameters):
-    settings.dataDir = "drive/MyDrive/project/data/"
-    settings.dataDir_csv = "drive/MyDrive/project/data/generated/test_train_data/"
-    settings.dataDir_embeddings = "drive/MyDrive/project/data/generated/embeddings/word_ent_embs/"
-    settings.dataDir_checkpoints = "drive/MyDrive/project/data/checkpoints/"
-    settings.dataDir_conll = "drive/MyDrive/project/data/basic_data/test_datasets/"
-    settings.dataDir_personNames = "drive/MyDrive/project/data/basic_data/p_e_m_data/persons.txt"
-    settings.lowmem = False
+def apply_bundle_colab(settings:Hyperparameters):
+    settings.data_dir = "drive/MyDrive/project/data/"
+    settings.data_dir_csv = "drive/MyDrive/project/data/generated/test_train_data/"
+    settings.data_dir_embeddings = "drive/MyDrive/project/data/generated/embeddingss/word_ent_embs/"
+    settings.data_dir_checkpoints = "drive/MyDrive/project/data/checkpoints/"
+    settings.data_dir_conll = "drive/MyDrive/project/data/basic_data/test_datasets/"
+    settings.data_dir_person_names = "drive/MyDrive/project/data/basic_data/p_e_m_data/persons.txt"
+    settings.low_mem = False
 
-def APPLYBUNDLE_paper(settings:Hyperparameters):
+def apply_bundle_paper(settings:Hyperparameters):
     settings.loss_patched = True
 
-def APPLYBUNDLE_blind(settings:Hyperparameters):
+def apply_bundle_blind(settings:Hyperparameters):
     settings.switches = {#Disable all switches
         "aug_conll":False,
         "aug_coref":False,
@@ -123,7 +123,7 @@ def APPLYBUNDLE_blind(settings:Hyperparameters):
         "exp_adjust":False
     }
 
-def APPLYBUNDLE_blindN(settings:Hyperparameters,n=0):
+def apply_bundle_blind_n(settings:Hyperparameters, n=0):
     settings.switches = {#Disable all switches
         "aug_conll":n==0,
         "aug_coref":n==1,

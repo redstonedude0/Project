@@ -15,7 +15,6 @@ class Candidate:
     text: str = None  # Textual label for this candidate
     # TODO - I understand initial_prob to be p_e_m scores
     initial_prob: float = None  # Initial probability for this candidate
-    MAXID = 0  # TODO - unused?
 
     def __init__(self, id, initial_prob, text):
         self.id = id
@@ -25,15 +24,16 @@ class Candidate:
     def __repr__(self):
         return f"Candidate({self.id},{self.initial_prob},\"{self.text}\")"
 
-    def entEmbedding(self) -> np.ndarray:
+    def ent_embedding(self) -> np.ndarray:
         # If unseen then give average embedding (https://github.com/lephong/mulrel-nel/blob/db14942450f72c87a4d46349860e96ef2edf353d/nel/utils.py line 104)
         # TODO discuss this
-        return processeddata.entid2embedding[processeddata.ent2entid.get(self.text, processeddata.unkentid)]
+        return processeddata.ent_id_to_embedding[processeddata.ent_to_ent_id.get(self.text, processeddata.unk_ent_id)]
 
-    def entEmbeddingTorch(self) -> torch.Tensor:
+    def ent_embedding_torch(self) -> torch.Tensor:
         # TODO what happens if an ent isn't seen before?
-        return torch.from_numpy(self.entEmbedding()).to(SETTINGS.device).to(
+        return torch.from_numpy(self.ent_embedding()).to(SETTINGS.device).to(
             torch.float)
+
 
 """Represents a mention in a document"""
 
@@ -50,7 +50,7 @@ class Mention:
     conll_mctx: List[str] = None# Optional conll data
     conll_rctx: List[str] = None# Optional conll data
 
-    def FromData(id, text, left_context, right_context, candidates, gold_id):
+    def from_data(id, text, left_context, right_context, candidates, gold_id):
         self = Mention()
         self.id = id
         self.text = text
@@ -63,30 +63,30 @@ class Mention:
         self.conll_rctx = []
         return self
 
-    def goldCand(self):
+    def gold_cand(self):
         for cand in self.candidates:
             if cand.id == self.gold_id:
                 return cand
         return None
 
-    def goldCandIndex(self):
+    def gold_cand_index(self):
         for cand_idx, cand in enumerate(self.candidates):
             if cand.id == self.gold_id:
                 return cand_idx
         return -1
 
-    def wordEmbedding(self):
-        return processeddata.wordid2embedding[processeddata.word2wordid.get(self.text, processeddata.unkwordid)]
+    def word_embedding(self):
+        return processeddata.word_id_to_embedding[processeddata.word_to_word_id.get(self.text, processeddata.unk_word_id)]
 
     def __repr__(self):
-        return f"Mention.FromData({self.id},\"{self.text}\",\"{self.left_context}\",\"{self.right_context}\",{self.candidates},\"{self.gold_id}\")"
+        return f"Mention.from_data({self.id},\"{self.text}\",\"{self.left_context}\",\"{self.right_context}\",{self.candidates},\"{self.gold_id}\")"
 
 
 class Document:
     id: str = None  # Document ID
     mentions: List[Mention] = None
 
-    def FromData(id, mentions):
+    def from_data(id, mentions):
         self = Document()
         self.id = id
         self.mentions = mentions
@@ -94,7 +94,7 @@ class Document:
 
     def __repr__(self):
         # TODO - if any string contains " then it will cause errors recreating
-        return f"Document.FromData(\"{self.id}\",{self.mentions})"
+        return f"Document.from_data(\"{self.id}\",{self.mentions})"
 
 
 """
@@ -112,20 +112,20 @@ from hyperparameters import SETTINGS
 
 
 class Model:
-    neuralNet = None
+    neural_net = None
     evals: 'EvalHistory' = None
 
     def save(self, name):
         print(f"Saving checkpoint '{name}'...")
-        torch.save(self.neuralNet, SETTINGS.dataDir_checkpoints + name + ".pt")
-        self.evals.save(SETTINGS.dataDir_checkpoints + name + ".evals")
+        torch.save(self.neural_net, SETTINGS.data_dir_checkpoints + name + ".pt")
+        self.evals.save(SETTINGS.data_dir_checkpoints + name + ".evals")
         print("Saved.")
 
     @classmethod
     def load(cls, name):
         inst = cls()
-        inst.neuralNet = torch.load(SETTINGS.dataDir_checkpoints + name + ".pt")
-        inst.evals = EvalHistory.load(SETTINGS.dataDir_checkpoints + name + ".evals")
+        inst.neural_net = torch.load(SETTINGS.data_dir_checkpoints + name + ".pt")
+        inst.evals = EvalHistory.load(SETTINGS.data_dir_checkpoints + name + ".evals")
         print("Loaded.")
         return inst
 
@@ -178,13 +178,13 @@ class EvalHistory:
                 evals = EvalHistory()
                 evals.metrics = []
                 for metric in dct["metrics"]:
-                    evalmetrics = EvaluationMetrics()
-                    evalmetrics.accuracy = metric["accuracy"]
-                    evalmetrics.accuracy_possible = metric["accuracy_possible"]
-                    evalmetrics.loss = metric["loss"]
-                    evalmetrics.time = metric["time"]
-                    evalmetrics.step = metric["step"]
-                    evals.metrics.append(evalmetrics)
+                    eval_metrics = EvaluationMetrics()
+                    eval_metrics.accuracy = metric["accuracy"]
+                    eval_metrics.accuracy_possible = metric["accuracy_possible"]
+                    eval_metrics.loss = metric["loss"]
+                    eval_metrics.time = metric["time"]
+                    eval_metrics.step = metric["step"]
+                    evals.metrics.append(eval_metrics)
                 return evals
             return dct
 

@@ -65,7 +65,7 @@ def create_ntee_from_components(dir_path):
     W_path = dir_path + '/W.npy'
     b_path = dir_path + '/b.npy'
 
-    print('load voca and embeddings')
+    print('load voca and embeddingss')
     word_voca, word_embs = utils.load_voca_embs(word_dict_path, word_embs_path)
     entity_voca, entity_embs = utils.load_voca_embs(entity_dict_path, entity_embs_path)
     config = {'word_embeddings': word_embs,

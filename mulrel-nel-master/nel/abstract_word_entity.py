@@ -29,7 +29,7 @@ def load(path, model_class, suffix=''):
 
 class AbstractWordEntity(nn.Module):
     """
-    abstract class containing word and entity embeddings and vocabulary
+    abstract class containing word and entity embeddingss and vocabulary
     """
 
     def __init__(self, config=None):

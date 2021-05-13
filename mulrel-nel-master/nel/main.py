@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser()
 datadir = 'data/generated/test_train_data/'
 conll_path = 'data/basic_data/test_datasets/'
 person_path = 'data/basic_data/p_e_m_data/persons.txt'
-voca_emb_dir = 'data/generated/embeddings/word_ent_embs/'
+voca_emb_dir = 'data/generated/embeddingss/word_ent_embs/'
 
 # TODO-REMOVE
 if False:
@@ -21,7 +21,7 @@ if False:
     datadir = '/home/harrison/Documents/project/mount/rds/user/hrjh2/hpc-work/generated/test_train_data/'
     conll_path = '/home/harrison/Documents/project/mount/rds/user/hrjh2/hpc-work/basic_data/test_datasets/'
     person_path = '/home/harrison/Documents/project/mount/rds/user/hrjh2/hpc-work/basic_data/p_e_m_data/persons.txt'
-    voca_emb_dir = '/home/harrison/Documents/project/mount/rds/user/hrjh2/hpc-work/generated/embeddings/word_ent_embs/'
+    voca_emb_dir = '/home/harrison/Documents/project/mount/rds/user/hrjh2/hpc-work/generated/embeddingss/word_ent_embs/'
 
 ModelClass = MulRelRanker
 

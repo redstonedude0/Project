@@ -170,7 +170,7 @@ class LocalCtxAttRanker(AbstractWordEntity):
         # e^T . CTX
         #CTX = SUM(25 'i's for best attscore_i) (seltokvec_i*DIAG*attprob_i)
         #  ctx_vecs = torch.sum((selected_tok_vecs * self.tok_score_mat_diag) * att_probs, dim=1, keepdim=True)
-        #  selected_tok_vecs is (n_ment,25,300), embeddings for 25 selected tokens for each mention
+        #  selected_tok_vecs is (n_ment,25,300), embeddingss for 25 selected tokens for each mention
         #  tok_score_mat_diag is (300) tensor, initially 1s
         #  attprob_i is just a numerical probability
         #  e . SUM(SEL*DIAG1*prob,1) = e . DIAG1*SUM(SEL*prob,1) (for a 300 e, 300 diag, sum 1 (multiplication is transpositional) to a 300

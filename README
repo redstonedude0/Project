@@ -1,25 +1,44 @@
 Instructions for use:
 
-Run main.py with the following options to perform the specified operations:
-TODO - implement these
---train : trains on the dataset
---dataset {value} : sets the dataset, default train_AIDA, options are given in datasets.py
---bundle {id} : sets all the hyperparameters to predefined defaults, default '0' (ment-norm optimum bundle)
+Run main_general.py with the following options to perform the specified operations:
+-n {name} : sets the save name of the model
+-b {bundle1} {bundle2} {...} : applies a list of bundles
 
-To use the model in evaluation mode on a dataset you will want to:
-- Run "main.py --train"
-- Run "main.py --dataset {evalsetname}"
+List of bundles:
+hpc : set up flags for running on high-memory gpu environment
+rel : Use rel-norm
+ment : Use ment-norm
+mentk1 : Use ment-norm with k=1, as specified by paper
+mentNoPad : Use ment-norm with no padding, as specified by paper
+paper : set up flags for reproducing results equivalent to theirs (modified candidate selection, etc)
+blind : set up flags for reproducing results without their unspecified modifications
+blind0 : blind but using second embeddings and conll data
+blind1 : blind but using coref data
+blind2 : blind but with alternative candidate selection
+blind3 : blind but overriding embeddings with normalisation
+blind4 : blind but with logging for psi (doesnt change behaviour)
+blind5 : blind but with additional padding enabled
+blind7 : blind but with different exp formula (using near-neutral masking)
 
-TODO - implement generate mode too
+Data structure should be as follows:
+  data/
+    generated/
+      test_train_data/
+        csvs for aida in here
+      embeddings/
+        word_ent_embs/
+          primary word and ent embeddings in here
+          glove/
+            secondary word embeddings in here
+    checkpoints/ [will be generated]
+      checkpoints will be saved here
+    basic_data/
+      test_datasets/
+        conll for aida in here
+      p_e_m_data/
+        persons.txt coref file in here
 
-
-
-
-TODO - model structure, proposed structure:
-data/models/<modelname>/:
-    checkpoints/
-        <n>/ (highest n only usually - delete lower ns periodically)
-            MODEL FILES
-    SETTINGS #TODO (python object dumped somehow)
-
+The data directory will be drive/MyDrive/project/data/ if using google colab, otherwise it's hardcoded in
+hyperparameters.py using my crsid, I figure if you're going to be reusing this code you won't mind altering a
+python file, have fun!
 

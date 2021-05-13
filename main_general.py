@@ -3,8 +3,8 @@ import sys
 
 import torch
 
-from hyperparameters import SETTINGS, APPLYBUNDLE_hpc, APPLYBUNDLE_mentNorm, APPLYBUNDLE_relNorm, \
-    APPLYBUNDLE_mentNormK1, APPLYBUNDLE_mentNormNoPad, APPLYBUNDLE_paper, APPLYBUNDLE_blind, APPLYBUNDLE_blindN
+from hyperparameters import SETTINGS, apply_bundle_hpc, apply_bundle_ment_norm, apply_bundle_rel_norm, \
+    apply_bundle_ment_norm_k1, apply_bundle_ment_norm_no_pad, apply_bundle_paper, apply_bundle_blind, apply_bundle_blind_n
 import argparse
 #TODO researched Argparse - from the standard lib
 
@@ -22,54 +22,54 @@ parser.add_argument(
     default=[]
 )
 args = parser.parse_args()
-SETTINGS.saveName = args.name
+SETTINGS.save_name = args.name
 SETTINGS.SEED = torch.seed()#generate unique seed
-normBundled = None
-def normCheck(str):
-    global normBundled
-    if normBundled is not None:
-        print(f"Tried to apply normalisation bundles '{str}' and '{normBundled}'")
+norm_bundled = None
+def norm_check(str):
+    global norm_bundled
+    if norm_bundled is not None:
+        print(f"Tried to apply normalisation bundles '{str}' and '{norm_bundled}'")
         print("Cannot have 2 normalisation bundles.")
         quit(1)
     else:
-        normBundled = str
-for bundleName in args.bundles:
-    if bundleName == "hpc":
-        APPLYBUNDLE_hpc(SETTINGS)
-    elif bundleName == "ment":
-        APPLYBUNDLE_mentNorm(SETTINGS)
-        normCheck("ment")
-    elif bundleName == "rel":
-        APPLYBUNDLE_relNorm(SETTINGS)
-        normCheck("rel")
-    elif bundleName == "mentk1":
-        APPLYBUNDLE_mentNormK1(SETTINGS)
-        normCheck("mentk1")
-    elif bundleName == "mentNoPad":
-        APPLYBUNDLE_mentNormNoPad(SETTINGS)
-        normCheck("mentNoPad")
-    elif bundleName == "paper":
-        APPLYBUNDLE_paper(SETTINGS)
-    elif bundleName == "blind":
-        APPLYBUNDLE_blind(SETTINGS)
-    elif bundleName == "blind0":
-        APPLYBUNDLE_blindN(SETTINGS,0)
-    elif bundleName == "blind1":
-        APPLYBUNDLE_blindN(SETTINGS,1)
-    elif bundleName == "blind2":
-        APPLYBUNDLE_blindN(SETTINGS,2)
-    elif bundleName == "blind3":
-        APPLYBUNDLE_blindN(SETTINGS,3)
-    elif bundleName == "blind4":
-        APPLYBUNDLE_blindN(SETTINGS,4)
-    elif bundleName == "blind5":
-        APPLYBUNDLE_blindN(SETTINGS,5)
-    elif bundleName == "blind6":
-        APPLYBUNDLE_blindN(SETTINGS,6)
-    elif bundleName == "blind7":
-        APPLYBUNDLE_blindN(SETTINGS,7)
+        norm_bundled = str
+for bundle_name in args.bundles:
+    if bundle_name == "hpc":
+        apply_bundle_hpc(SETTINGS)
+    elif bundle_name == "ment":
+        apply_bundle_ment_norm(SETTINGS)
+        norm_check("ment")
+    elif bundle_name == "rel":
+        apply_bundle_rel_norm(SETTINGS)
+        norm_check("rel")
+    elif bundle_name == "mentk1":
+        apply_bundle_ment_norm_k1(SETTINGS)
+        norm_check("mentk1")
+    elif bundle_name == "mentNoPad":
+        apply_bundle_ment_norm_no_pad(SETTINGS)
+        norm_check("mentNoPad")
+    elif bundle_name == "paper":
+        apply_bundle_paper(SETTINGS)
+    elif bundle_name == "blind":
+        apply_bundle_blind(SETTINGS)
+    elif bundle_name == "blind0":
+        apply_bundle_blind_n(SETTINGS, 0)
+    elif bundle_name == "blind1":
+        apply_bundle_blind_n(SETTINGS, 1)
+    elif bundle_name == "blind2":
+        apply_bundle_blind_n(SETTINGS, 2)
+    elif bundle_name == "blind3":
+        apply_bundle_blind_n(SETTINGS, 3)
+    elif bundle_name == "blind4":
+        apply_bundle_blind_n(SETTINGS, 4)
+    elif bundle_name == "blind5":
+        apply_bundle_blind_n(SETTINGS, 5)
+    elif bundle_name == "blind6":
+        apply_bundle_blind_n(SETTINGS, 6)
+    elif bundle_name == "blind7":
+        apply_bundle_blind_n(SETTINGS, 7)
     else:
-        print(f"Unknown bundle name '{bundleName}'")
+        print(f"Unknown bundle name '{bundle_name}'")
         quit(1)
 
 print("SETTINGS:",SETTINGS)

@@ -5,12 +5,12 @@ import datastructures
 datastructures.SETTINGS  # reference to prevent optimise away
 from hyperparameters import SETTINGS
 
-SETTINGS.dataDir = "/rds/user/hrjh2/hpc-work/"
-SETTINGS.dataDir_csv = "/rds/user/hrjh2/hpc-work/generated/test_train_data/"
-SETTINGS.dataDir_embeddings = "/rds/user/hrjh2/hpc-work/generated/embeddings/word_ent_embs/"
-SETTINGS.dataDir_checkpoints = "/rds/user/hrjh2/hpc-work/checkpoints/"
-SETTINGS.lowmem = False
-SETTINGS.saveName = "save_ment_OLD"
+SETTINGS.data_dir = "/rds/user/hrjh2/hpc-work/"
+SETTINGS.data_dir_csv = "/rds/user/hrjh2/hpc-work/generated/test_train_data/"
+SETTINGS.data_dir_embeddings = "/rds/user/hrjh2/hpc-work/generated/embeddingss/word_ent_embs/"
+SETTINGS.data_dir_checkpoints = "/rds/user/hrjh2/hpc-work/checkpoints/"
+SETTINGS.low_mem = False
+SETTINGS.save_name = "save_ment_OLD"
 quit(2)
 import main
 
